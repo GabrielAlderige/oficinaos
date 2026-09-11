@@ -1,0 +1,17 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# segredos locais: nunca versionar
+.env
+.env.*
+!.env.example
+.secrets/
+
+# uploads do StorageProvider local
+storage/
+
+.DS_Store
+Thumbs.db
+*.log

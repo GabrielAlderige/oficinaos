@@ -1,0 +1,92 @@
+@import 'tailwindcss';
+
+/* Modo escuro por classe no <html>, decidida antes da pintura em index.html */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Tokens do OficinaOS (docs/ARCHITECTURE.md §13.2).
+ * Base grafite levemente quente; acento laranja de sinalização usado com parcimônia.
+ * --accent é o laranja de PREENCHIMENTO (texto branco em cima: contraste 4,8:1, AA).
+ * --accent-bright é o laranja da marca (foco, detalhes), nunca fundo de texto branco.
+ * Status usam cores semânticas próprias, nunca o acento.
+ */
+:root {
+  --background: #f6f6f4;
+  --surface: #ffffff;
+  --surface-muted: #efefec;
+  --border: #e2e2de;
+  --foreground: #1c1c1a;
+  --muted: #66665f;
+
+  --accent: #c2410c;
+  --accent-hover: #9a3412;
+  --accent-foreground: #ffffff;
+  --accent-bright: #f26b1d;
+
+  --success: #15803d;
+  --warning: #b45309;
+  --danger: #b91c1c;
+  --info: #1d4ed8;
+
+  color-scheme: light;
+}
+
+.dark {
+  --background: #121211;
+  --surface: #1a1a18;
+  --surface-muted: #232320;
+  --border: #2e2e2a;
+  --foreground: #ededea;
+  --muted: #9d9d95;
+
+  /* no escuro o botão é laranja vivo com texto escuro (contraste 5,6:1) */
+  --accent: #f26b1d;
+  --accent-hover: #f5854a;
+  --accent-foreground: #1c1c1a;
+  --accent-bright: #f26b1d;
+
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --danger: #f87171;
+  --info: #60a5fa;
+
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-border: var(--border);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-bright: var(--accent-bright);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
+
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', Consolas, monospace;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: 'cv11';
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent-bright);
+    outline-offset: 2px;
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
