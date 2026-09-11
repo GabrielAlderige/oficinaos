@@ -46,3 +46,10 @@ export function pgErrorCode(err: unknown): string | undefined {
 }
 
 export const UNIQUE_VIOLATION = '23505';
+
+/** Nome da constraint violada (ex.: 'vehicles_org_plate_unique'). */
+export function pgConstraint(err: unknown): string | undefined {
+  const e = err as { constraint?: unknown; cause?: { constraint?: unknown } } | null;
+  if (typeof e?.cause?.constraint === 'string') return e.cause.constraint;
+  return typeof e?.constraint === 'string' ? e.constraint : undefined;
+}

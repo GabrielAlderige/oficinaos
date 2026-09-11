@@ -9,6 +9,10 @@ export function Input({ className, ...props }: ComponentProps<'input'>) {
   return <input className={cn(inputClass, className)} {...props} />;
 }
 
+export function Textarea({ className, ...props }: ComponentProps<'textarea'>) {
+  return <textarea className={cn(inputClass, 'h-auto min-h-20 py-2', className)} {...props} />;
+}
+
 /** Senha com botão de mostrar: no celular, digitar às cegas gera erro à toa. */
 export function PasswordInput({ className, ...props }: Omit<ComponentProps<'input'>, 'type'>) {
   const [visible, setVisible] = useState(false);

@@ -1,4 +1,4 @@
-import { House, Menu, PanelLeftClose, PanelLeftOpen, Settings, type LucideIcon } from 'lucide-react';
+import { Car, House, Menu, PanelLeftClose, PanelLeftOpen, Settings, Users, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router';
 import { Brand } from '../../components/brand';
@@ -6,6 +6,8 @@ import { Button } from '../../components/ui/button';
 import { Sheet } from '../../components/ui/overlays';
 import { cn } from '../../lib/cn';
 import { usePersistentState } from '../../lib/use-persistent-state';
+import { CommandMenu } from './CommandMenu';
+import { CrumbProvider } from './crumbs';
 import { Breadcrumbs, OrganizationSwitcher, ThemeToggle, TrialNotice, UserMenu } from './shell-parts';
 
 interface NavItem {
@@ -18,6 +20,8 @@ interface NavItem {
 // Módulos entram aqui conforme existirem de verdade (clientes na E3, OS na E5…).
 const NAV: NavItem[] = [
   { to: '/', label: 'Início', icon: House, end: true },
+  { to: '/clientes', label: 'Clientes', icon: Users },
+  { to: '/veiculos', label: 'Veículos', icon: Car },
   { to: '/configuracoes', label: 'Configurações', icon: Settings },
 ];
 
@@ -73,6 +77,7 @@ export function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
+    <CrumbProvider>
     <div className="flex min-h-dvh">
       <aside
         className={cn(
@@ -93,7 +98,8 @@ export function AppShell() {
             <Menu />
           </Button>
           <Breadcrumbs />
-          <div className="ml-auto flex items-center gap-1">
+          <div className="ml-auto flex items-center gap-1.5">
+            <CommandMenu />
             <ThemeToggle />
             <UserMenu />
           </div>
@@ -103,5 +109,6 @@ export function AppShell() {
         </main>
       </div>
     </div>
+    </CrumbProvider>
   );
 }

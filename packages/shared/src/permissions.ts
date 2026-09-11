@@ -8,6 +8,8 @@ export const PERMISSIONS = [
   'dashboard:view',
   'dashboard:view_financial',
   'customers:read',
+  /** telefone, documento, e-mail e endereço sem máscara (o mecânico não tem) */
+  'customers:view_contact',
   'customers:write',
   'customers:delete',
   'vehicles:write',
@@ -52,6 +54,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'dashboard:view',
     'dashboard:view_financial',
     'customers:read',
+    'customers:view_contact',
     'customers:write',
     'customers:delete',
     'vehicles:write',
@@ -80,6 +83,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   ATTENDANT: [
     'dashboard:view',
     'customers:read',
+    'customers:view_contact',
     'customers:write',
     'vehicles:write',
     'appointments:read',
@@ -109,6 +113,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'dashboard:view',
     'dashboard:view_financial',
     'customers:read',
+    // cobrança precisa do contato
+    'customers:view_contact',
     'work_orders:read',
     'catalog:read',
     'parts:view_cost',

@@ -157,6 +157,33 @@ export function acceptInvite(app: App, payload: { token: string; name?: string; 
   return postPublic(app, '/api/v1/auth/accept-invite', payload);
 }
 
+export async function createCustomer(app: App, session: TestSession, payload: Record<string, unknown> = {}) {
+  const res = await app.inject({
+    method: 'POST',
+    url: '/api/v1/customers',
+    headers: bearer(session.accessToken),
+    payload: { name: 'Cliente Teste', ...payload },
+  });
+  expect(res.statusCode, res.body).toBe(201);
+  return res.json() as { id: string; name: string; [key: string]: unknown };
+}
+
+export async function createVehicle(
+  app: App,
+  session: TestSession,
+  customerId: string,
+  payload: Record<string, unknown> = {},
+) {
+  const res = await app.inject({
+    method: 'POST',
+    url: '/api/v1/vehicles',
+    headers: bearer(session.accessToken),
+    payload: { customerId, make: 'Volkswagen', model: 'Gol', ...payload },
+  });
+  expect(res.statusCode, res.body).toBe(201);
+  return res.json() as { id: string; plate: string | null; [key: string]: unknown };
+}
+
 /** Convida uma pessoa nova com o papel dado e devolve a sessão dela já aceita. */
 export async function addMember(app: App, owner: TestSession, role: Role, name = 'Pessoa da Equipe') {
   const email = uniqueEmail(role.toLowerCase());

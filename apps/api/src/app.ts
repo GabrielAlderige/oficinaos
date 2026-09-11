@@ -17,6 +17,11 @@ import { AUTH_CACHE_TTL_MS } from './modules/auth/auth.constants';
 import { authRoutes } from './modules/auth/auth.routes';
 import { AuthService } from './modules/auth/auth.service';
 import { AccessTokens } from './modules/auth/tokens';
+import { customerRoutes } from './modules/customers/customers.routes';
+import { CustomersService } from './modules/customers/customers.service';
+import { searchRoutes } from './modules/search/search.routes';
+import { vehicleRoutes } from './modules/vehicles/vehicles.routes';
+import { VehiclesService } from './modules/vehicles/vehicles.service';
 import { memberRoutes } from './modules/members/members.routes';
 import { MembersService } from './modules/members/members.service';
 import { organizationRoutes } from './modules/organizations/organizations.routes';
@@ -27,6 +32,8 @@ export interface Services {
   auth: AuthService;
   organizations: OrganizationsService;
   members: MembersService;
+  customers: CustomersService;
+  vehicles: VehiclesService;
 }
 
 declare module 'fastify' {
@@ -79,6 +86,8 @@ export async function buildApp({ env, db, email = createEmailProvider(env) }: Ap
     auth: new AuthService(deps),
     organizations: new OrganizationsService(deps),
     members: new MembersService(deps),
+    customers: new CustomersService(deps),
+    vehicles: new VehiclesService(deps),
   };
 
   app.decorate('db', db);
@@ -96,13 +105,17 @@ export async function buildApp({ env, db, email = createEmailProvider(env) }: Ap
   await registerSecurity(app, env);
   await app.register(cookie);
 
-  // toda rota exige login, salvo as que declaram config.auth = 'public'
-  app.addHook('preHandler', createAuthGuard({ db, tokens, caches, auth: services.auth }));
+  // toda rota exige login, salvo as que declaram config.auth = 'public'.
+  // preValidation: autoriza ANTES de validar o corpo (sem permissão = 403, sem revelar o formato esperado)
+  app.addHook('preValidation', createAuthGuard({ db, tokens, caches, auth: services.auth }));
 
   await app.register(systemRoutes, { prefix: '/api/v1' });
   await app.register(authRoutes, { prefix: '/api/v1/auth' });
   await app.register(organizationRoutes, { prefix: '/api/v1/organization' });
   await app.register(memberRoutes, { prefix: '/api/v1/members' });
+  await app.register(customerRoutes, { prefix: '/api/v1/customers' });
+  await app.register(vehicleRoutes, { prefix: '/api/v1/vehicles' });
+  await app.register(searchRoutes, { prefix: '/api/v1/search' });
 
   return app;
 }

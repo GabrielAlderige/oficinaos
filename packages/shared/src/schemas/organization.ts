@@ -72,7 +72,7 @@ export const organizationFormSchema = z.object({
 /** PATCH aceita qualquer subconjunto do formulário. */
 export const updateOrganizationSchema = organizationFormSchema.partial();
 
-const addressOut = z.object({
+export const addressOutSchema = z.object({
   zip: z.string(),
   street: z.string(),
   number: z.string(),
@@ -90,7 +90,7 @@ export const organizationSchema = z.object({
   phone: z.string().nullable(),
   whatsapp: z.string().nullable(),
   email: z.string().nullable(),
-  address: addressOut,
+  address: addressOutSchema,
   timezone: z.string(),
   businessHours: businessHoursSchema,
   createdAt: z.string(),

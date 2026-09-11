@@ -18,7 +18,15 @@ describe('matriz de permissões', () => {
   });
 
   it('mecânico não acessa financeiro, custo, equipe nem desconto', () => {
-    for (const p of ['finance:read', 'parts:view_cost', 'team:manage', 'work_orders:discount', 'quotes:send'] as const) {
+    for (const p of [
+      'finance:read',
+      'parts:view_cost',
+      'team:manage',
+      'work_orders:discount',
+      'quotes:send',
+      'customers:view_contact',
+      'customers:write',
+    ] as const) {
       expect(can('MECHANIC', p), p).toBe(false);
     }
     expect(can('MECHANIC', 'work_orders:change_status')).toBe(true);

@@ -23,6 +23,10 @@ export const ErrorCode = {
   LAST_OWNER: 'LAST_OWNER',
   ALREADY_MEMBER: 'ALREADY_MEMBER',
   PLAN_LIMIT_REACHED: 'PLAN_LIMIT_REACHED',
+  // clientes e veículos
+  CUSTOMER_DOCUMENT_TAKEN: 'CUSTOMER_DOCUMENT_TAKEN',
+  PLATE_ALREADY_REGISTERED: 'PLATE_ALREADY_REGISTERED',
+  ODOMETER_DECREASE: 'ODOMETER_DECREASE',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];

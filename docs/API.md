@@ -110,11 +110,11 @@ Ninguém rebaixa nem remove o último OWNER.
 |---|---|---|---|
 | GET | `/customers?q=&page=` | `customers:read` | 1 |
 | POST | `/customers` | `customers:write` | 1 |
-| GET | `/customers/{id}` (com resumo: total gasto, última visita, próxima manutenção) | `customers:read` | 1 |
+| GET | `/customers/{id}` (contato mascarado sem `customers:view_contact`; total gasto e última visita entram com a OS, na E5) | `customers:read` | 1 |
 | PATCH | `/customers/{id}` | `customers:write` | 1 |
 | DELETE | `/customers/{id}` (soft delete) | `customers:delete` | 1 |
 | GET | `/customers/{id}/vehicles` | `customers:read` | 1 |
-| GET | `/customers/{id}/timeline?cursor=` (OS, orçamentos, pagamentos, agendamentos, mensagens) | `customers:read` | 1 |
+| GET | `/customers/{id}/timeline?cursor=` (OS, orçamentos, pagamentos, agendamentos, mensagens) | `customers:read` | 1 (E5, com a OS) |
 | POST | `/customers/{id}/anonymize` (LGPD) | `organization:manage` | 2 |
 | POST | `/customers/import` (CSV) | `customers:write` | 2 |
 
@@ -128,7 +128,7 @@ Ninguém rebaixa nem remove o último OWNER.
 | GET | `/vehicles/{id}` (com alertas: "última troca de óleo há 8.000 km") | `customers:read` | 1 |
 | PATCH | `/vehicles/{id}` | `vehicles:write` | 1 |
 | DELETE | `/vehicles/{id}` | `vehicles:delete` | 1 |
-| GET | `/vehicles/{id}/history?cursor=` (serviços, peças, km, custos) | `customers:read` | 1 |
+| GET | `/vehicles/{id}/history?cursor=` (serviços, peças, km, custos) | `customers:read` | 1 (E5, com a OS) |
 | POST | `/vehicles/{id}/transfer` (troca de dono, mantém histórico) | `vehicles:write` | 1 |
 | GET | `/vehicles/{id}/odometer-readings` | `customers:read` | 1 |
 

@@ -48,6 +48,22 @@ export const router = createBrowserRouter([
         children: [
           { index: true, lazy: page(() => import('../features/home/HomePage'), 'HomePage'), handle: { crumb: 'Início' } },
           {
+            path: 'clientes',
+            handle: { crumb: 'Clientes' },
+            children: [
+              { index: true, lazy: page(() => import('../features/customers/CustomersPage'), 'CustomersPage') },
+              { path: ':id', lazy: page(() => import('../features/customers/CustomerPage'), 'CustomerPage'), handle: { crumb: 'Cliente' } },
+            ],
+          },
+          {
+            path: 'veiculos',
+            handle: { crumb: 'Veículos' },
+            children: [
+              { index: true, lazy: page(() => import('../features/vehicles/VehiclesPage'), 'VehiclesPage') },
+              { path: ':id', lazy: page(() => import('../features/vehicles/VehiclePage'), 'VehiclePage'), handle: { crumb: 'Veículo' } },
+            ],
+          },
+          {
             path: 'configuracoes',
             lazy: page(() => import('../features/settings/SettingsLayout'), 'SettingsLayout'),
             handle: { crumb: 'Configurações' },

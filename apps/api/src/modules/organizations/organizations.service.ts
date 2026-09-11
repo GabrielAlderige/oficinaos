@@ -1,27 +1,15 @@
 import type { z } from 'zod';
-import {
-  normalizeBrazilianPhone,
-  normalizeDocument,
-  type Organization,
-  type updateOrganizationSchema,
-} from '@oficinaos/shared';
+import type { Organization, updateOrganizationSchema } from '@oficinaos/shared';
 import { diffChanges, recordActivity } from '../../core/audit';
 import type { AuthContext, ClientInfo, ServiceDeps } from '../../core/auth-context';
 import { notFound } from '../../core/errors';
+import { addressDto, blankToNull, documentOrNull, emailOrNull, normalizeAddress, phoneOrNull } from '../../core/normalize';
 import { withTenant } from '../../db/tenant';
 import * as repo from './organizations.repository';
 
 type UpdateInput = z.output<typeof updateOrganizationSchema>;
 
-/** Campo opcional de formulário: vazio vira null, ausente não mexe. */
-const blankToNull = (value: string | undefined) =>
-  value === undefined ? undefined : value.trim() === '' ? null : value.trim();
-
-const phoneOrNull = (value: string | undefined) =>
-  value === undefined ? undefined : value.trim() === '' ? null : normalizeBrazilianPhone(value);
-
 function toDto(row: repo.OrganizationRow): Organization {
-  const address = row.address ?? {};
   return {
     id: row.id,
     name: row.name,
@@ -30,15 +18,7 @@ function toDto(row: repo.OrganizationRow): Organization {
     phone: row.phone,
     whatsapp: row.whatsapp,
     email: row.email,
-    address: {
-      zip: address.zip ?? '',
-      street: address.street ?? '',
-      number: address.number ?? '',
-      complement: address.complement ?? '',
-      district: address.district ?? '',
-      city: address.city ?? '',
-      state: address.state ?? '',
-    },
+    address: addressDto(row.address),
     timezone: row.timezone,
     businessHours: row.businessHours ?? {},
     createdAt: row.createdAt.toISOString(),
@@ -58,12 +38,11 @@ export class OrganizationsService {
     const patch = {
       name: input.name?.trim(),
       legalName: blankToNull(input.legalName),
-      document:
-        input.document === undefined ? undefined : input.document.trim() === '' ? null : normalizeDocument(input.document),
+      document: documentOrNull(input.document),
       phone: phoneOrNull(input.phone),
       whatsapp: phoneOrNull(input.whatsapp),
-      email: blankToNull(input.email)?.toLowerCase() ?? (input.email === undefined ? undefined : null),
-      address: input.address ? { ...input.address, zip: input.address.zip.replace(/\D/g, '') } : undefined,
+      email: emailOrNull(input.email),
+      address: input.address ? normalizeAddress(input.address) : undefined,
       timezone: input.timezone,
       businessHours: input.businessHours,
     };

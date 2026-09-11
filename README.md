@@ -11,7 +11,7 @@ O diferencial inicial é um fluxo:
 
 ## Status
 
-**MVP 1, etapa E2 (contas e equipe).** Sobre a fundação da E1 (monorepo, banco com
+**MVP 1, etapas E1 a E3 concluídas.** Sobre a fundação da E1 (monorepo, banco com
 isolamento por oficina via RLS, API com erros padronizados e segurança básica),
 a E2 trouxe:
 
@@ -22,7 +22,33 @@ a E2 trouxe:
 - dados da oficina com horário de funcionamento;
 - painel com menu lateral, tema escuro e layout de celular.
 
-Clientes, veículos e OS chegam nas próximas etapas ([ROADMAP](docs/ROADMAP.md)).
+A E3 trouxe clientes e veículos:
+
+- cadastro com CPF/CNPJ (inclusive o CNPJ alfanumérico) e WhatsApp;
+- placa antiga e Mercosul tratadas como o mesmo carro, com aviso de placa
+  repetida enquanto se digita;
+- busca global (Ctrl+K) por placa, nome, telefone ou documento;
+- quilometragem com histórico de leituras e troca de dono registrada;
+- contato mascarado para o mecânico.
+
+A ordem de serviço chega na E5 ([ROADMAP](docs/ROADMAP.md)).
+
+| Etapa do MVP 1 | Situação |
+|---|---|
+| E1. Fundação (monorepo, banco com RLS, API base) | ✅ 10/09/2026 |
+| E2. Contas e equipe | ✅ 11/09/2026 |
+| E3. Clientes e veículos | ✅ 11/09/2026 |
+| E4. Catálogo de serviços e peças, estoque básico | próxima |
+| E5. Ordem de serviço | — |
+| E6. Orçamento com link e aprovação pelo celular | — |
+| E7. Execução, entrega e pagamento | — |
+| E8. Agenda | — |
+| E9. Dashboard e acabamento | — |
+
+Toda etapa só fecha com `npm run check` verde. Além disso:
+- as proteções principais são quebradas de propósito, para provar que os
+  testes pegam a falha;
+- o fluxo é conferido num navegador (claro, escuro e celular).
 
 | Documento | Conteúdo |
 |---|---|
@@ -35,11 +61,11 @@ Clientes, veículos e OS chegam nas próximas etapas ([ROADMAP](docs/ROADMAP.md)
 
 | Camada | Tecnologia |
 |---|---|
-| Front-end | React 19, TypeScript, Vite, Tailwind CSS v4, React Router, TanStack Query |
-| Back-end | Node.js, TypeScript, Fastify 5, Zod 4, Drizzle ORM |
+| Front-end | React 19, TypeScript, Vite, Tailwind CSS v4, React Router, TanStack Query, React Hook Form, Radix UI (componentes próprios no estilo shadcn) |
+| Back-end | Node.js, TypeScript, Fastify 5, Zod 4, Drizzle ORM, argon2id, JWT (jose) |
 | Banco | PostgreSQL 17 com Row Level Security |
-| Compartilhado | `packages/shared`: schemas Zod, enums, regras de cálculo usadas por front e back |
-| Testes | Vitest com Postgres real de teste |
+| Compartilhado | `packages/shared`: schemas Zod, enums, permissões, validação de CPF/CNPJ/placa/telefone, usados por front e back |
+| Testes | Vitest com Postgres real de teste. A suíte E2E com Playwright entra na E6 |
 
 ## Rodando localmente (Windows, macOS ou Linux)
 

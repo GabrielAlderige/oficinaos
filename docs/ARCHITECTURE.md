@@ -89,6 +89,7 @@ uma refatoração, não uma reescrita.
 | D23 | Testes | Vitest + `fastify.inject` + **Postgres real** de teste; Playwright para o fluxo ponta a ponta | Mock de banco | RLS, lock e constraint só se testam num banco de verdade |
 | D24 | Hospedagem (quando for ao ar) | Região **São Paulo** (banco, API e storage) | EUA | Latência para o usuário e conforto regulatório (LGPD). Decisão de fornecedor fica para o fim do MVP 1 |
 | D25 | Leitura sem oficina no contexto (E2) | **Policies `FOR SELECT` por capacidade** (`app.user_id`, hash do token) | `SECURITY DEFINER` (previsto na Fase 0) | Com RLS `FORCE`, a função da dona também não enxerga nada; a alternativa seria uma role com BYPASSRLS. As policies ampliam só a leitura (DATABASE §2) |
+| D27 | Ordem autorização × validação (E3) | O guard roda em **`preValidation`**: sem permissão = 403 antes de validar o corpo | Guard em `preHandler` (depois da validação) | Quem não pode usar a rota não aprende o formato esperado pelas mensagens de erro (há teste) |
 | D26 | Regra de acesso das rotas (E2) | `config.auth` em cada rota, avaliado por um hook global; **sem declaração = exige login** | `preHandler` por rota | Esquecer a marcação nunca abre uma rota (há teste provando isso) |
 
 ---
@@ -280,6 +281,7 @@ quem garante é a API).
 | `dashboard:view` (operacional) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `dashboard:view_financial` (faturamento, ticket, margem) | ✓ | ✓ | ✓ | — | — | ✓ |
 | `customers:read` | ✓ | ✓ | ✓ | ✓ | ✓ ¹ | ✓ |
+| `customers:view_contact` (telefone, documento, e-mail e endereço sem máscara) | ✓ | ✓ | ✓ | ✓ | — ¹ | ✓ |
 | `customers:write` / `vehicles:write` | ✓ | ✓ | ✓ | ✓ | — ² | — |
 | `customers:delete` / `vehicles:delete` | ✓ | ✓ | ✓ | — | — | — |
 | `appointments:read` | ✓ | ✓ | ✓ | ✓ | ✓ ³ | — |

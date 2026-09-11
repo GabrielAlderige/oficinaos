@@ -18,6 +18,7 @@ import { errorMessage } from '../../lib/errors';
 import { formatDate, initials } from '../../lib/format';
 import { useMe, useSession } from '../../lib/session';
 import { useTheme } from '../../lib/theme';
+import { useCrumbLabels } from './crumbs';
 
 export function ThemeToggle() {
   const { theme, toggle } = useTheme();
@@ -29,9 +30,14 @@ export function ThemeToggle() {
 }
 
 export function Breadcrumbs() {
+  const labels = useCrumbLabels();
   const crumbs = useMatches()
-    .map((match) => ({ path: match.pathname, label: (match.handle as { crumb?: string } | undefined)?.crumb }))
-    .filter((c): c is { path: string; label: string } => Boolean(c.label));
+    .map((match) => ({
+      path: match.pathname,
+      label: labels[match.pathname] ?? (match.handle as { crumb?: string } | undefined)?.crumb,
+    }))
+    .filter((c): c is { path: string; label: string } => Boolean(c.label))
+    .filter((c, i, all) => all.findIndex((x) => x.path === c.path) === i);
   return (
     <nav aria-label="Trilha de navegação" className="min-w-0">
       <ol className="flex items-center gap-1.5 text-sm">

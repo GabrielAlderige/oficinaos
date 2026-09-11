@@ -6,6 +6,7 @@ import { Card, CardHeader, PageHeader } from '../../components/ui/display';
 import { cn } from '../../lib/cn';
 import { firstName } from '../../lib/format';
 import { useCan, useMe } from '../../lib/session';
+import { useCustomers } from '../customers/api';
 import { useInvitations, useMembers, useOrganization } from '../settings/api';
 
 interface Step {
@@ -27,6 +28,8 @@ export function HomePage() {
   const organization = useOrganization();
   const members = useMembers();
   const invitations = useInvitations(canManageTeam);
+  const canWriteCustomers = useCan('customers:write');
+  const customers = useCustomers({ q: '', page: 1, pageSize: 1 }, { enabled: canWriteCustomers });
 
   const org = organization.data;
   const steps: Step[] = [
@@ -39,6 +42,15 @@ export function HomePage() {
       done: Boolean(org?.document && org.address.city && Object.keys(org.businessHours).length),
       to: '/configuracoes/oficina',
       action: 'Completar dados',
+    });
+  }
+  if (canWriteCustomers) {
+    steps.push({
+      title: 'Cadastre o primeiro cliente e o carro dele',
+      description: 'Depois é só digitar a placa (antiga ou Mercosul) em qualquer tela, com Ctrl+K.',
+      done: (customers.data?.meta.total ?? 0) > 0,
+      to: '/clientes',
+      action: 'Cadastrar cliente',
     });
   }
   if (canManageTeam) {

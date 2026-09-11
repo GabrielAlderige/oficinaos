@@ -29,6 +29,20 @@
       "when": 1789133875565,
       "tag": "0003_auth_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789154661717,
+      "tag": "0004_customers_vehicles",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789154677640,
+      "tag": "0005_customers_rls",
+      "breakpoints": true
     }
   ]
 }
