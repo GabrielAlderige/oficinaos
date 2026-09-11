@@ -19,8 +19,14 @@ const envSchema = z.object({
         .map((origin) => origin.trim())
         .filter(Boolean),
     ),
+  /** Endereço público do painel: base dos links de e-mail (redefinir senha, convite). */
+  APP_URL: z.url().default('http://localhost:5173'),
   /** Conexão da aplicação: role oficinaos_app, sujeita ao RLS. */
   DATABASE_URL: postgresUrl,
+  /** Assina o access token (HS256). Nunca vai para o front. */
+  JWT_SECRET: z.string().min(32, 'precisa ter pelo menos 32 caracteres'),
+  /** console = imprime o e-mail no terminal (dev); memory = guarda em memória (testes). */
+  EMAIL_DRIVER: z.enum(['console', 'memory']).default('console'),
 });
 
 export type Env = z.infer<typeof envSchema>;

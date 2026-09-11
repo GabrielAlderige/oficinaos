@@ -76,7 +76,8 @@ Legenda de fase: **1** = MVP 1 · **2** = MVP 2 · **3** = V3.
 |---|---|---|---|
 | POST | `/auth/signup` | Cria usuário + oficina + membership OWNER + assinatura em trial; devolve tokens | 1 |
 | POST | `/auth/login` | E-mail e senha → access token (body) + refresh (cookie) | 1 |
-| POST | `/auth/refresh` | Rotaciona o refresh token; devolve novo access token | 1 |
+| POST | `/auth/refresh` | Rotaciona o refresh token; devolve novo access token. Sem cookie: **204** (visitante, não erro). Cookie inválido ou reusado: 401 | 1 |
+| GET | `/auth/invitations/{token}` | Prévia do convite (oficina, papel, se já existe conta) para a página de aceite | 1 |
 | POST | `/auth/logout` | Revoga a sessão atual | 1 |
 | POST | `/auth/forgot-password` | Envia link de redefinição (resposta sempre igual) | 1 |
 | POST | `/auth/reset-password` | Token + nova senha; encerra todas as sessões | 1 |

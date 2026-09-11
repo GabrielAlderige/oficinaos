@@ -8,28 +8,60 @@ export interface TenantContext {
   userId?: string | null;
 }
 
+/** Únicas variáveis de sessão que as policies de RLS leem (migrations 0001 e 0003). */
+type ContextKey = 'app.org_id' | 'app.user_id' | 'app.invite_token_hash';
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+function assertUuid(value: string, label: string) {
+  if (!UUID.test(value)) throw new Error(`${label} precisa ser um UUID`);
+}
+
 /**
- * Única porta de entrada para dados de uma oficina.
- *
- * Abre uma transação e define `app.org_id` com `is_local = true`: o valor morre
+ * Abre uma transação e define as variáveis com `is_local = true`: o valor morre
  * no COMMIT/ROLLBACK e nunca vaza para a próxima requisição que pegar a mesma
- * conexão do pool (compatível com PgBouncer em modo transaction). As policies de
- * RLS leem esse valor; sem ele, nenhuma linha de tenant é visível.
+ * conexão do pool (compatível com PgBouncer em modo transaction).
  */
-export async function withTenant<T>(
+async function withDbContext<T>(
   db: Database,
-  ctx: TenantContext,
+  settings: Partial<Record<ContextKey, string>>,
   fn: (tx: Tx) => Promise<T>,
 ): Promise<T> {
-  if (!UUID.test(ctx.organizationId)) {
-    throw new Error('withTenant: organizationId precisa ser um UUID');
-  }
   return db.transaction(async (tx) => {
-    await tx.execute(
-      sql`select set_config('app.org_id', ${ctx.organizationId}, true), set_config('app.user_id', ${ctx.userId ?? ''}, true)`,
-    );
+    const entries = Object.entries(settings);
+    if (entries.length) {
+      const calls = entries.map(([key, value]) => sql`set_config(${key}, ${value}, true)`);
+      await tx.execute(sql`select ${sql.join(calls, sql`, `)}`);
+    }
     return fn(tx);
   });
+}
+
+/**
+ * Porta de entrada para dados de uma oficina. As policies de RLS leem
+ * `app.org_id`; sem ele, nenhuma linha de tenant é visível.
+ */
+export async function withTenant<T>(db: Database, ctx: TenantContext, fn: (tx: Tx) => Promise<T>): Promise<T> {
+  assertUuid(ctx.organizationId, 'withTenant: organizationId');
+  if (ctx.userId) assertUuid(ctx.userId, 'withTenant: userId');
+  return withDbContext(db, { 'app.org_id': ctx.organizationId, 'app.user_id': ctx.userId ?? '' }, fn);
+}
+
+/**
+ * Sem oficina no contexto: só enxerga o que as policies `own_memberships` e
+ * `member_organizations` liberam para o próprio usuário (login, seletor de oficina).
+ */
+export async function withUser<T>(db: Database, userId: string, fn: (tx: Tx) => Promise<T>): Promise<T> {
+  assertUuid(userId, 'withUser: userId');
+  return withDbContext(db, { 'app.user_id': userId }, fn);
+}
+
+/** Capacidade do link de convite: libera ler só o convite cujo hash foi apresentado. */
+export function withInviteToken<T>(db: Database, tokenHash: string, fn: (tx: Tx) => Promise<T>): Promise<T> {
+  return withDbContext(db, { 'app.invite_token_hash': tokenHash }, fn);
+}
+
+/** Tabelas globais (users, sessions, plans, password_reset_tokens): sem contexto de tenant. */
+export function withoutTenant<T>(db: Database, fn: (tx: Tx) => Promise<T>): Promise<T> {
+  return withDbContext(db, {}, fn);
 }

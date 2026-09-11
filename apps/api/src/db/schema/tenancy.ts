@@ -1,5 +1,16 @@
 import { sql } from 'drizzle-orm';
-import { boolean, check, index, jsonb, pgTable, text, unique, uuid } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  check,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  primaryKey,
+  text,
+  unique,
+  uuid,
+} from 'drizzle-orm/pg-core';
 import { ROLES } from '@oficinaos/shared';
 import { citext, id, timestamps, timestamptz } from './_columns';
 
@@ -80,4 +91,45 @@ export const memberships = pgTable(
     index('memberships_user_idx').on(t.userId),
     check('memberships_role_check', sql`${t.role} in (${roleList})`),
   ],
+);
+
+/**
+ * Convite para entrar na equipe. Só o hash do token é gravado; o link inteiro
+ * aparece uma vez, na criação. O aceite é público: a policy
+ * `invitation_by_token` libera a leitura para quem apresenta o hash.
+ */
+export const invitations = pgTable(
+  'invitations',
+  {
+    id: id(),
+    organizationId: uuid()
+      .notNull()
+      .references(() => organizations.id),
+    email: citext().notNull(),
+    role: text({ enum: ROLES }).notNull(),
+    tokenHash: text().notNull().unique(),
+    expiresAt: timestamptz().notNull(),
+    acceptedAt: timestamptz(),
+    acceptedByUserId: uuid().references(() => users.id),
+    revokedAt: timestamptz(),
+    invitedByUserId: uuid().references(() => users.id),
+    createdAt: timestamptz().notNull().defaultNow(),
+  },
+  (t) => [
+    index('invitations_org_created_idx').on(t.organizationId, t.createdAt.desc()),
+    check('invitations_role_check', sql`${t.role} in (${roleList})`),
+  ],
+);
+
+/** Numeração humana por oficina (OS nº 182): UPSERT … RETURNING na mesma transação. */
+export const organizationCounters = pgTable(
+  'organization_counters',
+  {
+    organizationId: uuid()
+      .notNull()
+      .references(() => organizations.id),
+    key: text().notNull(),
+    value: integer().notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.organizationId, t.key] })],
 );

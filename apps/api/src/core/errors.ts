@@ -25,8 +25,24 @@ export class AppError extends Error {
 export const notFound = (detail?: string) =>
   new AppError(404, ErrorCode.NOT_FOUND, 'Recurso não encontrado', detail);
 
-export const forbidden = (detail?: string) =>
+export const unauthorized = (detail = 'Faça login para continuar.') =>
+  new AppError(401, ErrorCode.UNAUTHORIZED, 'Não autenticado', detail);
+
+export const forbidden = (detail = 'Seu papel nesta oficina não permite esta ação.') =>
   new AppError(403, ErrorCode.FORBIDDEN, 'Sem permissão para esta ação', detail);
 
 export const conflict = (code: string, detail?: string) =>
   new AppError(409, code, 'Conflito com o estado atual', detail);
+
+export const validationFailed = (errors: FieldError[]) =>
+  new AppError(400, ErrorCode.VALIDATION_FAILED, 'Dados inválidos', 'Confira os campos destacados.', errors);
+
+/** Código SQLSTATE do Postgres, atravessando o embrulho do Drizzle. */
+export function pgErrorCode(err: unknown): string | undefined {
+  const e = err as { code?: unknown; cause?: { code?: unknown } } | null;
+  if (typeof e?.cause?.code === 'string') return e.cause.code;
+  if (typeof e?.code === 'string' && /^[0-9A-Z]{5}$/.test(e.code)) return e.code;
+  return undefined;
+}
+
+export const UNIQUE_VIOLATION = '23505';

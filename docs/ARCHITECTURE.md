@@ -88,6 +88,8 @@ uma refatoração, não uma reescrita.
 | D22 | Idioma no código | Entidades, colunas e valores de enum **em inglês**; rótulos e URLs do painel **em pt-BR** | Tudo em português | Consistência com o ecossistema (bibliotecas, logs, erros). O mapa `status → rótulo` fica em `packages/shared/enums` |
 | D23 | Testes | Vitest + `fastify.inject` + **Postgres real** de teste; Playwright para o fluxo ponta a ponta | Mock de banco | RLS, lock e constraint só se testam num banco de verdade |
 | D24 | Hospedagem (quando for ao ar) | Região **São Paulo** (banco, API e storage) | EUA | Latência para o usuário e conforto regulatório (LGPD). Decisão de fornecedor fica para o fim do MVP 1 |
+| D25 | Leitura sem oficina no contexto (E2) | **Policies `FOR SELECT` por capacidade** (`app.user_id`, hash do token) | `SECURITY DEFINER` (previsto na Fase 0) | Com RLS `FORCE`, a função da dona também não enxerga nada; a alternativa seria uma role com BYPASSRLS. As policies ampliam só a leitura (DATABASE §2) |
+| D26 | Regra de acesso das rotas (E2) | `config.auth` em cada rota, avaliado por um hook global; **sem declaração = exige login** | `preHandler` por rota | Esquecer a marcação nunca abre uma rota (há teste provando isso) |
 
 ---
 
@@ -258,7 +260,8 @@ na auditoria **da própria oficina** e mostra uma faixa na tela.
 | **Recuperação** | Token aleatório de 30 min, uso único, só o hash é gravado. Resposta **idêntica** exista ou não o e-mail (não revela quem tem conta). Usar o token encerra todas as sessões |
 | **Força bruta** | Rate limit no login por IP e por e-mail (5/min), com atraso crescente; sem bloqueio definitivo de conta (que viraria arma para travar o dono da oficina) |
 | **Convite** | O OWNER/ADMIN convida por e-mail com papel; o link cria a conta ou vincula uma existente |
-| **Verificação de e-mail** | Enviada no cadastro; não bloqueia o uso (ativação primeiro). Passa a ser obrigatória para ações sensíveis (trocar e-mail, cobrança) |
+| **Verificação de e-mail** | Enviada no cadastro; não bloqueia o uso (ativação primeiro). Passa a ser obrigatória para ações sensíveis (trocar e-mail, cobrança). *Adiada até existir um driver de e-mail real* |
+| **Papel e acesso na tela** | A API barra na hora; o painel relê `/auth/me` ao voltar para a aba e a cada 5 min, para quem mudou de papel ver os botões certos e quem foi desativado cair para o login |
 
 Segredos (`JWT_SECRET`, credenciais do banco e do storage) ficam só em variáveis
 de ambiente da API. **O front não recebe segredo nenhum**; as variáveis `VITE_*`

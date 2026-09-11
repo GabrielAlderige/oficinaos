@@ -11,9 +11,18 @@ O diferencial inicial é um fluxo:
 
 ## Status
 
-**MVP 1, etapa E1 (fundação).** Monorepo, banco com isolamento por oficina (RLS),
-API com tratamento de erros e segurança básica, e o painel ligado à API. Ainda não
-há login nem telas de negócio (etapa E2 em diante, ver [ROADMAP](docs/ROADMAP.md)).
+**MVP 1, etapa E2 (contas e equipe).** Sobre a fundação da E1 (monorepo, banco com
+isolamento por oficina via RLS, API com erros padronizados e segurança básica),
+a E2 trouxe:
+
+- cadastro da oficina em 5 campos, com 14 dias de teste;
+- login com sessão rotativa e detecção de token roubado;
+- recuperação de senha, sessões por aparelho e troca de oficina;
+- convites com link para WhatsApp e papéis com permissões aplicadas pela API;
+- dados da oficina com horário de funcionamento;
+- painel com menu lateral, tema escuro e layout de celular.
+
+Clientes, veículos e OS chegam nas próximas etapas ([ROADMAP](docs/ROADMAP.md)).
 
 | Documento | Conteúdo |
 |---|---|
@@ -51,6 +60,7 @@ No `.env`, preencha:
 - `DATABASE_ADMIN_URL` com a senha do superusuário do Postgres. Ela é usada **só** pelo `db:setup`.
 - As senhas das roles `oficinaos_app` e `oficinaos_owner`. Invente senhas fortes; o
   `db:setup` cria as roles com elas. A mesma senha se repete nas URLs de dev e de teste.
+- `JWT_SECRET`: pelo menos 32 caracteres aleatórios.
 
 ```bash
 npm run db:setup            # roles, bancos oficinaos_dev e oficinaos_test, extensões, privilégios
@@ -63,14 +73,20 @@ npm run db:migrate          # tabelas + isolamento por oficina (RLS)
 npm run dev                 # API em http://127.0.0.1:3333 e painel em http://localhost:5173
 ```
 
+Ainda não há envio real de e-mail: com `EMAIL_DRIVER=console`, o link de
+redefinição de senha e o de convite **aparecem no terminal da API**. O link de
+convite também aparece na tela, pronto para mandar pelo WhatsApp.
+
 ### Verificação completa
 
 ```bash
 npm run check               # typecheck + lint + testes + build
 ```
 
-Os testes da API rodam contra o banco **`oficinaos_test`**, que tem os dados
-**apagados** a cada execução. O banco de desenvolvimento nunca é tocado.
+Os testes da API rodam contra o banco **`oficinaos_test`**, que é **recriado a
+partir das migrations** a cada execução. Isso prova que as migrations sobem do
+zero. O banco de desenvolvimento nunca é tocado. Os testes rodam com o log da
+API silencioso; `TEST_LOG_LEVEL=error npm run test` mostra os erros.
 
 ## Comandos
 
@@ -93,7 +109,10 @@ Os testes da API rodam contra o banco **`oficinaos_test`**, que tem os dados
 | `NODE_ENV` | `development`, `test` ou `production` |
 | `LOG_LEVEL` | Nível do log da API (`info` por padrão) |
 | `API_HOST` / `API_PORT` | Onde a API escuta (`127.0.0.1:3333`) |
-| `WEB_ORIGINS` | Origens do painel liberadas no CORS, separadas por vírgula |
+| `WEB_ORIGINS` | Origens do painel liberadas no CORS, separadas por vírgula. Rotas que usam o cookie de sessão exigem Origin desta lista |
+| `APP_URL` | Endereço público do painel: base dos links de redefinição de senha e de convite |
+| `JWT_SECRET` | Assina o token de acesso (HS256). Pelo menos 32 caracteres. Nunca vai para o front |
+| `EMAIL_DRIVER` | `console` (dev: imprime no terminal da API) ou `memory` (testes) |
 | `DATABASE_ADMIN_URL` | Superusuário do Postgres. **Só** para o `db:setup` |
 | `DATABASE_URL` | Runtime da API: role `oficinaos_app`, sujeita ao RLS |
 | `DATABASE_OWNER_URL` | Dona das tabelas: roda as migrations |

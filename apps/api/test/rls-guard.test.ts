@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { testDb } from './helpers';
 
 // Tabelas globais de propósito, sem RLS de tenant (só o módulo de auth as acessa).
-const GLOBAL_TABLES = new Set(['users']);
+const GLOBAL_TABLES = new Set(['users', 'sessions', 'password_reset_tokens', 'plans']);
 
 describe('guarda do RLS', () => {
   const { db } = testDb();

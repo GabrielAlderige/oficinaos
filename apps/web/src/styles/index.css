@@ -22,11 +22,17 @@
   --accent-hover: #9a3412;
   --accent-foreground: #ffffff;
   --accent-bright: #f26b1d;
+  --accent-soft: #fff1e8;
 
   --success: #15803d;
+  --success-soft: #ecfdf3;
   --warning: #b45309;
+  --warning-soft: #fffbeb;
   --danger: #b91c1c;
+  --danger-soft: #fef2f2;
+  --danger-foreground: #ffffff;
   --info: #1d4ed8;
+  --info-soft: #eff6ff;
 
   color-scheme: light;
 }
@@ -44,11 +50,17 @@
   --accent-hover: #f5854a;
   --accent-foreground: #1c1c1a;
   --accent-bright: #f26b1d;
+  --accent-soft: #2b1a10;
 
   --success: #4ade80;
+  --success-soft: #0f2418;
   --warning: #fbbf24;
+  --warning-soft: #2a2110;
   --danger: #f87171;
+  --danger-soft: #2c1414;
+  --danger-foreground: #1c1c1a;
   --info: #60a5fa;
+  --info-soft: #111d33;
 
   color-scheme: dark;
 }
@@ -64,10 +76,16 @@
   --color-accent-hover: var(--accent-hover);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent-bright: var(--accent-bright);
+  --color-accent-soft: var(--accent-soft);
   --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
   --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
   --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-foreground: var(--danger-foreground);
   --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
 
   --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', Consolas, monospace;
@@ -85,8 +103,29 @@
     outline: 2px solid var(--accent-bright);
     outline-offset: 2px;
   }
+  input[type='checkbox'] {
+    accent-color: var(--accent);
+  }
 }
 
 @utility tabular {
   font-variant-numeric: tabular-nums;
+}
+
+/* animações curtas; quem pede menos movimento não vê nenhuma (motion-safe:) */
+@keyframes oos-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes oos-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+@keyframes oos-slide-in-left {
+  from {
+    transform: translateX(-100%);
+  }
 }

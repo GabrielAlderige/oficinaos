@@ -73,17 +73,26 @@ CREATE POLICY tenant_isolation ON customers
   linha nenhuma**. Esquecer o contexto falha fechado, nunca aberto.
 - Tabelas globais (`users`, `sessions`, `plans`, `password_reset_tokens`) não têm
   RLS de tenant. Só o módulo de auth as acessa.
-- A página pública do orçamento não tem usuário logado. Ela resolve o token por
-  uma função `SECURITY DEFINER` que devolve apenas `(organization_id, quote_id)` e,
-  a partir daí, segue com `app.org_id` definido normalmente:
+- **Leitura sem oficina no contexto** (login, seletor de oficina, links públicos)
+  usa policies **só de leitura** (`FOR SELECT`) somadas à `tenant_isolation`.
+  Elas ampliam o que se lê e nunca o que se escreve: INSERT, UPDATE e DELETE
+  continuam presos à oficina do contexto. Em vigor desde a E2 (migration 0003):
 
-```sql
-CREATE FUNCTION resolve_quote_token(p_token text)
-RETURNS TABLE (organization_id uuid, quote_id uuid)
-LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
-  SELECT organization_id, id FROM quotes WHERE public_token = p_token
-$$;
-```
+| Policy | Tabela | Libera ler | Contexto |
+|---|---|---|---|
+| `own_memberships` | memberships | os vínculos do próprio usuário, em qualquer oficina | `app.user_id` |
+| `member_organizations` | organizations | as oficinas das quais o usuário participa | `app.user_id` |
+| `invitation_by_token` | invitations | o convite cujo hash de token foi apresentado | `app.invite_token_hash` |
+
+- A página pública do orçamento (E6) segue o mesmo padrão de **token como
+  capacidade**: policy `quote_by_token` lendo `app.quote_token_hash`. Quem
+  apresenta o token lê aquele orçamento; o resto do fluxo segue com `app.org_id`.
+- **Por que não `SECURITY DEFINER`** (o que a Fase 0 previa): o RLS é `FORCE`,
+  vale até para a dona das tabelas, então uma função `SECURITY DEFINER` da dona
+  também não enxergaria nada. A alternativa seria uma role com BYPASSRLS, que é
+  justamente a porta que o desenho fecha. Os testes `auth-policies.test.ts`
+  provam que a leitura ampliada não permite se colocar em outra oficina nem
+  alterar o próprio papel.
 
 - **Teste de guarda no CI:** um teste consulta `pg_class`/`pg_policies` e falha se
   existir tabela com coluna `organization_id` sem RLS habilitado e forçado, ou se
@@ -426,7 +435,8 @@ invitations (
 sessions (
   id                   uuid PRIMARY KEY,
   user_id              uuid NOT NULL REFERENCES users,
-  organization_id      uuid NOT NULL REFERENCES organizations,   -- oficina ativa
+  active_organization_id uuid NOT NULL REFERENCES organizations, -- oficina ativa. Não se chama
+                                               -- organization_id: a tabela é global, sem RLS
   refresh_token_hash   text NOT NULL UNIQUE,   -- SHA-256 do token opaco; o token nunca é gravado
   previous_token_hash  text,                   -- detecção de reuso (ver ARCHITECTURE §6)
   rotated_at           timestamptz,

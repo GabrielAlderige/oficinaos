@@ -8,13 +8,16 @@ const VERSION = process.env.APP_VERSION ?? 'dev';
 export const systemRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get(
     '/health',
-    { schema: { response: { 200: healthResponseSchema } } },
+    { config: { auth: 'public' }, schema: { response: { 200: healthResponseSchema } } },
     async () => ({ status: 'ok' as const, version: VERSION }),
   );
 
   app.get(
     '/ready',
-    { schema: { response: { 200: readyResponseSchema, 503: readyResponseSchema } } },
+    {
+      config: { auth: 'public' },
+      schema: { response: { 200: readyResponseSchema, 503: readyResponseSchema } },
+    },
     async (request, reply) => {
       const started = performance.now();
       try {

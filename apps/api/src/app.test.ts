@@ -14,9 +14,14 @@ describe('API: fundação', () => {
     const probe: FastifyPluginAsyncZod = async (scope) => {
       scope.post(
         '/__probe',
-        { schema: { body: z.object({ name: z.string().min(2), qty: z.number().positive() }) } },
+        {
+          config: { auth: 'public' },
+          schema: { body: z.object({ name: z.string().min(2), qty: z.number().positive() }) },
+        },
         async (request) => ({ ok: request.body.name }),
       );
+      // rota que "esqueceu" de declarar config.auth: tem que nascer fechada
+      scope.get('/__sem-marcacao', async () => ({ vazou: true }));
     };
     await app.register(probe, { prefix: '/api/v1' });
     await app.ready();
@@ -28,6 +33,12 @@ describe('API: fundação', () => {
     const res = await app.inject({ method: 'GET', url: '/api/v1/health' });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({ status: 'ok' });
+  });
+
+  it('rota sem config.auth exige login: esquecer a marcação nunca abre a rota', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/v1/__sem-marcacao' });
+    expect(res.statusCode).toBe(401);
+    expect(res.body).not.toContain('vazou');
   });
 
   it('GET /ready confirma o banco', async () => {
