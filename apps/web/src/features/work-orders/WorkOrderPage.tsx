@@ -40,6 +40,7 @@ import {
   useUpdateWorkOrder,
   useWorkOrder,
 } from './api';
+import { QuoteCard } from '../quotes/QuoteCard';
 import { CheckInDialog } from './CheckInDialog';
 import { ItemPicker, parseTypedQuantity } from './ItemPicker';
 import { PaymentBadge, StatusActions, StatusBadge } from './status';
@@ -189,7 +190,11 @@ function WorkOrderDetail({ order }: { order: WorkOrder }) {
           <TimelineCard order={order} canWrite={canWrite} />
         </div>
 
-        <div className="space-y-6">
+        {/* no celular esta coluna vira o primeiro bloco: o orçamento é a ação do
+            dia e não pode ficar embaixo de itens, relato e timeline */}
+        <div className="order-first space-y-6 lg:order-none">
+          {/* o orçamento é o que o produto inteiro existe para servir: vem primeiro */}
+          <QuoteCard order={order} quoteId={order.currentQuote?.id ?? null} />
           <Card>
             <CardHeader title="Cliente e veículo" />
             <dl className="px-5 py-3">

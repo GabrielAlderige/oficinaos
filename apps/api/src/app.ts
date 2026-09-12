@@ -22,6 +22,11 @@ import { customerRoutes } from './modules/customers/customers.routes';
 import { CustomersService } from './modules/customers/customers.service';
 import { inventoryRoutes, partCategoryRoutes, partRoutes } from './modules/parts/parts.routes';
 import { PartsService } from './modules/parts/parts.service';
+import { notificationRoutes } from './modules/notifications/notifications.routes';
+import { NotificationsService } from './modules/notifications/notifications.service';
+import { publicQuoteRoutes } from './modules/quotes/public-quotes.routes';
+import { quoteRoutes, workOrderQuoteRoutes } from './modules/quotes/quotes.routes';
+import { QuotesService } from './modules/quotes/quotes.service';
 import { searchRoutes } from './modules/search/search.routes';
 import { serviceRoutes } from './modules/services/services.routes';
 import { ServicesService } from './modules/services/services.service';
@@ -48,6 +53,8 @@ export interface Services {
   parts: PartsService;
   workOrders: WorkOrdersService;
   uploads: UploadsService;
+  quotes: QuotesService;
+  notifications: NotificationsService;
 }
 
 declare module 'fastify' {
@@ -114,6 +121,8 @@ export async function buildApp({
     parts: new PartsService(deps),
     workOrders: new WorkOrdersService(deps),
     uploads: new UploadsService(deps),
+    quotes: new QuotesService(deps),
+    notifications: new NotificationsService(deps),
   };
 
   app.decorate('db', db);
@@ -150,6 +159,11 @@ export async function buildApp({
   await app.register(workOrderRoutes, { prefix: '/api/v1/work-orders' });
   await app.register(workOrderAttachmentRoutes, { prefix: '/api/v1/work-orders' });
   await app.register(uploadRoutes, { prefix: '/api/v1/uploads' });
+  await app.register(workOrderQuoteRoutes, { prefix: '/api/v1/work-orders' });
+  await app.register(quoteRoutes, { prefix: '/api/v1/quotes' });
+  await app.register(notificationRoutes, { prefix: '/api/v1/notifications' });
+  // sem login: o token do link é a credencial (limite por IP em cada rota)
+  await app.register(publicQuoteRoutes, { prefix: '/api/v1/public' });
 
   return app;
 }

@@ -4,4 +4,6 @@ export * from './billing';
 export * from './customers';
 export * from './catalog';
 export * from './work-orders';
+export * from './quotes';
+export * from './notifications';
 export * from './audit';

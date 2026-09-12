@@ -9,7 +9,7 @@ export interface TenantContext {
 }
 
 /** Únicas variáveis de sessão que as policies de RLS leem (migrations 0001 e 0003). */
-type ContextKey = 'app.org_id' | 'app.user_id' | 'app.invite_token_hash';
+type ContextKey = 'app.org_id' | 'app.user_id' | 'app.invite_token_hash' | 'app.quote_token';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -59,6 +59,16 @@ export async function withUser<T>(db: Database, userId: string, fn: (tx: Tx) => 
 /** Capacidade do link de convite: libera ler só o convite cujo hash foi apresentado. */
 export function withInviteToken<T>(db: Database, tokenHash: string, fn: (tx: Tx) => Promise<T>): Promise<T> {
   return withDbContext(db, { 'app.invite_token_hash': tokenHash }, fn);
+}
+
+/**
+ * Capacidade do link do orçamento: libera ler AQUELE orçamento (e seus itens,
+ * fotos e decisão) para quem apresenta o token, sem sessão e sem oficina no
+ * contexto. Mesmo desenho do convite: o token é a capacidade, não uma chave da
+ * oficina inteira — a escrita da aprovação continua rodando com `withTenant`.
+ */
+export function withQuoteToken<T>(db: Database, token: string, fn: (tx: Tx) => Promise<T>): Promise<T> {
+  return withDbContext(db, { 'app.quote_token': token }, fn);
 }
 
 /** Tabelas globais (users, sessions, plans, password_reset_tokens): sem contexto de tenant. */

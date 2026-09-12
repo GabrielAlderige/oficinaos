@@ -77,6 +77,7 @@ export const router = createBrowserRouter([
               { path: ':number', lazy: page(() => import('../features/work-orders/WorkOrderPage'), 'WorkOrderPage'), handle: { crumb: 'OS' } },
             ],
           },
+          { path: 'orcamentos', lazy: page(() => import('../features/quotes/QuotesPage'), 'QuotesPage'), handle: { crumb: 'Orçamentos' } },
           { path: 'servicos', lazy: page(() => import('../features/catalog/ServicesPage'), 'ServicesPage'), handle: { crumb: 'Serviços' } },
           {
             path: 'pecas',

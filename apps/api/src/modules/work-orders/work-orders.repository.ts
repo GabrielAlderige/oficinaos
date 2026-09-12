@@ -6,6 +6,7 @@ import {
   customers,
   odometerReadings,
   parts,
+  quotes,
   services,
   users,
   vehicleInspections,
@@ -212,6 +213,23 @@ export async function nextItemPosition(tx: Tx, organizationId: string, workOrder
     .from(workOrderItems)
     .where(and(eq(workOrderItems.organizationId, organizationId), eq(workOrderItems.workOrderId, workOrderId)));
   return row?.next ?? 1;
+}
+
+/** O orçamento mais recente da OS: é ele que a tela mostra (enviado ou decidido). */
+export async function findCurrentQuote(tx: Tx, organizationId: string, workOrderId: string) {
+  const [row] = await tx
+    .select({
+      id: quotes.id,
+      number: quotes.number,
+      status: quotes.status,
+      totalCents: quotes.totalCents,
+      validUntil: quotes.validUntil,
+    })
+    .from(quotes)
+    .where(and(eq(quotes.organizationId, organizationId), eq(quotes.workOrderId, workOrderId)))
+    .orderBy(desc(quotes.version))
+    .limit(1);
+  return row;
 }
 
 // ------------------------- timeline e inspeções -------------------------

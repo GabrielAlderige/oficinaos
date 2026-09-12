@@ -11,7 +11,7 @@ O diferencial inicial é um fluxo:
 
 ## Status
 
-**MVP 1, etapas E1 a E5 concluídas.** Sobre a fundação da E1 (monorepo, banco com
+**MVP 1, etapas E1 a E6 concluídas.** Sobre a fundação da E1 (monorepo, banco com
 isolamento por oficina via RLS, API com erros padronizados e segurança básica),
 a E2 trouxe:
 
@@ -57,8 +57,27 @@ A E5 trouxe a ordem de serviço:
   comprimidas no aparelho**, guardadas com URL assinada de validade curta;
 - **página de impressão** da OS, com assinatura do cliente.
 
-O orçamento com link público e aprovação pelo celular — o diferencial do produto
-— chega na E6 ([ROADMAP](docs/ROADMAP.md)).
+A E6 trouxe o orçamento com link e aprovação pelo celular — o diferencial do
+produto:
+
+- **orçamento congelado**: enviar tira uma cópia imutável dos itens e guarda um
+  `contentHash`; o que o cliente vê não muda mais, e mexer na OS gera versão nova;
+- **link público** com token de 32 bytes: o cliente abre no celular, sem login, e
+  vê necessários × recomendados, fotos por item e o total;
+- **aprovação parcial**: dá para desmarcar o recomendado e aprovar só o
+  necessário — o item obrigatório não pode ser desmarcado;
+- **a prova**: uma linha imutável por orçamento com quem autorizou, quando, por
+  qual canal, o IP e o hash da versão aprovada. Aprovar duas vezes devolve a
+  mesma resposta; aprovar uma versão já substituída ou vencida é recusado;
+- **reserva de estoque na aprovação**, sem travar o cliente quando falta peça:
+  reserva o que há e sinaliza o que falta;
+- **aprovação manual** (telefone ou balcão) com o mesmo peso do link, mudando só
+  a prova: fica registrado quem da equipe anotou;
+- **o link antigo leva à versão nova**, sem o cliente pedir nada;
+- **sino de avisos** no painel e **lista de orçamentos** por situação, mostrando
+  quem abriu e quem ainda não respondeu;
+- página do cliente em **pacote próprio de 73,6 kB gzip** (teto de 100 kB),
+  sem o Zod do painel.
 
 | Etapa do MVP 1 | Situação |
 |---|---|
@@ -67,8 +86,8 @@ O orçamento com link público e aprovação pelo celular — o diferencial do p
 | E3. Clientes e veículos | ✅ 11/09/2026 |
 | E4. Catálogo de serviços e peças, estoque básico | ✅ 11/09/2026 |
 | E5. Ordem de serviço | ✅ 11/09/2026 |
-| E6. Orçamento com link e aprovação pelo celular | próxima |
-| E7. Execução, entrega e pagamento | — |
+| E6. Orçamento com link e aprovação pelo celular | ✅ 12/09/2026 |
+| E7. Execução, entrega e pagamento | próxima |
 | E8. Agenda | — |
 | E9. Dashboard e acabamento | — |
 
@@ -92,7 +111,7 @@ Toda etapa só fecha com `npm run check` verde. Além disso:
 | Back-end | Node.js, TypeScript, Fastify 5, Zod 4, Drizzle ORM, argon2id, JWT (jose) |
 | Banco | PostgreSQL 17 com Row Level Security |
 | Compartilhado | `packages/shared`: schemas Zod, enums, permissões, validação de CPF/CNPJ/placa/telefone, usados por front e back |
-| Testes | Vitest com Postgres real de teste. A suíte E2E com Playwright entra na E6 |
+| Testes | Vitest com Postgres real de teste (32 arquivos, 289 testes). Os fluxos são conferidos em navegador com Playwright (claro, escuro e celular); versionar esses roteiros em `e2e/` continua pendente |
 
 ## Rodando localmente (Windows, macOS ou Linux)
 

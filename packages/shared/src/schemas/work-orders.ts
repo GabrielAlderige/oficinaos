@@ -247,6 +247,20 @@ export const workOrderSchema = z.object({
   version: z.number().int(),
   totals: workOrderTotalsSchema,
   items: z.array(workOrderItemSchema),
+  /**
+   * O orçamento mais recente desta OS (docs/API.md: o GET da OS é o agregado
+   * "OS + itens + orçamento atual + totais"). Evita a tela ter que caçar o
+   * orçamento numa segunda chamada só para saber se há link esperando resposta.
+   */
+  currentQuote: z
+    .object({
+      id: z.uuid(),
+      number: z.number().int(),
+      status: z.string(),
+      totalCents: z.number().int(),
+      awaitingAnswer: z.boolean(),
+    })
+    .nullable(),
 });
 
 export const workOrderListItemSchema = z.object({

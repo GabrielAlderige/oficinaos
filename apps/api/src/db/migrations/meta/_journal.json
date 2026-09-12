@@ -71,6 +71,27 @@
       "when": 1789176209682,
       "tag": "0009_nebulous_omega_red",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789211914938,
+      "tag": "0010_thin_lady_bullseye",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1789211974587,
+      "tag": "0011_fair_silvermane",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1789212797548,
+      "tag": "0012_nebulous_power_pack",
+      "breakpoints": true
     }
   ]
 }

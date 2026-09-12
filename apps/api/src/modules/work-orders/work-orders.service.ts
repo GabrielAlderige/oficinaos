@@ -1,9 +1,9 @@
 import {
   can,
-  computeApprovedTotals,
-  computeTotals,
   type CreateInspectionInput,
   type CreateWorkOrderInput,
+  effectiveQuoteStatus,
+  isQuoteAnswerable,
   discountCentsFor,
   effectiveServicePrice,
   ErrorCode,
@@ -15,7 +15,6 @@ import {
   nextStatus,
   type Page,
   parseQuantity,
-  type PricingLine,
   suggestedSalePrice,
   type UpdateWorkOrderInput,
   updateWorkOrderItemSchema,
@@ -38,6 +37,8 @@ import { AppError, notFound, validationFailed } from '../../core/errors';
 import { blankToNull, isoOrNull } from '../../core/normalize';
 import { assertOdometerNotDecreasing } from '../../core/odometer';
 import { readOrganizationSettings } from '../../core/org-settings';
+import { releaseReservations } from '../../core/reservations';
+import { applyWorkOrderChange, pricingLinesOf } from './totals';
 import type { workOrderItems, workOrders } from '../../db/schema';
 import type { Tx } from '../../db/tenant';
 import { withTenant } from '../../db/tenant';
@@ -374,6 +375,9 @@ export class WorkOrdersService {
       if (action === 'cancel') {
         patch.canceledAt = now;
         patch.cancelReason = input.reason ?? null;
+        // peça reservada volta para o estoque: o carro não vai mais ser feito (§10)
+        const items = await repo.listItems(tx, auth.organizationId, id);
+        await releaseReservations(tx, auth.organizationId, items.map(({ item }) => item.id));
       }
 
       const updated = await this.applyChange(tx, order, patch);
@@ -554,7 +558,7 @@ export class WorkOrdersService {
     if (can(auth.role, 'work_orders:discount_unlimited')) return;
 
     const settings = await readOrganizationSettings(tx, auth.organizationId);
-    const lines = await this.pricingLines(tx, order);
+    const lines = await pricingLinesOf(tx, order);
     const subtotal = lines.reduce((total, line) => total + lineTotalCents(line), 0);
     const mode = patch.discountMode === undefined ? order.discountMode : patch.discountMode;
     const value = patch.discountValue === undefined ? order.discountValue : patch.discountValue;
@@ -570,56 +574,9 @@ export class WorkOrdersService {
     }
   }
 
-  private async pricingLines(tx: Tx, order: repo.WorkOrderRow): Promise<PricingLine[]> {
-    const rows = await repo.listItems(tx, order.organizationId, order.id);
-    return rows.map(({ item }) => ({
-      type: item.type,
-      quantityMilli: milli(item.quantity),
-      unitPriceCents: item.unitPriceCents,
-      discountCents: item.discountCents,
-      isOptional: item.isOptional,
-      approved: item.approvalStatus === 'APPROVED',
-    }));
-  }
-
-  /**
-   * Aplica a mudança, recalcula os totais pelo `pricing.ts` e sobe a versão —
-   * tudo numa gravação só. A API nunca confia em total vindo do front.
-   */
-  private async applyChange(tx: Tx, order: repo.WorkOrderRow, patch: OrderPatch = {}): Promise<repo.WorkOrderRow> {
-    const merged = { ...order, ...patch };
-    const rows = await repo.listItems(tx, order.organizationId, order.id);
-    const lines: PricingLine[] = rows.map(({ item }) => ({
-      type: item.type,
-      quantityMilli: milli(item.quantity),
-      unitPriceCents: item.unitPriceCents,
-      discountCents: item.discountCents,
-      isOptional: item.isOptional,
-      approved: item.approvalStatus === 'APPROVED',
-    }));
-    const options = {
-      discountMode: merged.discountMode,
-      discountValue: merged.discountValue,
-      surchargeCents: merged.surchargeCents,
-    };
-    const totals = computeTotals(lines, options);
-    const approved = computeApprovedTotals(lines, options);
-
-    // o total de cada linha é cache também: a OS impressa bate com a soma das linhas
-    for (const [index, { item }] of rows.entries()) {
-      const total = lineTotalCents(lines[index]!);
-      if (total !== item.totalCents) await repo.updateItem(tx, item.id, { totalCents: total });
-    }
-
-    return repo.updateWorkOrder(tx, order.id, {
-      ...patch,
-      partsSubtotalCents: totals.partsSubtotalCents,
-      servicesSubtotalCents: totals.servicesSubtotalCents,
-      discountCents: totals.discountCents,
-      totalCents: totals.totalCents,
-      approvedTotalCents: approved.totalCents,
-      version: order.version + 1,
-    });
+  /** O recálculo mora em `./totals`: o orçamento (E6) mexe nos mesmos números. */
+  private applyChange(tx: Tx, order: repo.WorkOrderRow, patch: OrderPatch = {}): Promise<repo.WorkOrderRow> {
+    return applyWorkOrderChange(tx, order, patch);
   }
 
   /** Preço e descrição do item: o catálogo manda, e a pessoa pode sobrescrever. */
@@ -750,6 +707,7 @@ export class WorkOrdersService {
 
   private async toDto(tx: Tx, auth: AuthContext, header: repo.WorkOrderHeader): Promise<WorkOrder> {
     const order = header.order;
+    const quote = await repo.findCurrentQuote(tx, auth.organizationId, order.id);
     const rows = await repo.listItems(tx, auth.organizationId, order.id);
     const showCost = canSeeCost(auth);
     const items: WorkOrderItem[] = rows.map(({ item, mechanicName, partOnHand, partReserved }) => ({
@@ -820,6 +778,16 @@ export class WorkOrdersService {
         paidCents: order.paidCents,
       },
       items,
+      currentQuote: quote
+        ? {
+            id: quote.id,
+            number: quote.number,
+            status: effectiveQuoteStatus(quote.status, quote.validUntil.toISOString()),
+            totalCents: quote.totalCents,
+            // "esperando o cliente": é o que decide se a tela mostra o link
+            awaitingAnswer: isQuoteAnswerable(quote.status, quote.validUntil.toISOString()),
+          }
+        : null,
     };
   }
 }

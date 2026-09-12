@@ -2,6 +2,7 @@ import { can, type Permission } from '@oficinaos/shared';
 import {
   Car,
   ClipboardList,
+  FileText,
   House,
   Menu,
   Package,
@@ -15,6 +16,7 @@ import {
 import { useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router';
 import { Brand } from '../../components/brand';
+import { NotificationsBell } from '../../features/notifications/NotificationsBell';
 import { Button } from '../../components/ui/button';
 import { Sheet } from '../../components/ui/overlays';
 import { cn } from '../../lib/cn';
@@ -37,6 +39,7 @@ interface NavItem {
 const NAV: NavItem[] = [
   { to: '/', label: 'Início', icon: House, end: true },
   { to: '/ordens', label: 'Ordens de serviço', icon: ClipboardList, permission: 'work_orders:read' },
+  { to: '/orcamentos', label: 'Orçamentos', icon: FileText, permission: 'work_orders:read' },
   { to: '/clientes', label: 'Clientes', icon: Users },
   { to: '/veiculos', label: 'Veículos', icon: Car },
   { to: '/servicos', label: 'Serviços', icon: Wrench, permission: 'catalog:read' },
@@ -121,6 +124,7 @@ export function AppShell() {
           <Breadcrumbs />
           <div className="ml-auto flex items-center gap-1.5">
             <CommandMenu />
+            <NotificationsBell />
             <ThemeToggle />
             <UserMenu />
           </div>
