@@ -289,6 +289,7 @@ quem garante é a API).
 | `work_orders:read` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `work_orders:write` (itens, diagnóstico, fotos, check-in) | ✓ | ✓ | ✓ | ✓ | ✓ | — |
 | `work_orders:change_status` | ✓ | ✓ | ✓ | ✓ | ✓ ⁴ | — |
+| `work_orders:deliver` (entregar o veículo ao cliente) | ✓ | ✓ | ✓ | ✓ | — | — |
 | `work_orders:cancel` / `work_orders:reopen` | ✓ | ✓ | ✓ | — | — | — |
 | `work_orders:discount` (até o limite do papel) | ✓ | ✓ | ✓ | ✓ | — | — |
 | `work_orders:discount_unlimited` | ✓ | ✓ | ✓ | — | — | — |
@@ -313,12 +314,16 @@ quem garante é a API).
 2. O mecânico atualiza a quilometragem no check-in, que é parte da OS.
 3. O mecânico vê a própria agenda.
 4. O mecânico pode: iniciar diagnóstico, iniciar execução, marcar aguardando peça
-   e finalizar. Não pode entregar nem cancelar.
+   e finalizar. Não pode entregar nem cancelar. Entregar tem permissão própria
+   (`work_orders:deliver`) em vez de uma exceção por papel, porque os guards
+   verificam permissão e nunca papel.
 5. O atendente costuma ser o caixa da oficina pequena: **registra** o pagamento na
    entrega, mas não acessa o módulo financeiro.
 
-O **limite de desconto por papel** é configuração da oficina (ex.: atendente até
-10%). Acima dele, a API responde 403 com código `DISCOUNT_ABOVE_LIMIT`, e a UI diz
+O **limite de desconto por papel** é configuração da oficina
+(`organizations.settings.discountLimitBps`, padrão 1000 bps = 10%, e vale para quem
+tem `work_orders:discount` sem `work_orders:discount_unlimited`; na prática, o
+atendente). Acima dele, a API responde 403 com código `DISCOUNT_ABOVE_LIMIT`, e a UI diz
 "peça a um gerente". O pedido de aprovação de desconto no próprio sistema é MVP 2.
 
 Papéis customizados por oficina (plano Business, V3) serão um conjunto de

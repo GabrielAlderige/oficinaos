@@ -42,6 +42,11 @@ export const router = createBrowserRouter([
     element: <RequireAuth />,
     HydrateFallback: FullPageSpinner,
     children: [
+      // fora do AppShell: menu lateral não vai para o papel
+      {
+        path: '/ordens/:number/imprimir',
+        lazy: page(() => import('../features/work-orders/PrintPage'), 'PrintPage'),
+      },
       {
         path: '/',
         element: <AppShell />,
@@ -61,6 +66,15 @@ export const router = createBrowserRouter([
             children: [
               { index: true, lazy: page(() => import('../features/vehicles/VehiclesPage'), 'VehiclesPage') },
               { path: ':id', lazy: page(() => import('../features/vehicles/VehiclePage'), 'VehiclePage'), handle: { crumb: 'Veículo' } },
+            ],
+          },
+          {
+            path: 'ordens',
+            handle: { crumb: 'Ordens de serviço' },
+            children: [
+              { index: true, lazy: page(() => import('../features/work-orders/WorkOrdersPage'), 'WorkOrdersPage') },
+              { path: 'nova', lazy: page(() => import('../features/work-orders/NewWorkOrderPage'), 'NewWorkOrderPage'), handle: { crumb: 'Nova' } },
+              { path: ':number', lazy: page(() => import('../features/work-orders/WorkOrderPage'), 'WorkOrderPage'), handle: { crumb: 'OS' } },
             ],
           },
           { path: 'servicos', lazy: page(() => import('../features/catalog/ServicesPage'), 'ServicesPage'), handle: { crumb: 'Serviços' } },

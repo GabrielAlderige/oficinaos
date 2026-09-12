@@ -9,8 +9,10 @@ coverage/
 !.env.example
 .secrets/
 
-# uploads do StorageProvider local
-storage/
+# uploads do StorageProvider local (driver disk).
+# A barra inicial é obrigatória: sem ela o padrão casaria com QUALQUER pasta
+# chamada storage, inclusive apps/api/src/integrations/storage (código-fonte).
+/storage/
 
 .DS_Store
 Thumbs.db

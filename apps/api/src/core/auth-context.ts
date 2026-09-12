@@ -3,6 +3,7 @@ import { ErrorCode, type Permission, type Role } from '@oficinaos/shared';
 import type { Env } from '../config/env';
 import type { Database } from '../db/client';
 import type { EmailProvider } from '../integrations/email/email';
+import type { StorageProvider } from '../integrations/storage/storage';
 import type { AccessTokens } from '../modules/auth/tokens';
 import { TtlCache } from './cache';
 import { AppError } from './errors';
@@ -63,6 +64,7 @@ export interface ServiceDeps {
   db: Database;
   env: Env;
   email: EmailProvider;
+  storage: StorageProvider;
   tokens: AccessTokens;
   caches: AuthCaches;
   log: FastifyBaseLogger;

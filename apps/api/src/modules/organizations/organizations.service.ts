@@ -84,6 +84,7 @@ export class OrganizationsService {
         laborRateCents: input.laborRateCents === undefined ? before.laborRateCents : input.laborRateCents,
         defaultMarkupBps: input.defaultMarkupBps ?? before.defaultMarkupBps,
         allowNegativeStock: input.allowNegativeStock ?? before.allowNegativeStock,
+        discountLimitBps: input.discountLimitBps ?? before.discountLimitBps,
       };
       const changes = diffChanges(before, next);
       if (!Object.keys(changes).length) return before;

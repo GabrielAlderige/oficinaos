@@ -26,12 +26,13 @@ describe('catálogo de serviços e configurações de preço', () => {
   });
 
   describe('configurações de preço', () => {
-    it('começam com margem de 30%, estoque negativo permitido e sem hora técnica', async () => {
+    it('começam com margem de 30%, desconto até 10%, estoque negativo permitido e sem hora técnica', async () => {
       const s = await signup(t.app);
       expect((await get('/api/v1/organization/settings', s)).json()).toEqual({
         laborRateCents: null,
         defaultMarkupBps: 3000,
         allowNegativeStock: true,
+        discountLimitBps: 1000,
       });
     });
 

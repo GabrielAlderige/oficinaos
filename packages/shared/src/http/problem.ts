@@ -33,6 +33,19 @@ export const ErrorCode = {
   CATEGORY_NAME_TAKEN: 'CATEGORY_NAME_TAKEN',
   STOCK_NOT_TRACKED: 'STOCK_NOT_TRACKED',
   STOCK_NO_CHANGE: 'STOCK_NO_CHANGE',
+  // ordem de serviço
+  /** o PATCH veio com uma versão velha: outra pessoa salvou antes */
+  WORK_ORDER_VERSION_CONFLICT: 'WORK_ORDER_VERSION_CONFLICT',
+  /** a ação não vale a partir do status atual */
+  INVALID_TRANSITION: 'INVALID_TRANSITION',
+  /** desconto acima do limite do papel: "peça a um gerente" */
+  DISCOUNT_ABOVE_LIMIT: 'DISCOUNT_ABOVE_LIMIT',
+  /** OS entregue ou cancelada não recebe mais mudança */
+  WORK_ORDER_NOT_EDITABLE: 'WORK_ORDER_NOT_EDITABLE',
+  /** item já aprovado pelo cliente: precisa de work_orders:edit_approved */
+  ITEM_ALREADY_APPROVED: 'ITEM_ALREADY_APPROVED',
+  /** o arquivo não terminou de subir para o storage */
+  UPLOAD_INCOMPLETE: 'UPLOAD_INCOMPLETE',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];

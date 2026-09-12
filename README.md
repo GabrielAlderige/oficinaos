@@ -11,7 +11,7 @@ O diferencial inicial é um fluxo:
 
 ## Status
 
-**MVP 1, etapas E1 a E4 concluídas.** Sobre a fundação da E1 (monorepo, banco com
+**MVP 1, etapas E1 a E5 concluídas.** Sobre a fundação da E1 (monorepo, banco com
 isolamento por oficina via RLS, API com erros padronizados e segurança básica),
 a E2 trouxe:
 
@@ -43,7 +43,22 @@ A E4 trouxe o catálogo e o estoque:
   tem permissão para ver custo;
 - hora técnica e margem padrão em Configurações › Preços e estoque.
 
-A ordem de serviço chega na E5 ([ROADMAP](docs/ROADMAP.md)).
+A E5 trouxe a ordem de serviço:
+
+- **Nova OS numa tela só**: acha o cliente (ou cadastra ali), escolhe o carro em
+  cartões, relato e km, itens do catálogo — e abre;
+- itens com **total ao vivo**: a API recalcula tudo pelo `pricing.ts` e ignora
+  qualquer total enviado pela tela;
+- desconto em R$ ou %, com **limite por papel** (o atendente para no limite da
+  oficina; o gerente não tem limite);
+- **máquina de status** com ações explícitas por permissão, timeline de tudo o
+  que aconteceu com o carro, e `version` para duas pessoas editando a mesma OS;
+- **check-in** com checklist, combustível, km, avarias, acessórios e **fotos
+  comprimidas no aparelho**, guardadas com URL assinada de validade curta;
+- **página de impressão** da OS, com assinatura do cliente.
+
+O orçamento com link público e aprovação pelo celular — o diferencial do produto
+— chega na E6 ([ROADMAP](docs/ROADMAP.md)).
 
 | Etapa do MVP 1 | Situação |
 |---|---|
@@ -51,8 +66,8 @@ A ordem de serviço chega na E5 ([ROADMAP](docs/ROADMAP.md)).
 | E2. Contas e equipe | ✅ 11/09/2026 |
 | E3. Clientes e veículos | ✅ 11/09/2026 |
 | E4. Catálogo de serviços e peças, estoque básico | ✅ 11/09/2026 |
-| E5. Ordem de serviço | próxima |
-| E6. Orçamento com link e aprovação pelo celular | — |
+| E5. Ordem de serviço | ✅ 11/09/2026 |
+| E6. Orçamento com link e aprovação pelo celular | próxima |
 | E7. Execução, entrega e pagamento | — |
 | E8. Agenda | — |
 | E9. Dashboard e acabamento | — |
@@ -151,6 +166,9 @@ API silencioso; `TEST_LOG_LEVEL=error npm run test` mostra os erros.
 | `APP_URL` | Endereço público do painel: base dos links de redefinição de senha e de convite |
 | `JWT_SECRET` | Assina o token de acesso (HS256). Pelo menos 32 caracteres. Nunca vai para o front |
 | `EMAIL_DRIVER` | `console` (dev: imprime no terminal da API) ou `memory` (testes) |
+| `STORAGE_DRIVER` | Anexos e fotos: `disk` (dev: grava em `storage/`, servido pela própria API com URL assinada) ou `memory` (testes) |
+| `STORAGE_DIR` | Pasta do driver `disk`, relativa à raiz. Fora do git |
+| `UPLOAD_MAX_BYTES` | Teto por arquivo (padrão 10 MB). O painel comprime a foto no aparelho antes de enviar |
 | `DATABASE_ADMIN_URL` | Superusuário do Postgres. **Só** para o `db:setup` |
 | `DATABASE_URL` | Runtime da API: role `oficinaos_app`, sujeita ao RLS |
 | `DATABASE_OWNER_URL` | Dona das tabelas: roda as migrations |

@@ -27,6 +27,21 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(32, 'precisa ter pelo menos 32 caracteres'),
   /** console = imprime o e-mail no terminal (dev); memory = guarda em memória (testes). */
   EMAIL_DRIVER: z.enum(['console', 'memory']).default('console'),
+  /**
+   * Onde ficam as fotos do check-in e os anexos da OS (ARCHITECTURE §11).
+   * disk   = pasta local, servida pela própria API com URL assinada (dev)
+   * memory = em memória (testes)
+   * S3/R2 entram como driver novo quando houver deploy, sem mexer no domínio.
+   */
+  STORAGE_DRIVER: z.enum(['disk', 'memory']).default('disk'),
+  /** Pasta do driver disk, relativa à raiz do repositório. Fica fora do git. */
+  STORAGE_DIR: z.string().default('storage'),
+  /** Teto por arquivo. O painel comprime a foto no aparelho antes de enviar (~300 KB). */
+  UPLOAD_MAX_BYTES: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(10 * 1024 * 1024),
 });
 
 export type Env = z.infer<typeof envSchema>;

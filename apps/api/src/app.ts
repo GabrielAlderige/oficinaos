@@ -13,6 +13,7 @@ import { registerErrorHandling } from './core/plugins/error-handler';
 import { registerSecurity } from './core/plugins/security';
 import type { Database } from './db/client';
 import { createEmailProvider, type EmailProvider } from './integrations/email/email';
+import { createStorageProvider, type StorageProvider } from './integrations/storage/storage';
 import { AUTH_CACHE_TTL_MS } from './modules/auth/auth.constants';
 import { authRoutes } from './modules/auth/auth.routes';
 import { AuthService } from './modules/auth/auth.service';
@@ -26,6 +27,10 @@ import { serviceRoutes } from './modules/services/services.routes';
 import { ServicesService } from './modules/services/services.service';
 import { vehicleRoutes } from './modules/vehicles/vehicles.routes';
 import { VehiclesService } from './modules/vehicles/vehicles.service';
+import { uploadRoutes, workOrderAttachmentRoutes } from './modules/uploads/uploads.routes';
+import { UploadsService } from './modules/uploads/uploads.service';
+import { workOrderRoutes } from './modules/work-orders/work-orders.routes';
+import { WorkOrdersService } from './modules/work-orders/work-orders.service';
 import { memberRoutes } from './modules/members/members.routes';
 import { MembersService } from './modules/members/members.service';
 import { organizationRoutes } from './modules/organizations/organizations.routes';
@@ -41,6 +46,8 @@ export interface Services {
   /** serviços de mão de obra do catálogo ("services" já é o nome deste objeto) */
   catalogServices: ServicesService;
   parts: PartsService;
+  workOrders: WorkOrdersService;
+  uploads: UploadsService;
 }
 
 declare module 'fastify' {
@@ -49,6 +56,7 @@ declare module 'fastify' {
     env: Env;
     tokens: AccessTokens;
     email: EmailProvider;
+    storage: StorageProvider;
     services: Services;
   }
 }
@@ -58,10 +66,17 @@ export interface AppDeps {
   db: Database;
   /** os testes injetam o provider em memória para ler os links enviados */
   email?: EmailProvider;
+  /** os testes injetam o storage em memória: nenhum arquivo toca o disco */
+  storage?: StorageProvider;
 }
 
 /** Monta a API sem abrir porta: o server.ts escuta; os testes usam `app.inject()`. */
-export async function buildApp({ env, db, email = createEmailProvider(env) }: AppDeps) {
+export async function buildApp({
+  env,
+  db,
+  email = createEmailProvider(env),
+  storage = createStorageProvider(env),
+}: AppDeps) {
   const app = Fastify({
     // nos testes o nível padrão é 'silent' (TEST_LOG_LEVEL=error mostra os erros)
     logger: {
@@ -88,7 +103,7 @@ export async function buildApp({ env, db, email = createEmailProvider(env) }: Ap
 
   const tokens = new AccessTokens(env.JWT_SECRET);
   const caches = createAuthCaches(AUTH_CACHE_TTL_MS);
-  const deps: ServiceDeps = { db, env, email, tokens, caches, log: app.log };
+  const deps: ServiceDeps = { db, env, email, storage, tokens, caches, log: app.log };
   const services: Services = {
     auth: new AuthService(deps),
     organizations: new OrganizationsService(deps),
@@ -97,12 +112,15 @@ export async function buildApp({ env, db, email = createEmailProvider(env) }: Ap
     vehicles: new VehiclesService(deps),
     catalogServices: new ServicesService(deps),
     parts: new PartsService(deps),
+    workOrders: new WorkOrdersService(deps),
+    uploads: new UploadsService(deps),
   };
 
   app.decorate('db', db);
   app.decorate('env', env);
   app.decorate('tokens', tokens);
   app.decorate('email', email);
+  app.decorate('storage', storage);
   app.decorate('services', services);
   app.decorateRequest('auth', null);
 
@@ -129,6 +147,9 @@ export async function buildApp({ env, db, email = createEmailProvider(env) }: Ap
   await app.register(partCategoryRoutes, { prefix: '/api/v1/part-categories' });
   await app.register(partRoutes, { prefix: '/api/v1/parts' });
   await app.register(inventoryRoutes, { prefix: '/api/v1/inventory' });
+  await app.register(workOrderRoutes, { prefix: '/api/v1/work-orders' });
+  await app.register(workOrderAttachmentRoutes, { prefix: '/api/v1/work-orders' });
+  await app.register(uploadRoutes, { prefix: '/api/v1/uploads' });
 
   return app;
 }

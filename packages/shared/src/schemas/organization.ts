@@ -105,12 +105,18 @@ export const organizationSettingsSchema = z.object({
   defaultMarkupBps: z.number().int().min(0).max(100_000),
   /** a baixa na finalização da OS pode deixar o estoque negativo (padrão: sim, com alerta) */
   allowNegativeStock: z.boolean(),
+  /**
+   * Desconto máximo (basis points) para quem tem `work_orders:discount` mas não
+   * `work_orders:discount_unlimited` — na prática, o atendente (§7).
+   */
+  discountLimitBps: z.number().int().min(0).max(10_000),
 });
 
 export const DEFAULT_ORGANIZATION_SETTINGS: z.infer<typeof organizationSettingsSchema> = {
   laborRateCents: null,
   defaultMarkupBps: 3000,
   allowNegativeStock: true,
+  discountLimitBps: 1000,
 };
 
 export const updateOrganizationSettingsSchema = organizationSettingsSchema.partial();

@@ -1,5 +1,17 @@
 import { can, type Permission } from '@oficinaos/shared';
-import { Car, House, Menu, Package, PanelLeftClose, PanelLeftOpen, Settings, Users, Wrench, type LucideIcon } from 'lucide-react';
+import {
+  Car,
+  ClipboardList,
+  House,
+  Menu,
+  Package,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Settings,
+  Users,
+  Wrench,
+  type LucideIcon,
+} from 'lucide-react';
 import { useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router';
 import { Brand } from '../../components/brand';
@@ -24,6 +36,7 @@ interface NavItem {
 // Módulos entram aqui conforme existirem de verdade (clientes na E3, catálogo na E4, OS na E5…).
 const NAV: NavItem[] = [
   { to: '/', label: 'Início', icon: House, end: true },
+  { to: '/ordens', label: 'Ordens de serviço', icon: ClipboardList, permission: 'work_orders:read' },
   { to: '/clientes', label: 'Clientes', icon: Users },
   { to: '/veiculos', label: 'Veículos', icon: Car },
   { to: '/servicos', label: 'Serviços', icon: Wrench, permission: 'catalog:read' },

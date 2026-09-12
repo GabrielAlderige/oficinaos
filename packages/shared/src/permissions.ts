@@ -19,6 +19,12 @@ export const PERMISSIONS = [
   'work_orders:read',
   'work_orders:write',
   'work_orders:change_status',
+  /**
+   * Entregar o veículo. Permissão própria porque o mecânico muda status
+   * (diagnóstico, execução, finalizar) mas NÃO entrega o carro (§7, nota 4), e
+   * os guards verificam permissão, nunca papel.
+   */
+  'work_orders:deliver',
   'work_orders:cancel',
   'work_orders:reopen',
   'work_orders:discount',
@@ -64,6 +70,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'work_orders:read',
     'work_orders:write',
     'work_orders:change_status',
+    'work_orders:deliver',
     'work_orders:cancel',
     'work_orders:reopen',
     'work_orders:discount',
@@ -91,6 +98,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'work_orders:read',
     'work_orders:write',
     'work_orders:change_status',
+    'work_orders:deliver',
     'work_orders:discount',
     'quotes:send',
     'quotes:record_manual_approval',

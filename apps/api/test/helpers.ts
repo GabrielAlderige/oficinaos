@@ -7,6 +7,7 @@ import { readEnv, type Env } from '../src/config/env';
 import { loadEnv } from '../src/config/load-env';
 import { createDatabase, type DatabaseHandle } from '../src/db/client';
 import { MemoryEmailProvider } from '../src/integrations/email/email';
+import { MemoryStorageProvider } from '../src/integrations/storage/storage';
 
 loadEnv();
 
@@ -33,6 +34,7 @@ export function testEnv(overrides: Partial<NodeJS.ProcessEnv> = {}): Env {
     DATABASE_URL: process.env.TEST_DATABASE_URL,
     JWT_SECRET: 'segredo-de-teste-com-bem-mais-de-32-caracteres',
     EMAIL_DRIVER: 'memory',
+    STORAGE_DRIVER: 'memory',
     APP_URL: 'http://localhost:5173',
     ...overrides,
   });
@@ -41,13 +43,15 @@ export function testEnv(overrides: Partial<NodeJS.ProcessEnv> = {}): Env {
 export interface TestApp {
   app: App;
   email: MemoryEmailProvider;
+  storage: MemoryStorageProvider;
 }
 
 export async function createTestApp(): Promise<TestApp> {
   const email = new MemoryEmailProvider();
-  const app = await buildApp({ env: testEnv(), db: testDb().db, email });
+  const storage = new MemoryStorageProvider(testEnv().JWT_SECRET);
+  const app = await buildApp({ env: testEnv(), db: testDb().db, email, storage });
   await app.ready();
-  return { app, email };
+  return { app, email, storage };
 }
 
 export const TEST_ORIGIN = 'http://localhost:5173';
@@ -193,6 +197,27 @@ export async function createPart(app: App, session: TestSession, payload: Record
   });
   expect(res.statusCode, res.body).toBe(201);
   return res.json() as { id: string; quantityOnHand: number; averageCostCents: number | null; [key: string]: unknown };
+}
+
+export interface TestWorkOrder {
+  id: string;
+  number: number;
+  version: number;
+  status: string;
+  totals: Record<string, number>;
+  items: { id: string; description: string; totalCents: number }[];
+  [key: string]: unknown;
+}
+
+export async function createWorkOrder(app: App, session: TestSession, payload: Record<string, unknown>) {
+  const res = await app.inject({
+    method: 'POST',
+    url: '/api/v1/work-orders',
+    headers: bearer(session.accessToken),
+    payload,
+  });
+  expect(res.statusCode, res.body).toBe(201);
+  return res.json() as TestWorkOrder;
 }
 
 export function moveStock(app: App, session: TestSession, payload: Record<string, unknown>) {
