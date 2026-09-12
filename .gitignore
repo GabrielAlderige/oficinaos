@@ -9,10 +9,14 @@ coverage/
 !.env.example
 .secrets/
 
-# uploads do StorageProvider local (driver disk).
-# A barra inicial é obrigatória: sem ela o padrão casaria com QUALQUER pasta
-# chamada storage, inclusive apps/api/src/integrations/storage (código-fonte).
+# Uploads do StorageProvider local (driver disk): fotos de clientes NUNCA vão
+# para o git. São duas linhas ancoradas em vez de um "storage/" solto porque:
+#  - sem a barra inicial, o padrão casaria também com o CÓDIGO-FONTE em
+#    apps/api/src/integrations/storage;
+#  - a API roda com cwd=apps/api, então a pasta de uploads nasce lá, e não na
+#    raiz (foi assim que quatro fotos de teste entraram no commit 208173b).
 /storage/
+/apps/api/storage/
 
 .DS_Store
 Thumbs.db
