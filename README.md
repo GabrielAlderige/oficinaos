@@ -111,7 +111,7 @@ Toda etapa só fecha com `npm run check` verde. Além disso:
 | Back-end | Node.js, TypeScript, Fastify 5, Zod 4, Drizzle ORM, argon2id, JWT (jose) |
 | Banco | PostgreSQL 17 com Row Level Security |
 | Compartilhado | `packages/shared`: schemas Zod, enums, permissões, validação de CPF/CNPJ/placa/telefone, usados por front e back |
-| Testes | Vitest com Postgres real de teste (32 arquivos, 289 testes). Os fluxos são conferidos em navegador com Playwright (claro, escuro e celular); versionar esses roteiros em `e2e/` continua pendente |
+| Testes | Vitest com Postgres real de teste (32 arquivos, 289 testes) e Playwright em `e2e/` para os fluxos de ponta a ponta: o painel no desktop e o cliente aprovando num celular de 390 px |
 
 ## Rodando localmente (Windows, macOS ou Linux)
 
@@ -160,6 +160,19 @@ partir das migrations** a cada execução. Isso prova que as migrations sobem do
 zero. O banco de desenvolvimento nunca é tocado. Os testes rodam com o log da
 API silencioso; `TEST_LOG_LEVEL=error npm run test` mostra os erros.
 
+Os fluxos de ponta a ponta ficam **fora** do `check`, porque precisam de
+navegador e do servidor no ar:
+
+```bash
+npm run e2e                 # Playwright: a oficina enviando e o cliente aprovando
+npm run e2e:ui              # o mesmo, com a interface do Playwright para depurar
+```
+
+Se não houver `npm run dev` no ar, o Playwright sobe um. Ele usa o banco de
+**desenvolvimento**, e cada cenário cria a própria oficina, com e-mail e placa
+únicos — rodar de novo não suja a execução anterior. As capturas de conferência
+ficam em `e2e/screenshots/`, fora do git.
+
 ## Comandos
 
 | Comando | O que faz |
@@ -170,6 +183,7 @@ API silencioso; `TEST_LOG_LEVEL=error npm run test` mostra os erros.
 | `npm run lint` | ESLint no monorepo |
 | `npm run test` | Vitest: `packages/shared` + `apps/api` (com banco de teste) |
 | `npm run check` | Tudo acima, em sequência |
+| `npm run e2e` | Playwright: fluxo do painel e fluxo do cliente, ponta a ponta (fora do `check`) |
 | `npm run db:setup` | Prepara o Postgres local (idempotente; roda de novo para trocar senhas) |
 | `npm run db:generate` | Gera a migration SQL a partir de mudanças no schema Drizzle |
 | `npm run db:migrate` | Aplica as migrations no banco de dev (`-- --test` para o de teste) |
@@ -202,6 +216,7 @@ diz qual é. O `.env` nunca vai para o git.
 apps/api        API REST (Fastify + Drizzle): src/modules/<domínio>, scripts/, test/
 apps/web        Painel (React + Vite): src/features/<domínio>, src/lib, src/styles
 packages/shared Contratos e regras compartilhadas (Zod, enums, cálculos)
+e2e/            Fluxos de ponta a ponta (Playwright): painel e página do cliente
 docs/           Arquitetura, banco, API, roadmap
 ```
 

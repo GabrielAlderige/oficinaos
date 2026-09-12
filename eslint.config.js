@@ -11,7 +11,7 @@ export default defineConfig(
   js.configs.recommended,
   tseslint.configs.recommended,
   {
-    files: ['apps/api/**/*.ts', 'packages/**/*.ts', '**/*.config.{ts,js}'],
+    files: ['apps/api/**/*.ts', 'packages/**/*.ts', 'e2e/**/*.ts', '**/*.config.{ts,js}'],
     languageOptions: { globals: globals.node },
   },
   {

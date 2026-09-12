@@ -18,6 +18,13 @@ coverage/
 /storage/
 /apps/api/storage/
 
+# Playwright: relatórios, rastros e as capturas de conferência não são código
+/test-results/
+/playwright-report/
+/blob-report/
+/e2e/screenshots/
+.last-run.json
+
 .DS_Store
 Thumbs.db
 *.log
