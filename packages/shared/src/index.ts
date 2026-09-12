@@ -1,8 +1,12 @@
 export * from './money';
+export * from './quantity';
+export * from './inventory';
+export * from './service-pricing';
 export * from './permissions';
 export * from './enums/roles';
 export * from './enums/billing';
 export * from './enums/vehicles';
+export * from './enums/catalog';
 export * from './br/phone';
 export * from './br/document';
 export * from './br/plate';
@@ -18,3 +22,4 @@ export * from './schemas/members';
 export * from './schemas/customers';
 export * from './schemas/vehicles';
 export * from './schemas/search';
+export * from './schemas/catalog';

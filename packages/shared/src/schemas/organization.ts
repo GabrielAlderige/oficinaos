@@ -96,6 +96,26 @@ export const organizationSchema = z.object({
   createdAt: z.string(),
 });
 
+// ---- preços e estoque (organizations.settings) ----
+
+/** Hora técnica, margem padrão sobre o custo das peças e se a baixa pode deixar estoque negativo. */
+export const organizationSettingsSchema = z.object({
+  /** valor da hora de mão de obra; null = ainda não configurado (serviço por hora fica sem preço) */
+  laborRateCents: z.number().int().min(0).max(10_000_000).nullable(),
+  defaultMarkupBps: z.number().int().min(0).max(100_000),
+  /** a baixa na finalização da OS pode deixar o estoque negativo (padrão: sim, com alerta) */
+  allowNegativeStock: z.boolean(),
+});
+
+export const DEFAULT_ORGANIZATION_SETTINGS: z.infer<typeof organizationSettingsSchema> = {
+  laborRateCents: null,
+  defaultMarkupBps: 3000,
+  allowNegativeStock: true,
+};
+
+export const updateOrganizationSettingsSchema = organizationSettingsSchema.partial();
+
+export type OrganizationSettings = z.infer<typeof organizationSettingsSchema>;
 export type OrganizationForm = z.input<typeof organizationFormSchema>;
 export type Organization = z.infer<typeof organizationSchema>;
 export type BusinessHours = z.infer<typeof businessHoursSchema>;

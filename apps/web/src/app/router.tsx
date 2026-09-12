@@ -63,6 +63,15 @@ export const router = createBrowserRouter([
               { path: ':id', lazy: page(() => import('../features/vehicles/VehiclePage'), 'VehiclePage'), handle: { crumb: 'Veículo' } },
             ],
           },
+          { path: 'servicos', lazy: page(() => import('../features/catalog/ServicesPage'), 'ServicesPage'), handle: { crumb: 'Serviços' } },
+          {
+            path: 'pecas',
+            handle: { crumb: 'Peças' },
+            children: [
+              { index: true, lazy: page(() => import('../features/catalog/PartsPage'), 'PartsPage') },
+              { path: ':id', lazy: page(() => import('../features/catalog/PartPage'), 'PartPage'), handle: { crumb: 'Peça' } },
+            ],
+          },
           {
             path: 'configuracoes',
             lazy: page(() => import('../features/settings/SettingsLayout'), 'SettingsLayout'),
@@ -73,6 +82,11 @@ export const router = createBrowserRouter([
                 path: 'oficina',
                 lazy: page(() => import('../features/settings/OrganizationSettingsPage'), 'OrganizationSettingsPage'),
                 handle: { crumb: 'Oficina' },
+              },
+              {
+                path: 'precos',
+                lazy: page(() => import('../features/settings/PricingSettingsPage'), 'PricingSettingsPage'),
+                handle: { crumb: 'Preços e estoque' },
               },
               { path: 'equipe', lazy: page(() => import('../features/settings/TeamPage'), 'TeamPage'), handle: { crumb: 'Equipe' } },
               { path: 'sessoes', lazy: page(() => import('../features/settings/SessionsPage'), 'SessionsPage'), handle: { crumb: 'Sessões' } },

@@ -1,7 +1,18 @@
 const dateFormat = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 const relativeFormat = new Intl.RelativeTimeFormat('pt-BR', { numeric: 'auto' });
 
+const dateTimeFormat = new Intl.DateTimeFormat('pt-BR', {
+  day: '2-digit',
+  month: '2-digit',
+  year: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+});
+
 export const formatDate = (iso: string) => dateFormat.format(new Date(iso));
+
+/** "11/09/26, 14:32": para histórico (movimentos de estoque, auditoria). */
+export const formatDateTime = (iso: string) => dateTimeFormat.format(new Date(iso));
 
 /** "agora", "há 5 minutos", "há 3 horas", "ontem", "em 6 dias". */
 export function formatRelative(iso: string, now = Date.now()): string {

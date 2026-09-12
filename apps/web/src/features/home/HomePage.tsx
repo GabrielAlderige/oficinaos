@@ -1,11 +1,12 @@
 import { ROLE_LABELS } from '@oficinaos/shared';
-import { ArrowRight, Check } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Check } from 'lucide-react';
 import { Link } from 'react-router';
 import { Button } from '../../components/ui/button';
 import { Card, CardHeader, PageHeader } from '../../components/ui/display';
 import { cn } from '../../lib/cn';
 import { firstName } from '../../lib/format';
 import { useCan, useMe } from '../../lib/session';
+import { useInventorySummary, useParts, useServices } from '../catalog/api';
 import { useCustomers } from '../customers/api';
 import { useInvitations, useMembers, useOrganization } from '../settings/api';
 
@@ -15,6 +16,38 @@ interface Step {
   done: boolean;
   to?: string;
   action?: string;
+}
+
+/** Peças abaixo do mínimo, zeradas ou negativas: dado real do estoque, só quando há o que ver. */
+function StockAlert() {
+  const canSeeStock = useCan('inventory:read');
+  const summary = useInventorySummary(canSeeStock);
+  const s = summary.data;
+  const count = s ? s.low + s.out + s.negative : 0;
+  if (!count) return null;
+  return (
+    <Card className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-3 px-5 py-4">
+      <span className="grid size-9 shrink-0 place-items-center rounded-full bg-warning-soft text-warning" aria-hidden="true">
+        <AlertTriangle className="size-4" />
+      </span>
+      <div className="min-w-0 flex-1 basis-60">
+        <p className="text-sm font-medium">
+          {count} {count === 1 ? 'peça precisa' : 'peças precisam'} de atenção no estoque
+        </p>
+        <p className="text-sm text-muted">
+          {[s!.low && `${s!.low} abaixo do mínimo`, s!.out && `${s!.out} sem estoque`, s!.negative && `${s!.negative} negativo`]
+            .filter(Boolean)
+            .join(' · ')}
+        </p>
+      </div>
+      <Button asChild variant="secondary" size="sm">
+        <Link to="/pecas?estoque=atencao">
+          Ver peças
+          <ArrowRight />
+        </Link>
+      </Button>
+    </Card>
+  );
 }
 
 /**
@@ -30,6 +63,9 @@ export function HomePage() {
   const invitations = useInvitations(canManageTeam);
   const canWriteCustomers = useCan('customers:write');
   const customers = useCustomers({ q: '', page: 1, pageSize: 1 }, { enabled: canWriteCustomers });
+  const canWriteCatalog = useCan('catalog:write');
+  const services = useServices({ q: '', status: 'all', page: 1, pageSize: 1 }, { enabled: canWriteCatalog });
+  const parts = useParts({ q: '', attention: false, page: 1, pageSize: 1 }, { enabled: canWriteCatalog });
 
   const org = organization.data;
   const steps: Step[] = [
@@ -53,6 +89,16 @@ export function HomePage() {
       action: 'Cadastrar cliente',
     });
   }
+  if (canWriteCatalog) {
+    const hasServices = (services.data?.meta.total ?? 0) > 0;
+    steps.push({
+      title: 'Monte o catálogo de serviços e peças',
+      description: 'Com preço e tempo padrão cadastrados, o orçamento sai em poucos cliques.',
+      done: hasServices && (parts.data?.meta.total ?? 0) > 0,
+      to: hasServices ? '/pecas' : '/servicos',
+      action: hasServices ? 'Cadastrar peças' : 'Cadastrar serviços',
+    });
+  }
   if (canManageTeam) {
     steps.push({
       title: 'Convide a sua equipe',
@@ -74,6 +120,7 @@ export function HomePage() {
             aparecer aqui assim que estiverem em uso.
           </p>
         </Card>
+        <StockAlert />
       </>
     );
   }
@@ -125,6 +172,7 @@ export function HomePage() {
           ))}
         </ol>
       </Card>
+      <StockAlert />
     </>
   );
 }

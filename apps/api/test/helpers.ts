@@ -184,6 +184,26 @@ export async function createVehicle(
   return res.json() as { id: string; plate: string | null; [key: string]: unknown };
 }
 
+export async function createPart(app: App, session: TestSession, payload: Record<string, unknown> = {}) {
+  const res = await app.inject({
+    method: 'POST',
+    url: '/api/v1/parts',
+    headers: bearer(session.accessToken),
+    payload: { name: 'Peça Teste', ...payload },
+  });
+  expect(res.statusCode, res.body).toBe(201);
+  return res.json() as { id: string; quantityOnHand: number; averageCostCents: number | null; [key: string]: unknown };
+}
+
+export function moveStock(app: App, session: TestSession, payload: Record<string, unknown>) {
+  return app.inject({
+    method: 'POST',
+    url: '/api/v1/inventory/movements',
+    headers: bearer(session.accessToken),
+    payload,
+  });
+}
+
 /** Convida uma pessoa nova com o papel dado e devolve a sessão dela já aceita. */
 export async function addMember(app: App, owner: TestSession, role: Role, name = 'Pessoa da Equipe') {
   const email = uniqueEmail(role.toLowerCase());

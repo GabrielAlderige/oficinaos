@@ -4,6 +4,7 @@ import { cn } from '../../lib/cn';
 
 const TABS = [
   { to: 'oficina', label: 'Oficina' },
+  { to: 'precos', label: 'Preços e estoque' },
   { to: 'equipe', label: 'Equipe' },
   { to: 'sessoes', label: 'Sessões' },
 ];
@@ -11,7 +12,7 @@ const TABS = [
 export function SettingsLayout() {
   return (
     <>
-      <PageHeader title="Configurações" description="Dados da oficina, equipe e segurança da sua conta." />
+      <PageHeader title="Configurações" description="Dados da oficina, preços, equipe e segurança da sua conta." />
       <nav aria-label="Seções das configurações" className="mb-6 flex gap-1 overflow-x-auto border-b border-border">
         {TABS.map((tab) => (
           <NavLink

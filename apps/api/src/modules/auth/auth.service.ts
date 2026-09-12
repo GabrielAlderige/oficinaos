@@ -92,6 +92,7 @@ export class AuthService {
           whatsapp: input.whatsapp,
         });
         await repo.insertMembership(tx, { organizationId, userId, role: 'OWNER' });
+        await repo.insertDefaultPartCategories(tx, organizationId);
 
         const plan = await repo.findPlanByCode(tx, TRIAL_PLAN);
         if (!plan) throw new Error(`Plano ${TRIAL_PLAN} não existe: rode as migrations`);

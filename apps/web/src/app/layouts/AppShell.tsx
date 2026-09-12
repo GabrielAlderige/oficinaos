@@ -1,10 +1,12 @@
-import { Car, House, Menu, PanelLeftClose, PanelLeftOpen, Settings, Users, type LucideIcon } from 'lucide-react';
+import { can, type Permission } from '@oficinaos/shared';
+import { Car, House, Menu, Package, PanelLeftClose, PanelLeftOpen, Settings, Users, Wrench, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router';
 import { Brand } from '../../components/brand';
 import { Button } from '../../components/ui/button';
 import { Sheet } from '../../components/ui/overlays';
 import { cn } from '../../lib/cn';
+import { useMe } from '../../lib/session';
 import { usePersistentState } from '../../lib/use-persistent-state';
 import { CommandMenu } from './CommandMenu';
 import { CrumbProvider } from './crumbs';
@@ -15,13 +17,17 @@ interface NavItem {
   label: string;
   icon: LucideIcon;
   end?: boolean;
+  /** some do menu para quem não tem acesso (a API recusa de qualquer jeito) */
+  permission?: Permission;
 }
 
-// Módulos entram aqui conforme existirem de verdade (clientes na E3, OS na E5…).
+// Módulos entram aqui conforme existirem de verdade (clientes na E3, catálogo na E4, OS na E5…).
 const NAV: NavItem[] = [
   { to: '/', label: 'Início', icon: House, end: true },
   { to: '/clientes', label: 'Clientes', icon: Users },
   { to: '/veiculos', label: 'Veículos', icon: Car },
+  { to: '/servicos', label: 'Serviços', icon: Wrench, permission: 'catalog:read' },
+  { to: '/pecas', label: 'Peças e estoque', icon: Package, permission: 'catalog:read' },
   { to: '/configuracoes', label: 'Configurações', icon: Settings },
 ];
 
@@ -30,6 +36,8 @@ function SidebarContent({ collapsed, onToggle, onNavigate }: {
   onToggle?: () => void;
   onNavigate?: () => void;
 }) {
+  const { role } = useMe();
+  const items = NAV.filter((item) => !item.permission || can(role, item.permission));
   return (
     <div className="flex h-full flex-col gap-4 p-3">
       <div className={cn('flex items-center justify-between gap-2 px-1 pt-1', collapsed && 'flex-col')}>
@@ -46,7 +54,7 @@ function SidebarContent({ collapsed, onToggle, onNavigate }: {
       <OrganizationSwitcher collapsed={collapsed} />
 
       <nav aria-label="Principal" className="flex flex-1 flex-col gap-0.5">
-        {NAV.map(({ to, label, icon: Icon, end }) => (
+        {items.map(({ to, label, icon: Icon, end }) => (
           <NavLink
             key={to}
             to={to}

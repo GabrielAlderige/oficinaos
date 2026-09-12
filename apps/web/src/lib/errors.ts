@@ -15,12 +15,18 @@ export function errorMessage(err: unknown): string {
 /**
  * Leva os erros por campo da API (`body.address.zip`) para o formulário
  * (`address.zip`). Devolve true se algum campo recebeu erro.
+ * `aliases` traduz o nome da API para o do formulário quando diferem
+ * (a API recebe `priceCents`; a pessoa digita em `price`).
  */
-export function applyFieldErrors<T extends FieldValues>(err: unknown, setError: UseFormSetError<T>): boolean {
+export function applyFieldErrors<T extends FieldValues>(
+  err: unknown,
+  setError: UseFormSetError<T>,
+  aliases: Record<string, string> = {},
+): boolean {
   if (!(err instanceof ApiError) || !err.problem?.errors?.length) return false;
   for (const { path, message } of err.problem.errors) {
-    const name = path.replace(/^(body|query|params)\./, '');
-    setError(name as Path<T>, { type: 'server', message });
+    const field = path.replace(/^(body|query|params)\./, '');
+    setError((aliases[field] ?? field) as Path<T>, { type: 'server', message });
   }
   return true;
 }

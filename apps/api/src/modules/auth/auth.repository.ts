@@ -1,9 +1,10 @@
 import { and, asc, desc, eq, gt, isNull } from 'drizzle-orm';
-import type { PlanCode } from '@oficinaos/shared';
+import { DEFAULT_PART_CATEGORIES, type PlanCode } from '@oficinaos/shared';
 import {
   invitations,
   memberships,
   organizations,
+  partCategories,
   passwordResetTokens,
   plans,
   sessions,
@@ -101,6 +102,13 @@ export async function reactivateMembership(tx: Tx, id: string, role: typeof memb
 
 export async function insertOrganization(tx: Tx, values: typeof organizations.$inferInsert) {
   await tx.insert(organizations).values(values);
+}
+
+/** As 11 categorias de peça do briefing nascem com a oficina. */
+export async function insertDefaultPartCategories(tx: Tx, organizationId: string) {
+  await tx
+    .insert(partCategories)
+    .values(DEFAULT_PART_CATEGORIES.map((name, index) => ({ organizationId, name, position: index + 1 })));
 }
 
 export async function findOrganizationName(tx: Tx, organizationId: string) {

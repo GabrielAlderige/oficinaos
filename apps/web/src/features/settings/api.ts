@@ -6,6 +6,7 @@ import type {
   Member,
   Organization,
   OrganizationForm,
+  OrganizationSettings,
   Role,
   SessionInfo,
 } from '@oficinaos/shared';
@@ -15,6 +16,7 @@ import { useSession } from '../../lib/session';
 // A troca de oficina limpa o cache inteiro (session.tsx), então as chaves não levam o id da oficina.
 export const settingsKeys = {
   organization: ['organization'] as const,
+  organizationSettings: ['organization-settings'] as const,
   members: ['members'] as const,
   invitations: ['members', 'invitations'] as const,
   sessions: ['auth', 'sessions'] as const,
@@ -32,6 +34,28 @@ export function useUpdateOrganization() {
     onSuccess: (organization) => {
       queryClient.setQueryData(settingsKeys.organization, organization);
       void refreshMe(); // nome e fuso aparecem no menu
+    },
+  });
+}
+
+/** Hora técnica e margem padrão: quem monta orçamento lê; quem gerencia a oficina muda. */
+export function useOrganizationSettings() {
+  return useQuery({
+    queryKey: settingsKeys.organizationSettings,
+    queryFn: () => api<OrganizationSettings>('/organization/settings'),
+  });
+}
+
+export function useUpdateOrganizationSettings() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Partial<OrganizationSettings>) =>
+      api<OrganizationSettings>('/organization/settings', { method: 'PATCH', json: body }),
+    onSuccess: (settings) => {
+      queryClient.setQueryData(settingsKeys.organizationSettings, settings);
+      // preço dos serviços por hora e preço sugerido das peças dependem daqui
+      void queryClient.invalidateQueries({ queryKey: ['services'] });
+      void queryClient.invalidateQueries({ queryKey: ['parts'] });
     },
   });
 }

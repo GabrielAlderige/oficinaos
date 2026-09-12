@@ -11,7 +11,7 @@ O diferencial inicial é um fluxo:
 
 ## Status
 
-**MVP 1, etapas E1 a E3 concluídas.** Sobre a fundação da E1 (monorepo, banco com
+**MVP 1, etapas E1 a E4 concluídas.** Sobre a fundação da E1 (monorepo, banco com
 isolamento por oficina via RLS, API com erros padronizados e segurança básica),
 a E2 trouxe:
 
@@ -31,6 +31,18 @@ A E3 trouxe clientes e veículos:
 - quilometragem com histórico de leituras e troca de dono registrada;
 - contato mascarado para o mecânico.
 
+A E4 trouxe o catálogo e o estoque:
+
+- serviços com preço fixo ou por hora técnica (valor da hora × tempo padrão) e
+  intervalo de manutenção ("a cada 10.000 km ou 12 meses");
+- peças com código do fabricante, categoria e em que carro servem, com busca por
+  palavra: "pastilha gol 2012" acha a peça pela aplicação;
+- entrada e ajuste de contagem com **custo médio móvel** e livro-razão imutável
+  (correção é movimento novo, nunca edição de lançamento);
+- estoque mínimo com alerta no início do painel, e custo escondido de quem não
+  tem permissão para ver custo;
+- hora técnica e margem padrão em Configurações › Preços e estoque.
+
 A ordem de serviço chega na E5 ([ROADMAP](docs/ROADMAP.md)).
 
 | Etapa do MVP 1 | Situação |
@@ -38,8 +50,8 @@ A ordem de serviço chega na E5 ([ROADMAP](docs/ROADMAP.md)).
 | E1. Fundação (monorepo, banco com RLS, API base) | ✅ 10/09/2026 |
 | E2. Contas e equipe | ✅ 11/09/2026 |
 | E3. Clientes e veículos | ✅ 11/09/2026 |
-| E4. Catálogo de serviços e peças, estoque básico | próxima |
-| E5. Ordem de serviço | — |
+| E4. Catálogo de serviços e peças, estoque básico | ✅ 11/09/2026 |
+| E5. Ordem de serviço | próxima |
 | E6. Orçamento com link e aprovação pelo celular | — |
 | E7. Execução, entrega e pagamento | — |
 | E8. Agenda | — |

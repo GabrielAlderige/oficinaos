@@ -19,7 +19,11 @@ import { AuthService } from './modules/auth/auth.service';
 import { AccessTokens } from './modules/auth/tokens';
 import { customerRoutes } from './modules/customers/customers.routes';
 import { CustomersService } from './modules/customers/customers.service';
+import { inventoryRoutes, partCategoryRoutes, partRoutes } from './modules/parts/parts.routes';
+import { PartsService } from './modules/parts/parts.service';
 import { searchRoutes } from './modules/search/search.routes';
+import { serviceRoutes } from './modules/services/services.routes';
+import { ServicesService } from './modules/services/services.service';
 import { vehicleRoutes } from './modules/vehicles/vehicles.routes';
 import { VehiclesService } from './modules/vehicles/vehicles.service';
 import { memberRoutes } from './modules/members/members.routes';
@@ -34,6 +38,9 @@ export interface Services {
   members: MembersService;
   customers: CustomersService;
   vehicles: VehiclesService;
+  /** serviços de mão de obra do catálogo ("services" já é o nome deste objeto) */
+  catalogServices: ServicesService;
+  parts: PartsService;
 }
 
 declare module 'fastify' {
@@ -88,6 +95,8 @@ export async function buildApp({ env, db, email = createEmailProvider(env) }: Ap
     members: new MembersService(deps),
     customers: new CustomersService(deps),
     vehicles: new VehiclesService(deps),
+    catalogServices: new ServicesService(deps),
+    parts: new PartsService(deps),
   };
 
   app.decorate('db', db);
@@ -116,6 +125,10 @@ export async function buildApp({ env, db, email = createEmailProvider(env) }: Ap
   await app.register(customerRoutes, { prefix: '/api/v1/customers' });
   await app.register(vehicleRoutes, { prefix: '/api/v1/vehicles' });
   await app.register(searchRoutes, { prefix: '/api/v1/search' });
+  await app.register(serviceRoutes, { prefix: '/api/v1/services' });
+  await app.register(partCategoryRoutes, { prefix: '/api/v1/part-categories' });
+  await app.register(partRoutes, { prefix: '/api/v1/parts' });
+  await app.register(inventoryRoutes, { prefix: '/api/v1/inventory' });
 
   return app;
 }

@@ -1,5 +1,10 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
-import { organizationSchema, updateOrganizationSchema } from '@oficinaos/shared';
+import {
+  organizationSchema,
+  organizationSettingsSchema,
+  updateOrganizationSchema,
+  updateOrganizationSettingsSchema,
+} from '@oficinaos/shared';
 import { clientInfo, getAuth } from '../../core/auth-context';
 
 /** A oficina do contexto (singular: o tenant vem do token, nunca da URL). */
@@ -19,5 +24,21 @@ export const organizationRoutes: FastifyPluginAsyncZod = async (app) => {
       schema: { body: updateOrganizationSchema, response: { 200: organizationSchema } },
     },
     async (request) => service.update(getAuth(request), request.body, clientInfo(request)),
+  );
+
+  // quem monta orçamento precisa saber o valor da hora; só quem gerencia a oficina muda
+  app.get(
+    '/settings',
+    { config: { auth: 'authenticated' }, schema: { response: { 200: organizationSettingsSchema } } },
+    async (request) => service.getSettings(getAuth(request)),
+  );
+
+  app.patch(
+    '/settings',
+    {
+      config: { auth: 'organization:manage' },
+      schema: { body: updateOrganizationSettingsSchema, response: { 200: organizationSettingsSchema } },
+    },
+    async (request) => service.updateSettings(getAuth(request), request.body, clientInfo(request)),
   );
 };
