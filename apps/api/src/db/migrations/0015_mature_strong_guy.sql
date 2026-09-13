@@ -1,0 +1,2 @@
+ALTER TABLE "work_order_events" DROP CONSTRAINT "work_order_events_type_check";--> statement-breakpoint
+ALTER TABLE "work_order_events" ADD CONSTRAINT "work_order_events_type_check" CHECK ("work_order_events"."type" in ('CREATED','STATUS_CHANGED','NOTE','ITEMS_CHANGED','CHECK_IN','CHECK_OUT','PHOTO_ADDED','QUOTE_SENT','QUOTE_VIEWED','QUOTE_APPROVED','QUOTE_REJECTED','CUSTOMER_QUESTION','CUSTOMER_NOTIFIED','PAYMENT','DELIVERED','CANCELED'));

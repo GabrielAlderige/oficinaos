@@ -140,6 +140,19 @@ export const workOrderRoutes: FastifyPluginAsyncZod = async (app) => {
     async (request) => ({ data: await service.timeline(getAuth(request), request.params.id) }),
   );
 
+  /** Devolve a mensagem pronta e o link wa.me: quem envia é a pessoa (V1). */
+  app.post(
+    '/:id/vehicle-ready',
+    {
+      config: { auth: 'work_orders:write' },
+      schema: {
+        params: idParamSchema,
+        response: { 200: z.object({ message: z.string(), whatsappUrl: z.string().nullable() }) },
+      },
+    },
+    async (request) => service.vehicleReady(getAuth(request), request.params.id, clientInfo(request)),
+  );
+
   app.post(
     '/:id/notes',
     {

@@ -6,4 +6,5 @@ export * from './catalog';
 export * from './work-orders';
 export * from './quotes';
 export * from './notifications';
+export * from './payments';
 export * from './audit';

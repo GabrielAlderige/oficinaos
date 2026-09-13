@@ -72,6 +72,19 @@ export function useTimeline(id: string) {
   });
 }
 
+/**
+ * "Veículo pronto": a API devolve a mensagem pronta e o link wa.me. Quem aperta
+ * enviar é a pessoa da oficina — nada sai sozinho (V1, sem API do WhatsApp).
+ */
+export function useVehicleReady(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      api<{ message: string; whatsappUrl: string | null }>(`/work-orders/${id}/vehicle-ready`, { method: 'POST' }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: workOrderKeys.timeline(id) }),
+  });
+}
+
 export function useInspections(id: string) {
   return useQuery({
     queryKey: workOrderKeys.inspections(id),

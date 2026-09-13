@@ -37,7 +37,8 @@ import { AppError, notFound, validationFailed } from '../../core/errors';
 import { blankToNull, isoOrNull } from '../../core/normalize';
 import { assertOdometerNotDecreasing } from '../../core/odometer';
 import { readOrganizationSettings } from '../../core/org-settings';
-import { releaseReservations } from '../../core/reservations';
+import { saldoCents, whatsappLink, whatsappVehicleReadyMessage } from '@oficinaos/shared';
+import { consumeApprovedItems, releaseReservations, type ConsumptionSummary } from '../../core/reservations';
 import { applyWorkOrderChange, pricingLinesOf } from './totals';
 import type { workOrderItems, workOrders } from '../../db/schema';
 import type { Tx } from '../../db/tenant';
@@ -344,6 +345,72 @@ export class WorkOrdersService {
     });
   }
 
+  /**
+   * "Veículo pronto" pelo WhatsApp. A mensagem sai pronta e quem aperta enviar
+   * é a pessoa da oficina — no V1 o canal é o link `wa.me`, sem API não
+   * oficial. Fica no histórico de comunicação, como o envio do orçamento.
+   *
+   * O número é o do CLIENTE: o link abre a conversa com quem vai buscar o carro.
+   */
+  async vehicleReady(
+    auth: AuthContext,
+    id: string,
+    client: ClientInfo,
+  ): Promise<{ message: string; whatsappUrl: string | null }> {
+    return withTenant(this.deps.db, auth, async (tx) => {
+      const found = await repo.findWorkOrder(tx, auth.organizationId, { id });
+      if (!found) throw notFound('OS não encontrada.');
+
+      const oficina = await repo.findOrganization(tx, auth.organizationId);
+      const message = whatsappVehicleReadyMessage({
+        customerName: found.customer.name,
+        shopName: oficina?.name ?? 'Oficina',
+        vehicle: { make: found.vehicle.make, model: found.vehicle.model, plate: found.vehicle.plate },
+        balanceCents: saldoCents(found.order),
+      });
+      const whatsapp = found.customer.whatsapp ?? null;
+
+      await repo.insertMessage(tx, {
+        organizationId: auth.organizationId,
+        customerId: found.customer.id,
+        channel: 'WHATSAPP_LINK',
+        direction: 'OUTBOUND',
+        templateKey: 'VEHICLE_READY',
+        body: message,
+        toAddress: whatsapp,
+        workOrderId: id,
+        // o link wa.me não confirma entrega: é o que realmente sabemos
+        status: 'LINK_OPENED',
+        sentBy: auth.userId,
+      });
+      // entra na timeline, não só na auditoria: "o carro está pronto há dois
+      // dias, alguém avisou?" é pergunta que se responde olhando o histórico
+      await repo.insertEvent(tx, {
+        organizationId: auth.organizationId,
+        workOrderId: id,
+        type: 'CUSTOMER_NOTIFIED',
+        data: { canal: 'WHATSAPP_LINK', temWhatsapp: Boolean(whatsapp), balanceCents: saldoCents(found.order) },
+        actorUserId: auth.userId,
+      });
+      await recordActivity(tx, {
+        organizationId: auth.organizationId,
+        actorUserId: auth.userId,
+        action: 'work_order.vehicle_ready',
+        entityType: 'work_order',
+        entityId: id,
+        metadata: { number: found.order.number, balanceCents: saldoCents(found.order) },
+        ...client,
+      });
+
+      return {
+        message,
+        // o telefone é gravado em E.164; quem monta o link é o shared, senão
+        // sai `wa.me/55+55…` e o link não abre conversa nenhuma
+        whatsappUrl: whatsapp ? whatsappLink(whatsapp, message) : null,
+      };
+    });
+  }
+
   /** Ação de status: quem valida a transição é a máquina de estados do shared. */
   async runAction(
     auth: AuthContext,
@@ -368,9 +435,16 @@ export class WorkOrdersService {
 
       const now = new Date();
       const patch: OrderPatch = { status: to };
+      let baixa: ConsumptionSummary | null = null;
       if (action === 'start') patch.startedAt = order.startedAt ?? now;
-      if (action === 'complete') patch.completedAt = now;
+      if (action === 'complete') {
+        patch.completedAt = now;
+        // a peça sai do estoque de verdade: a reserva vira saída (§10). Faltar
+        // peça não trava — o saldo fica negativo e a oficina é avisada.
+        baixa = await consumeApprovedItems(tx, auth.organizationId, id, auth.userId);
+      }
       if (action === 'deliver') patch.deliveredAt = now;
+      // reabrir NÃO estorna a baixa: a peça já está montada no carro
       if (action === 'reopen') patch.completedAt = null;
       if (action === 'cancel') {
         patch.canceledAt = now;
@@ -385,7 +459,12 @@ export class WorkOrdersService {
         organizationId: auth.organizationId,
         workOrderId: id,
         type: action === 'cancel' ? 'CANCELED' : action === 'deliver' ? 'DELIVERED' : 'STATUS_CHANGED',
-        data: { from: order.status, to, reason: input.reason ?? null },
+        data: {
+          from: order.status,
+          to,
+          reason: input.reason ?? null,
+          ...(baixa ? { consumidos: baixa.consumed, pecasNegativas: baixa.negative.length } : {}),
+        },
         actorUserId: auth.userId,
       });
       await recordActivity(tx, {

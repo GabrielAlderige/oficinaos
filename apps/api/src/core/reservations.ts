@@ -1,6 +1,6 @@
-import { and, asc, eq, inArray, isNotNull } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNotNull, ne } from 'drizzle-orm';
 import { milliToDecimal, parseQuantity } from '@oficinaos/shared';
-import { parts, workOrderItems } from '../db/schema';
+import { inventoryMovements, parts, workOrderItems } from '../db/schema';
 import type { Tx } from '../db/tenant';
 
 const milli = (value: string) => parseQuantity(value) ?? 0;
@@ -129,4 +129,116 @@ export async function releaseReservations(tx: Tx, organizationId: string, itemId
   for (const [partId, total] of reservado) {
     await tx.update(parts).set({ quantityReserved: milliToDecimal(total) }).where(eq(parts.id, partId));
   }
+}
+
+export interface ConsumptionSummary {
+  /** itens que saíram do estoque de verdade */
+  consumed: number;
+  /** peças que ficaram negativas: a oficina precisa acertar a contagem */
+  negative: { partId: string; name: string; balanceMilli: number }[];
+}
+
+/**
+ * Baixa do estoque na finalização da OS (docs/ARCHITECTURE.md §10): a reserva
+ * vira saída `WORK_ORDER_OUT` da quantidade inteira.
+ *
+ * **Estoque insuficiente não trava a finalização.** O saldo fica negativo, o
+ * livro-razão registra e a oficina vê o alerta. Travar aqui faria o dono
+ * entregar o carro por fora do sistema — a mesma razão pela qual faltar peça
+ * não impede a aprovação.
+ *
+ * Idempotente: item já `CONSUMED` não baixa de novo, então finalizar → reabrir
+ * → finalizar não tira a peça duas vezes. Reabrir **não** estorna: a peça já
+ * está no carro; devolução é caso de item removido (`CUSTOMER_RETURN`).
+ */
+export async function consumeApprovedItems(
+  tx: Tx,
+  organizationId: string,
+  workOrderId: string,
+  userId: string | null,
+): Promise<ConsumptionSummary> {
+  const summary: ConsumptionSummary = { consumed: 0, negative: [] };
+
+  const items = await tx
+    .select()
+    .from(workOrderItems)
+    .where(
+      and(
+        eq(workOrderItems.organizationId, organizationId),
+        eq(workOrderItems.workOrderId, workOrderId),
+        eq(workOrderItems.type, 'PART'),
+        eq(workOrderItems.sourcing, 'STOCK'),
+        eq(workOrderItems.approvalStatus, 'APPROVED'),
+        ne(workOrderItems.stockStatus, 'CONSUMED'),
+        isNotNull(workOrderItems.partId),
+      ),
+    );
+  if (!items.length) return summary;
+
+  // mesma ordem fixa de id da reserva: duas OS finalizando juntas não travam
+  const partIds = [...new Set(items.map((item) => item.partId!))].sort();
+  const locked = await tx
+    .select()
+    .from(parts)
+    .where(and(eq(parts.organizationId, organizationId), inArray(parts.id, partIds)))
+    .orderBy(asc(parts.id))
+    .for('update');
+
+  const saldo = new Map(
+    locked.map((part) => [
+      part.id,
+      {
+        name: part.name,
+        trackStock: part.trackStock,
+        onHand: milli(part.quantityOnHand),
+        reserved: milli(part.quantityReserved),
+        averageCostCents: part.averageCostCents,
+      },
+    ]),
+  );
+
+  for (const item of items) {
+    const part = saldo.get(item.partId!);
+    if (!part) continue;
+
+    const usada = milli(item.quantity);
+    // o CHECK do livro-razão recusa movimento de quantidade zero, e peça sem
+    // controle de estoque não tem saldo para mexer
+    if (part.trackStock && usada > 0) {
+      part.onHand -= usada;
+      part.reserved = Math.max(0, part.reserved - milli(item.reservedQuantity));
+
+      await tx.insert(inventoryMovements).values({
+        organizationId,
+        partId: item.partId!,
+        type: 'WORK_ORDER_OUT',
+        quantity: milliToDecimal(-usada),
+        // saída não recalcula custo médio: grava o vigente como histórico
+        unitCostCents: part.averageCostCents,
+        balanceAfter: milliToDecimal(part.onHand),
+        averageCostAfterCents: part.averageCostCents,
+        workOrderId,
+        workOrderItemId: item.id,
+        createdBy: userId,
+      });
+      summary.consumed += 1;
+    }
+
+    await tx
+      .update(workOrderItems)
+      .set({ stockStatus: 'CONSUMED', reservedQuantity: milliToDecimal(0) })
+      .where(eq(workOrderItems.id, item.id));
+  }
+
+  for (const [partId, part] of saldo) {
+    await tx
+      .update(parts)
+      .set({ quantityOnHand: milliToDecimal(part.onHand), quantityReserved: milliToDecimal(part.reserved) })
+      .where(eq(parts.id, partId));
+    // uma entrada por peça, não por item: duas linhas da mesma peça é um alerta só
+    if (part.trackStock && part.onHand < 0) {
+      summary.negative.push({ partId, name: part.name, balanceMilli: part.onHand });
+    }
+  }
+  return summary;
 }

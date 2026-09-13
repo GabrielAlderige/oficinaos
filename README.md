@@ -11,7 +11,7 @@ O diferencial inicial é um fluxo:
 
 ## Status
 
-**MVP 1, etapas E1 a E6 concluídas.** Sobre a fundação da E1 (monorepo, banco com
+**MVP 1, etapas E1 a E7 concluídas.** Sobre a fundação da E1 (monorepo, banco com
 isolamento por oficina via RLS, API com erros padronizados e segurança básica),
 a E2 trouxe:
 
@@ -79,6 +79,30 @@ produto:
 - página do cliente em **pacote próprio de 73,6 kB gzip** (teto de 100 kB),
   sem o Zod do painel.
 
+A E7 fechou o ciclo do carro — execução, entrega e dinheiro:
+
+- **baixa de estoque na finalização**: a reserva vira saída no livro-razão, o
+  item fica "baixado" e finalizar de novo (depois de reabrir) não tira a peça
+  duas vezes;
+- **faltar peça não trava a entrega**: o saldo fica negativo e registrado, em vez
+  de impedir o dono de fechar a OS — travar aqui faria a oficina trabalhar por
+  fora do sistema;
+- só sai do estoque o que foi **aprovado** e é **da prateleira**: peça do cliente
+  e peça a comprar não mexem no saldo;
+- **pagamento**: registro por forma (Pix, dinheiro, cartão, boleto,
+  transferência), parcial ou total, com cancelamento que **reabre o saldo e
+  mantém o histórico** — nada é apagado. `paid_cents` e a situação da OS saem
+  sempre da soma dos lançamentos confirmados, nunca de um valor vindo da tela;
+- receber **acima do saldo é recusado** (crédito a favor do cliente é MVP 2);
+- **entregar devendo é permitido** (o fiado existe), mas pede confirmação
+  mostrando quanto falta;
+- **"veículo pronto" pelo WhatsApp**: mensagem pronta com o saldo em aberto, que
+  a pessoa revisa e envia, registrada no histórico de comunicação e na timeline
+  do carro;
+- correção que veio junto: o link `wa.me` era montado com o telefone já em E.164
+  mais um "55" na frente (link que não abria), e o do orçamento apontava para o
+  número **da própria oficina** em vez do cliente.
+
 | Etapa do MVP 1 | Situação |
 |---|---|
 | E1. Fundação (monorepo, banco com RLS, API base) | ✅ 10/09/2026 |
@@ -87,8 +111,8 @@ produto:
 | E4. Catálogo de serviços e peças, estoque básico | ✅ 11/09/2026 |
 | E5. Ordem de serviço | ✅ 11/09/2026 |
 | E6. Orçamento com link e aprovação pelo celular | ✅ 12/09/2026 |
-| E7. Execução, entrega e pagamento | próxima |
-| E8. Agenda | — |
+| E7. Execução, entrega e pagamento | ✅ 12/09/2026 |
+| E8. Agenda | próxima |
 | E9. Dashboard e acabamento | — |
 
 Toda etapa só fecha com `npm run check` verde. Além disso:
@@ -111,7 +135,7 @@ Toda etapa só fecha com `npm run check` verde. Além disso:
 | Back-end | Node.js, TypeScript, Fastify 5, Zod 4, Drizzle ORM, argon2id, JWT (jose) |
 | Banco | PostgreSQL 17 com Row Level Security |
 | Compartilhado | `packages/shared`: schemas Zod, enums, permissões, validação de CPF/CNPJ/placa/telefone, usados por front e back |
-| Testes | Vitest com Postgres real de teste (32 arquivos, 289 testes) e Playwright em `e2e/` para os fluxos de ponta a ponta: o painel no desktop e o cliente aprovando num celular de 390 px |
+| Testes | Vitest com Postgres real de teste (34 arquivos, 302 testes) e Playwright em `e2e/` para os fluxos de ponta a ponta: o cliente aprovando num celular de 390 px, e no painel o envio do orçamento, o caixa e a entrega |
 
 ## Rodando localmente (Windows, macOS ou Linux)
 

@@ -27,6 +27,20 @@ export function normalizeBrazilianPhone(input: string): string | null {
   return `+55${digits}`;
 }
 
+/**
+ * Link do WhatsApp para um telefone já normalizado.
+ *
+ * O `wa.me` quer **só dígitos** com o código do país: `wa.me/5511987654321`.
+ * Como o banco guarda E.164 (`+5511987654321`), concatenar "55" na frente do
+ * valor gravado gera `wa.me/55+55…` — link quebrado que abre nada. Esta função
+ * existe para que os três lugares que mandam mensagem (orçamento, veículo
+ * pronto e o que vier) usem a MESMA construção.
+ */
+export function whatsappLink(e164: string, message: string): string {
+  const digits = e164.replace(/\D/g, '');
+  return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
+}
+
 /** `+5511987654321` → "(11) 98765-4321"; `+551134567890` → "(11) 3456-7890". */
 export function formatBrazilianPhone(e164: string): string {
   const digits = e164.replace(/\D/g, '').replace(/^55/, '');

@@ -288,6 +288,20 @@ describe('orçamento e aprovação', () => {
       expect(res.body).toContain('respondido ou cancelado');
     });
 
+    it('o link do WhatsApp abre a conversa com o cliente, não com a oficina', async () => {
+      const { quote } = await sendQuote();
+      const res = await post(`/api/v1/quotes/${quote.id}/share`, { channel: 'WHATSAPP_LINK' });
+      expect(res.statusCode, res.body).toBe(200);
+
+      const { whatsappUrl, message } = res.json() as { whatsappUrl: string; message: string };
+      expect(message).toContain('João');
+      // o cliente do cenário é (11) 91234-5678, gravado como +5511912345678.
+      // O wa.me quer só dígitos: nada de "+" nem de "55" repetido.
+      expect(whatsappUrl).toContain('https://wa.me/5511912345678?text=');
+      expect(whatsappUrl).not.toContain('+');
+      expect(whatsappUrl).not.toContain('wa.me/5555');
+    });
+
     it('orçamento vencido não aceita mais resposta', async () => {
       const { quote } = await sendQuote();
       const token = tokenOf(quote);

@@ -24,6 +24,8 @@ import { inventoryRoutes, partCategoryRoutes, partRoutes } from './modules/parts
 import { PartsService } from './modules/parts/parts.service';
 import { notificationRoutes } from './modules/notifications/notifications.routes';
 import { NotificationsService } from './modules/notifications/notifications.service';
+import { paymentRoutes, workOrderPaymentRoutes } from './modules/payments/payments.routes';
+import { PaymentsService } from './modules/payments/payments.service';
 import { publicQuoteRoutes } from './modules/quotes/public-quotes.routes';
 import { quoteRoutes, workOrderQuoteRoutes } from './modules/quotes/quotes.routes';
 import { QuotesService } from './modules/quotes/quotes.service';
@@ -55,6 +57,7 @@ export interface Services {
   uploads: UploadsService;
   quotes: QuotesService;
   notifications: NotificationsService;
+  payments: PaymentsService;
 }
 
 declare module 'fastify' {
@@ -123,6 +126,7 @@ export async function buildApp({
     uploads: new UploadsService(deps),
     quotes: new QuotesService(deps),
     notifications: new NotificationsService(deps),
+    payments: new PaymentsService(deps),
   };
 
   app.decorate('db', db);
@@ -162,6 +166,8 @@ export async function buildApp({
   await app.register(workOrderQuoteRoutes, { prefix: '/api/v1/work-orders' });
   await app.register(quoteRoutes, { prefix: '/api/v1/quotes' });
   await app.register(notificationRoutes, { prefix: '/api/v1/notifications' });
+  await app.register(workOrderPaymentRoutes, { prefix: '/api/v1/work-orders' });
+  await app.register(paymentRoutes, { prefix: '/api/v1/payments' });
   // sem login: o token do link é a credencial (limite por IP em cada rota)
   await app.register(publicQuoteRoutes, { prefix: '/api/v1/public' });
 

@@ -20,6 +20,7 @@ import {
   type QuoteListItem,
   quoteValidUntil,
   type ShareChannel,
+  whatsappLink,
   whatsappQuoteMessage,
 } from '@oficinaos/shared';
 import { recordActivity } from '../../core/audit';
@@ -248,7 +249,10 @@ export class QuotesService {
         totalCents: found.quote.totalCents,
         link,
       });
-      const whatsapp = found.quote.snapshot.shop.whatsapp ?? null;
+      // o número é o do CLIENTE: o link abre a conversa com quem vai decidir.
+      // Antes saía o da própria oficina, enquanto a tela dizia "o cliente não
+      // tem WhatsApp cadastrado" — promessa que o dado não cumpria.
+      const whatsapp = found.customerWhatsapp ?? null;
 
       await repo.updateQuote(tx, id, { sentChannel: channel });
       await repo.insertMessage(tx, {
@@ -278,7 +282,8 @@ export class QuotesService {
       return {
         quote: await this.load(tx, auth.organizationId, id),
         message,
-        whatsappUrl: whatsapp ? `https://wa.me/55${whatsapp}?text=${encodeURIComponent(message)}` : null,
+        // E.164 no banco: concatenar "55" aqui gerava `wa.me/55+55…` (link morto)
+        whatsappUrl: whatsapp ? whatsappLink(whatsapp, message) : null,
       };
     });
   }

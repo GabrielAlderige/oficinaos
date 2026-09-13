@@ -4,7 +4,9 @@ import { ACTIVE_WORK_ORDER_STATUSES, type WorkOrderStatus } from '@oficinaos/sha
 import { likeContains } from '../../core/normalize';
 import {
   customers,
+  messages,
   odometerReadings,
+  organizations,
   parts,
   quotes,
   services,
@@ -84,6 +86,25 @@ export async function lockWorkOrder(tx: Tx, organizationId: string, id: string) 
 
 export async function insertWorkOrder(tx: Tx, values: typeof workOrders.$inferInsert) {
   const [row] = await tx.insert(workOrders).values(values).returning();
+  return row!;
+}
+
+/** Nome e WhatsApp da oficina: é quem assina a mensagem do "veículo pronto". */
+export async function findOrganization(tx: Tx, organizationId: string) {
+  const [row] = await tx
+    .select({ name: organizations.name, whatsapp: organizations.whatsapp })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId))
+    .limit(1);
+  return row;
+}
+
+/**
+ * Histórico de comunicação. O link `wa.me` não confirma entrega: o máximo que
+ * sabemos é que a pessoa da oficina ABRIU o link (`LINK_OPENED`).
+ */
+export async function insertMessage(tx: Tx, values: typeof messages.$inferInsert) {
+  const [row] = await tx.insert(messages).values(values).returning();
   return row!;
 }
 

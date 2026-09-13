@@ -122,6 +122,8 @@ export const WORK_ORDER_EVENT_TYPES = [
   'QUOTE_APPROVED',
   'QUOTE_REJECTED',
   'CUSTOMER_QUESTION',
+  /** a oficina avisou o cliente (veículo pronto, no V1 por link wa.me) */
+  'CUSTOMER_NOTIFIED',
   'PAYMENT',
   'DELIVERED',
   'CANCELED',
@@ -140,6 +142,7 @@ export const WORK_ORDER_EVENT_TYPE_LABELS: Record<WorkOrderEventType, string> = 
   QUOTE_APPROVED: 'Orçamento aprovado',
   QUOTE_REJECTED: 'Orçamento recusado',
   CUSTOMER_QUESTION: 'Pergunta do cliente',
+  CUSTOMER_NOTIFIED: 'Cliente avisado',
   PAYMENT: 'Pagamento',
   DELIVERED: 'Veículo entregue',
   CANCELED: 'OS cancelada',

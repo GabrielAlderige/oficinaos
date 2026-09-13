@@ -46,6 +46,11 @@ export const ErrorCode = {
   ITEM_ALREADY_APPROVED: 'ITEM_ALREADY_APPROVED',
   /** o arquivo não terminou de subir para o storage */
   UPLOAD_INCOMPLETE: 'UPLOAD_INCOMPLETE',
+  // pagamento
+  /** o valor passa do que falta receber: crédito a favor do cliente é MVP 2 */
+  PAYMENT_EXCEEDS_BALANCE: 'PAYMENT_EXCEEDS_BALANCE',
+  /** o lançamento já estava cancelado */
+  PAYMENT_ALREADY_CANCELED: 'PAYMENT_ALREADY_CANCELED',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];

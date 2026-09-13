@@ -1,6 +1,8 @@
 import {
   availableActions,
+  formatBRL,
   PAYMENT_STATUS_LABELS,
+  saldoCents,
   WORK_ORDER_STATUS_LABELS,
   WORK_ORDER_STATUS_TONES,
   type PaymentStatus,
@@ -8,6 +10,7 @@ import {
   type WorkOrderAction,
   type WorkOrderStatus,
 } from '@oficinaos/shared';
+import { MessageCircle } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '../../components/ui/button';
@@ -17,7 +20,7 @@ import { Input } from '../../components/ui/input';
 import { Dialog, DialogContent, DialogFooter, DialogHeader } from '../../components/ui/overlays';
 import { errorMessage } from '../../lib/errors';
 import { useMe } from '../../lib/session';
-import { useRunAction } from './api';
+import { useRunAction, useVehicleReady } from './api';
 
 export function StatusBadge({ status }: { status: WorkOrderStatus }) {
   return <Badge tone={WORK_ORDER_STATUS_TONES[status]}>{WORK_ORDER_STATUS_LABELS[status]}</Badge>;
@@ -38,16 +41,37 @@ export function PaymentBadge({ status }: { status: PaymentStatus }) {
 export function StatusActions({ order }: { order: WorkOrder }) {
   const me = useMe();
   const run = useRunAction(order.id);
+  const vehicleReady = useVehicleReady(order.id);
   const [cancelling, setCancelling] = useState(false);
+  const [delivering, setDelivering] = useState(false);
   const actions = availableActions(order.status, (permission) => me.permissions.includes(permission));
 
-  if (!actions.length) return null;
+  // entregar com saldo em aberto é permitido (o fiado existe), mas não pode ser
+  // por distração: quando falta receber, pede confirmação (ARCHITECTURE §8.3)
+  const emAberto = order.paymentStatus !== 'PAID';
+
+  if (!actions.length && order.status !== 'COMPLETED') return null;
 
   async function fire(action: WorkOrderAction, reason?: string) {
     try {
       const updated = await run.mutateAsync({ action, reason });
       toast.success(`OS ${updated.number}: ${WORK_ORDER_STATUS_LABELS[updated.status].toLowerCase()}.`);
       setCancelling(false);
+      setDelivering(false);
+    } catch (err) {
+      toast.error(errorMessage(err));
+    }
+  }
+
+  async function avisarPronto() {
+    try {
+      const { message, whatsappUrl } = await vehicleReady.mutateAsync();
+      if (whatsappUrl) {
+        window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+        return;
+      }
+      await navigator.clipboard.writeText(message);
+      toast.success('O cliente não tem WhatsApp cadastrado. A mensagem foi copiada.');
     } catch (err) {
       toast.error(errorMessage(err));
     }
@@ -62,14 +86,66 @@ export function StatusActions({ order }: { order: WorkOrder }) {
             size="sm"
             variant={action === 'cancel' ? 'ghost' : 'secondary'}
             disabled={run.isPending}
-            onClick={() => (requiresReason ? setCancelling(true) : void fire(action))}
+            onClick={() => {
+              if (requiresReason) return setCancelling(true);
+              if (action === 'deliver' && emAberto) return setDelivering(true);
+              void fire(action);
+            }}
           >
             {label}
           </Button>
         ))}
+        {order.status === 'COMPLETED' && (
+          <Button size="sm" variant="secondary" loading={vehicleReady.isPending} onClick={() => void avisarPronto()}>
+            <MessageCircle />
+            Avisar que está pronto
+          </Button>
+        )}
       </div>
       <CancelDialog open={cancelling} onOpenChange={setCancelling} number={order.number} onConfirm={(reason) => fire('cancel', reason)} />
+      <DeliverDialog
+        open={delivering}
+        onOpenChange={setDelivering}
+        order={order}
+        onConfirm={() => fire('deliver')}
+      />
     </>
+  );
+}
+
+/** Entregar devendo é permitido, mas a pessoa vê o saldo antes de confirmar. */
+function DeliverDialog({ open, onOpenChange, order, onConfirm }: {
+  open: boolean;
+  onOpenChange(open: boolean): void;
+  order: WorkOrder;
+  onConfirm(): Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const falta = saldoCents(order.totals);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader
+          title="Entregar com saldo em aberto?"
+          description={`Falta receber ${formatBRL(falta)} da OS ${order.number}. A entrega fica registrada assim mesmo.`}
+        />
+        <DialogFooter>
+          <Button variant="secondary" onClick={() => onOpenChange(false)}>
+            Voltar
+          </Button>
+          <Button
+            loading={busy}
+            onClick={() => {
+              setBusy(true);
+              void onConfirm().finally(() => setBusy(false));
+            }}
+          >
+            Entregar mesmo assim
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

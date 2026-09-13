@@ -40,6 +40,7 @@ import {
   useUpdateWorkOrder,
   useWorkOrder,
 } from './api';
+import { PaymentCard } from '../payments/PaymentCard';
 import { QuoteCard } from '../quotes/QuoteCard';
 import { CheckInDialog } from './CheckInDialog';
 import { ItemPicker, parseTypedQuantity } from './ItemPicker';
@@ -195,6 +196,7 @@ function WorkOrderDetail({ order }: { order: WorkOrder }) {
         <div className="order-first space-y-6 lg:order-none">
           {/* o orçamento é o que o produto inteiro existe para servir: vem primeiro */}
           <QuoteCard order={order} quoteId={order.currentQuote?.id ?? null} />
+          <PaymentCard order={order} />
           <Card>
             <CardHeader title="Cliente e veículo" />
             <dl className="px-5 py-3">

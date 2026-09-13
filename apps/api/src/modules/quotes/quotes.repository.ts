@@ -30,6 +30,8 @@ const header = {
   workOrderNumber: workOrders.number,
   customerId: customers.id,
   customerName: customers.name,
+  /** o link do WhatsApp abre a conversa com o CLIENTE, não com a oficina */
+  customerWhatsapp: customers.whatsapp,
   vehiclePlate: vehicles.plate,
   vehicleMake: vehicles.make,
   vehicleModel: vehicles.model,
