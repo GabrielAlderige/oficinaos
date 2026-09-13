@@ -24,6 +24,8 @@ import { inventoryRoutes, partCategoryRoutes, partRoutes } from './modules/parts
 import { PartsService } from './modules/parts/parts.service';
 import { notificationRoutes } from './modules/notifications/notifications.routes';
 import { NotificationsService } from './modules/notifications/notifications.service';
+import { appointmentRoutes } from './modules/appointments/appointments.routes';
+import { AppointmentsService } from './modules/appointments/appointments.service';
 import { paymentRoutes, workOrderPaymentRoutes } from './modules/payments/payments.routes';
 import { PaymentsService } from './modules/payments/payments.service';
 import { publicQuoteRoutes } from './modules/quotes/public-quotes.routes';
@@ -58,6 +60,7 @@ export interface Services {
   quotes: QuotesService;
   notifications: NotificationsService;
   payments: PaymentsService;
+  appointments: AppointmentsService;
 }
 
 declare module 'fastify' {
@@ -114,6 +117,7 @@ export async function buildApp({
   const tokens = new AccessTokens(env.JWT_SECRET);
   const caches = createAuthCaches(AUTH_CACHE_TTL_MS);
   const deps: ServiceDeps = { db, env, email, storage, tokens, caches, log: app.log };
+  const workOrders = new WorkOrdersService(deps);
   const services: Services = {
     auth: new AuthService(deps),
     organizations: new OrganizationsService(deps),
@@ -122,11 +126,12 @@ export async function buildApp({
     vehicles: new VehiclesService(deps),
     catalogServices: new ServicesService(deps),
     parts: new PartsService(deps),
-    workOrders: new WorkOrdersService(deps),
+    workOrders,
     uploads: new UploadsService(deps),
     quotes: new QuotesService(deps),
     notifications: new NotificationsService(deps),
     payments: new PaymentsService(deps),
+    appointments: new AppointmentsService(deps, workOrders),
   };
 
   app.decorate('db', db);
@@ -168,6 +173,7 @@ export async function buildApp({
   await app.register(notificationRoutes, { prefix: '/api/v1/notifications' });
   await app.register(workOrderPaymentRoutes, { prefix: '/api/v1/work-orders' });
   await app.register(paymentRoutes, { prefix: '/api/v1/payments' });
+  await app.register(appointmentRoutes, { prefix: '/api/v1/appointments' });
   // sem login: o token do link é a credencial (limite por IP em cada rota)
   await app.register(publicQuoteRoutes, { prefix: '/api/v1/public' });
 

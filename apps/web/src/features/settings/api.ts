@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
+  CalendarColor,
   CreatedInvitation,
   CreateInvitationInput,
   Invitation,
@@ -95,7 +96,7 @@ export function useRevokeInvitation() {
 export function useUpdateMember() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...body }: { id: string; role?: Role; isActive?: boolean }) =>
+    mutationFn: ({ id, ...body }: { id: string; role?: Role; isActive?: boolean; calendarColor?: CalendarColor | null }) =>
       api<Member>(`/members/${id}`, { method: 'PATCH', json: body }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: settingsKeys.members }),
   });

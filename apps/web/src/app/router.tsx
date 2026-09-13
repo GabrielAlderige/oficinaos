@@ -53,6 +53,11 @@ export const router = createBrowserRouter([
         children: [
           { index: true, lazy: page(() => import('../features/home/HomePage'), 'HomePage'), handle: { crumb: 'Início' } },
           {
+            path: 'agenda',
+            lazy: page(() => import('../features/appointments/AgendaPage'), 'AgendaPage'),
+            handle: { crumb: 'Agenda' },
+          },
+          {
             path: 'clientes',
             handle: { crumb: 'Clientes' },
             children: [

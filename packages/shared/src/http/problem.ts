@@ -51,6 +51,11 @@ export const ErrorCode = {
   PAYMENT_EXCEEDS_BALANCE: 'PAYMENT_EXCEEDS_BALANCE',
   /** o lançamento já estava cancelado */
   PAYMENT_ALREADY_CANCELED: 'PAYMENT_ALREADY_CANCELED',
+  // agenda
+  /** o mecânico já tem compromisso naquela hora; com `force` o encaixe passa */
+  APPOINTMENT_CONFLICT: 'APPOINTMENT_CONFLICT',
+  /** o check-in já foi feito: o agendamento já tem OS */
+  APPOINTMENT_ALREADY_CHECKED_IN: 'APPOINTMENT_ALREADY_CHECKED_IN',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];

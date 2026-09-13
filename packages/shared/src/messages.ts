@@ -35,3 +35,24 @@ export function whatsappVehicleReadyMessage(input: {
   linhas.push('Qualquer dúvida, é só responder por aqui.');
   return linhas.join('\n\n');
 }
+
+/**
+ * Confirmação de agendamento (E8). Quem escreve a data é quem chama, já no
+ * relógio da oficina (`calendar.ts`) — a mensagem não tem como adivinhar fuso,
+ * e cliente lendo "às 09:00" quando a oficina marcou 08:00 perde a hora.
+ */
+export function whatsappAppointmentMessage(input: {
+  customerName: string;
+  shopName: string;
+  /** "segunda-feira, 14/09, às 09:00" */
+  when: string;
+  title: string;
+  vehicle: { make: string; model: string; plate: string | null } | null;
+}): string {
+  const carro = input.vehicle ? ` do seu ${comPlaca(input.vehicle)}` : '';
+  return [
+    `Olá, ${primeiroNome(input.customerName)}! Aqui é da ${input.shopName}.`,
+    `Confirmando o agendamento${carro}: ${input.title}, ${input.when}.`,
+    'Consegue vir nesse horário? Se precisar remarcar, é só responder por aqui.',
+  ].join('\n\n');
+}

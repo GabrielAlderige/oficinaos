@@ -99,7 +99,7 @@ Legenda de fase: **1** = MVP 1 · **2** = MVP 2 · **3** = V3.
 | GET | `/members?role=MECHANIC` | autenticado | 1 |
 | POST | `/members/invitations` | `team:manage` | 1 |
 | DELETE | `/members/invitations/{id}` | `team:manage` | 1 |
-| PATCH | `/members/{id}` (papel, ativo, cor na agenda) | `team:manage` | 1 |
+| PATCH | `/members/{id}` (papel, ativo, cor na agenda) | `team:manage`; a **própria cor** dispensa | 1 |
 | DELETE | `/members/{id}` | `team:manage` | 1 |
 
 Ninguém rebaixa nem remove o último OWNER.
@@ -136,12 +136,14 @@ Ninguém rebaixa nem remove o último OWNER.
 
 | Método | Rota | Permissão | Fase |
 |---|---|---|---|
-| GET | `/appointments?from=&to=&mechanicId=&status=` | `appointments:read` | 1 |
+| GET | `/appointments?from=&to=&mechanicId=&customerId=&vehicleId=&status=` | `appointments:read` | 1 |
 | GET | `/appointments/conflicts?mechanicId=&startsAt=&endsAt=&excludeId=` | `appointments:read` | 1 |
+| GET | `/appointments/{id}` | `appointments:read` | 1 |
 | POST | `/appointments` (devolve 422 `APPOINTMENT_CONFLICT` salvo `force: true`) | `appointments:write` | 1 |
 | PATCH | `/appointments/{id}` (reagendar, inclusive por arrastar e soltar) | `appointments:write` | 1 |
-| POST | `/appointments/{id}/confirm` · `/cancel` · `/no-show` | `appointments:write` | 1 |
+| POST | `/appointments/{id}/confirm` · `/complete` · `/cancel` (com motivo) · `/no-show` | `appointments:write` | 1 |
 | POST | `/appointments/{id}/check-in` → cria a OS com o check-in, e o agendamento passa a `IN_PROGRESS` | `work_orders:write` | 1 |
+| POST | `/appointments/{id}/confirmation` → mensagem pronta + link `wa.me`, com o envio registrado | `appointments:write` | 1 (E8) |
 
 ### Ordens de serviço — `/work-orders`
 

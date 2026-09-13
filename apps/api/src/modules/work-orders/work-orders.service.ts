@@ -175,53 +175,66 @@ export class WorkOrdersService {
   // ------------------------------------------------------------- escrita
 
   async create(auth: AuthContext, input: CreateWorkOrderInput, client: ClientInfo): Promise<WorkOrder> {
-    return withTenant(this.deps.db, auth, async (tx) => {
-      const vehicle = await repo.findVehicleWithCustomer(tx, auth.organizationId, input.vehicleId);
-      if (!vehicle || vehicle.deletedAt) {
-        throw validationFailed([{ path: 'body.vehicleId', message: 'Veículo não encontrado' }]);
-      }
-      if (vehicle.customerId !== input.customerId) {
-        throw validationFailed([{ path: 'body.vehicleId', message: 'Este veículo é de outro cliente' }]);
-      }
+    return withTenant(this.deps.db, auth, (tx) => this.createInTx(tx, auth, input, client));
+  }
 
-      const number = await nextNumber(tx, auth.organizationId, COUNTER_WORK_ORDER);
-      const order = await repo.insertWorkOrder(tx, {
-        organizationId: auth.organizationId,
-        number,
-        customerId: input.customerId,
-        vehicleId: input.vehicleId,
-        odometerKm: input.odometerKm,
-        complaint: blankToNull(input.complaint),
-        promisedAt: input.promisedAt ? new Date(input.promisedAt) : null,
-        // quem abre é o consultor, salvo indicação em contrário
-        advisorUserId: input.advisorUserId ?? auth.userId,
-        mechanicUserId: input.mechanicUserId,
-        createdBy: auth.userId,
-      });
+  /**
+   * O mesmo "abrir OS", só que dentro de uma transação que já existe. O
+   * check-in da agenda (E8) precisa criar a OS e ligar o agendamento a ela sem
+   * abrir uma segunda transação: ou as duas coisas acontecem, ou nenhuma.
+   */
+  async createInTx(
+    tx: Tx,
+    auth: AuthContext,
+    input: CreateWorkOrderInput & { appointmentId?: string | null },
+    client: ClientInfo,
+  ): Promise<WorkOrder> {
+    const vehicle = await repo.findVehicleWithCustomer(tx, auth.organizationId, input.vehicleId);
+    if (!vehicle || vehicle.deletedAt) {
+      throw validationFailed([{ path: 'body.vehicleId', message: 'Veículo não encontrado' }]);
+    }
+    if (vehicle.customerId !== input.customerId) {
+      throw validationFailed([{ path: 'body.vehicleId', message: 'Este veículo é de outro cliente' }]);
+    }
 
-      for (const [index, item] of input.items.entries()) {
-        await this.insertItem(tx, auth, order.id, item, index + 1);
-      }
-      const withTotals = await this.applyChange(tx, order);
-
-      await repo.insertEvent(tx, {
-        organizationId: auth.organizationId,
-        workOrderId: order.id,
-        type: 'CREATED',
-        data: { number, itemCount: input.items.length },
-        actorUserId: auth.userId,
-      });
-      await recordActivity(tx, {
-        organizationId: auth.organizationId,
-        actorUserId: auth.userId,
-        action: 'work_order.created',
-        entityType: 'work_order',
-        entityId: order.id,
-        metadata: { number, totalCents: withTotals.totalCents },
-        ...client,
-      });
-      return this.load(tx, auth, order.id);
+    const number = await nextNumber(tx, auth.organizationId, COUNTER_WORK_ORDER);
+    const order = await repo.insertWorkOrder(tx, {
+      organizationId: auth.organizationId,
+      number,
+      customerId: input.customerId,
+      vehicleId: input.vehicleId,
+      appointmentId: input.appointmentId ?? null,
+      odometerKm: input.odometerKm,
+      complaint: blankToNull(input.complaint),
+      promisedAt: input.promisedAt ? new Date(input.promisedAt) : null,
+      // quem abre é o consultor, salvo indicação em contrário
+      advisorUserId: input.advisorUserId ?? auth.userId,
+      mechanicUserId: input.mechanicUserId,
+      createdBy: auth.userId,
     });
+
+    for (const [index, item] of input.items.entries()) {
+      await this.insertItem(tx, auth, order.id, item, index + 1);
+    }
+    const withTotals = await this.applyChange(tx, order);
+
+    await repo.insertEvent(tx, {
+      organizationId: auth.organizationId,
+      workOrderId: order.id,
+      type: 'CREATED',
+      data: { number, itemCount: input.items.length },
+      actorUserId: auth.userId,
+    });
+    await recordActivity(tx, {
+      organizationId: auth.organizationId,
+      actorUserId: auth.userId,
+      action: 'work_order.created',
+      entityType: 'work_order',
+      entityId: order.id,
+      metadata: { number, totalCents: withTotals.totalCents },
+      ...client,
+    });
+    return this.load(tx, auth, order.id);
   }
 
   async update(auth: AuthContext, id: string, input: UpdateWorkOrderInput, client: ClientInfo): Promise<WorkOrder> {

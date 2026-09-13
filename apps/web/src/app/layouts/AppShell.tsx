@@ -1,5 +1,6 @@
 import { can, type Permission } from '@oficinaos/shared';
 import {
+  CalendarDays,
   Car,
   ClipboardList,
   FileText,
@@ -38,6 +39,7 @@ interface NavItem {
 // Módulos entram aqui conforme existirem de verdade (clientes na E3, catálogo na E4, OS na E5…).
 const NAV: NavItem[] = [
   { to: '/', label: 'Início', icon: House, end: true },
+  { to: '/agenda', label: 'Agenda', icon: CalendarDays, permission: 'appointments:read' },
   { to: '/ordens', label: 'Ordens de serviço', icon: ClipboardList, permission: 'work_orders:read' },
   { to: '/orcamentos', label: 'Orçamentos', icon: FileText, permission: 'work_orders:read' },
   { to: '/clientes', label: 'Clientes', icon: Users },

@@ -142,8 +142,10 @@ export class MembersService {
   /** Mudar papel ou desativar. Desativar derruba as sessões da pessoa nesta oficina na hora. */
   async update(auth: AuthContext, id: string, input: UpdateMemberInput, client: ClientInfo): Promise<Member> {
     const { db, caches } = this.deps;
+    // trocar a PRÓPRIA cor na agenda é permitido: não mexe em acesso nenhum
+    const soCor = input.role === undefined && input.isActive === undefined;
     const { member, patch, revoked } = await withTenant(db, auth, async (tx) => {
-      const member = await this.loadManageable(tx, auth, id);
+      const member = await this.loadManageable(tx, auth, id, soCor);
       if (input.role && !canManageRole(auth.role, input.role)) {
         throw forbidden('Só o dono da oficina pode tornar alguém dono.');
       }
@@ -153,7 +155,7 @@ export class MembersService {
         ((input.role !== undefined && input.role !== 'OWNER') || input.isActive === false);
       if (losesOwner) await this.assertNotLastOwner(tx, auth.organizationId);
 
-      const patch = { role: input.role, isActive: input.isActive };
+      const patch = { role: input.role, isActive: input.isActive, calendarColor: input.calendarColor };
       const changes = diffChanges(member, patch);
       let revoked: string[] = [];
       if (Object.keys(changes).length) {
@@ -189,7 +191,9 @@ export class MembersService {
       email: member.email,
       role: patch.role ?? member.role,
       isActive: patch.isActive ?? member.isActive,
-      isCurrentUser: false,
+      // `??` cairia no valor antigo quando a pessoa LIMPA a cor (null explícito)
+      calendarColor: patch.calendarColor !== undefined ? patch.calendarColor : member.calendarColor,
+      isCurrentUser: member.userId === auth.userId,
       joinedAt: member.joinedAt.toISOString(),
     };
   }
@@ -223,10 +227,15 @@ export class MembersService {
   }
 
   /** Membro desta oficina que QUEM PEDE pode gerenciar (outra oficina = 404). */
-  private async loadManageable(tx: Parameters<Parameters<typeof withTenant>[2]>[0], auth: AuthContext, id: string) {
+  private async loadManageable(
+    tx: Parameters<Parameters<typeof withTenant>[2]>[0],
+    auth: AuthContext,
+    id: string,
+    permitirSiMesmo = false,
+  ) {
     const member = await repo.findMember(tx, auth.organizationId, id);
     if (!member) throw notFound('Membro não encontrado.');
-    if (member.userId === auth.userId) throw cannotChangeSelf();
+    if (member.userId === auth.userId && !permitirSiMesmo) throw cannotChangeSelf();
     if (!canManageRole(auth.role, member.role)) throw forbidden('Só o dono da oficina pode alterar outro dono.');
     return member;
   }

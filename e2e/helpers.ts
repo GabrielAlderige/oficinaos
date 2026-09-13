@@ -143,16 +143,26 @@ export async function entrarNoPainel(page: Page, email: string): Promise<void> {
  * Erro no console reprova o teste. Bug de front costuma aparecer só aqui: a tela
  * continua "passando" enquanto o console grita.
  */
-export const test = base.extend<{ semErroDeConsole: void }>({
+export const test = base.extend<{ semErroDeConsole: void; ignorarErros: RegExp[] }>({
+  /**
+   * Erros que o cenário PROVOCA de propósito — o 422 do conflito da agenda, por
+   * exemplo, que o navegador registra sozinho ao ver a resposta. O teste declara
+   * o padrão no começo (`ignorarErros.push(/…/)`); tudo o mais continua reprovando.
+   */
+  // eslint-disable-next-line no-empty-pattern
+  ignorarErros: async ({}, use) => {
+    await use([]);
+  },
   semErroDeConsole: [
-    async ({ page }, use) => {
+    async ({ page, ignorarErros }, use) => {
       const erros: string[] = [];
       page.on('console', (mensagem) => {
         if (mensagem.type() === 'error') erros.push(`console.error: ${mensagem.text()}`);
       });
       page.on('pageerror', (erro) => erros.push(`pageerror: ${erro.message}`));
       await use();
-      expect(erros, 'o navegador registrou erro').toEqual([]);
+      const inesperados = erros.filter((erro) => !ignorarErros.some((padrao) => padrao.test(erro)));
+      expect(inesperados, 'o navegador registrou erro').toEqual([]);
     },
     { auto: true },
   ],

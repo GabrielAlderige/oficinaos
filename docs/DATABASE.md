@@ -564,6 +564,20 @@ Conflito de horário é **verificado na aplicação** e devolvido como aviso (a 
 constraint* com `btree_gist` bloquearia sem escapatória; ela fica disponível se um
 dia houver agenda por **box/elevador**, que é recurso físico e não pode ser duplicado.
 
+Como ficou na E8 (migrations `0016`/`0017`):
+
+- a sobreposição é **meio-aberta** (`a.inicio < b.fim && b.inicio < a.fim`), então
+  09:00–10:00 e 10:00–11:00 se encostam sem conflitar. A regra mora em
+  `packages/shared/calendar.ts` — o banco só aproxima os candidatos pelo índice
+  `(organization_id, mechanic_user_id, starts_at)`;
+- `COMPLETED`, `CANCELED` e `NO_SHOW` **devolvem o horário** para a agenda;
+- a FK do mecânico é composta com **`memberships (organization_id, user_id)`**:
+  mecânico de outra oficina não entra nem por engano;
+- a ligação com a OS existe nos dois sentidos. `work_orders.appointment_id` ganha
+  a FK composta na migration `0017`, e não no schema do Drizzle, porque
+  `appointments.ts` e `work-orders.ts` passariam a se importar em círculo;
+- cancelar exige motivo, e isso é `CHECK` no banco, não só validação de tela.
+
 ### 5.5 Ordem de serviço
 
 ```sql

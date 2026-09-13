@@ -71,7 +71,11 @@ export const workOrders = pgTable(
     number: integer().notNull(),
     customerId: uuid().notNull(),
     vehicleId: uuid().notNull(),
-    /** FK entra com a agenda (E8) */
+    /**
+     * Preenchido no check-in do agendamento (E8). A FK composta com
+     * `appointments` é criada na migration da agenda, e não aqui: declará-la no
+     * schema faria os dois arquivos se importarem em círculo.
+     */
     appointmentId: uuid(),
     status: text({ enum: WORK_ORDER_STATUSES }).notNull().default('OPEN'),
     /** independente do status: entregar com saldo em aberto é permitido */

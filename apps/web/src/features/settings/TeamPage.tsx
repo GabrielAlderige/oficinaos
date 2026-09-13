@@ -1,4 +1,13 @@
-import { canManageRole, ROLE_LABELS, ROLES, type Invitation, type Member, type Role } from '@oficinaos/shared';
+import {
+  CALENDAR_COLORS,
+  canManageRole,
+  ROLE_LABELS,
+  ROLES,
+  type CalendarColor,
+  type Invitation,
+  type Member,
+  type Role,
+} from '@oficinaos/shared';
 import { MoreHorizontal, Trash2, UserCheck, UserPlus, UserX } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -10,8 +19,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '../../components/ui/overlays';
+import { cn } from '../../lib/cn';
 import { errorMessage } from '../../lib/errors';
 import { formatDate, formatRelative } from '../../lib/format';
 import { useCan, useMe } from '../../lib/session';
@@ -87,6 +98,18 @@ export function TeamPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    {(manageable || member.isCurrentUser) && (
+                      <CorNaAgenda
+                        member={member}
+                        disabled={updateMember.isPending}
+                        onPick={(calendarColor) =>
+                          void run(
+                            updateMember.mutateAsync({ id: member.id, calendarColor }),
+                            `Cor de ${member.name} na agenda atualizada.`,
+                          )
+                        }
+                      />
+                    )}
                     {!member.isActive && <Badge tone="warning">Desativado</Badge>}
                     {manageable ? (
                       <Select
@@ -201,5 +224,54 @@ export function TeamPage() {
         }}
       />
     </div>
+  );
+}
+
+/**
+ * A cor da pessoa na agenda. Paleta fechada porque tom escolhido a dedo some no
+ * tema escuro; cada um pode trocar a própria, mesmo sem gerenciar a equipe.
+ */
+function CorNaAgenda({
+  member,
+  disabled,
+  onPick,
+}: {
+  member: Member;
+  disabled: boolean;
+  onPick: (cor: CalendarColor | null) => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="size-8" aria-label={`Cor de ${member.name} na agenda`}>
+          <span
+            className="size-3.5 rounded-full border border-border"
+            style={{ backgroundColor: member.calendarColor ?? 'transparent' }}
+            aria-hidden="true"
+          />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-auto">
+        <DropdownMenuLabel>Cor na agenda</DropdownMenuLabel>
+        <div className="flex gap-1.5 p-1.5">
+          {CALENDAR_COLORS.map((cor) => (
+            <button
+              key={cor}
+              type="button"
+              disabled={disabled}
+              aria-label={`Usar a cor ${cor}`}
+              aria-pressed={member.calendarColor === cor}
+              onClick={() => onPick(cor)}
+              className={cn(
+                'size-5 rounded-full border-2',
+                member.calendarColor === cor ? 'border-fg' : 'border-transparent',
+              )}
+              style={{ backgroundColor: cor }}
+            />
+          ))}
+        </div>
+        <DropdownMenuItem onSelect={() => onPick(null)}>Sem cor</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

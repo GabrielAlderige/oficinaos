@@ -11,7 +11,7 @@ O diferencial inicial é um fluxo:
 
 ## Status
 
-**MVP 1, etapas E1 a E7 concluídas.** Sobre a fundação da E1 (monorepo, banco com
+**MVP 1, etapas E1 a E8 concluídas.** Sobre a fundação da E1 (monorepo, banco com
 isolamento por oficina via RLS, API com erros padronizados e segurança básica),
 a E2 trouxe:
 
@@ -103,6 +103,25 @@ A E7 fechou o ciclo do carro — execução, entrega e dinheiro:
   mais um "55" na frente (link que não abria), e o do orçamento apontava para o
   número **da própria oficina** em vez do cliente.
 
+A E8 trouxe a agenda:
+
+- **dia com uma coluna por mecânico**, semana com uma coluna por dia e mês em
+  lista, com a cor de cada pessoa nos blocos;
+- **arrastar e soltar** para remarcar, encaixando de 15 em 15 minutos; soltar em
+  outra coluna troca o dia ou o mecânico;
+- **conflito avisa, não impede**: a API devolve quem colide e a tela pergunta
+  "agendar mesmo assim?" — oficina de verdade encaixa cliente, e travar faria a
+  oficina marcar por fora do sistema;
+- **check-in a partir do agendamento abre a OS** na mesma transação, com o
+  veículo escolhido na hora quando o compromisso foi marcado sem carro, e leva
+  para a ficha da OS fazer a vistoria com fotos;
+- **confirmação pelo WhatsApp**, com a mensagem pronta e o envio registrado;
+- o **fuso é o da oficina**, não o do navegador: a grade é desenhada com
+  `Intl.DateTimeFormat` sobre o fuso de `organizations`, e há teste com o
+  navegador do outro lado da linha de data. Por isso a agenda é componente
+  próprio, e não o react-big-calendar previsto na D20 (que desenha no relógio do
+  aparelho e traria seis bibliotecas de data junto).
+
 | Etapa do MVP 1 | Situação |
 |---|---|
 | E1. Fundação (monorepo, banco com RLS, API base) | ✅ 10/09/2026 |
@@ -112,8 +131,8 @@ A E7 fechou o ciclo do carro — execução, entrega e dinheiro:
 | E5. Ordem de serviço | ✅ 11/09/2026 |
 | E6. Orçamento com link e aprovação pelo celular | ✅ 12/09/2026 |
 | E7. Execução, entrega e pagamento | ✅ 12/09/2026 |
-| E8. Agenda | próxima |
-| E9. Dashboard e acabamento | — |
+| E8. Agenda | ✅ 13/09/2026 |
+| E9. Dashboard e acabamento | próxima |
 
 Toda etapa só fecha com `npm run check` verde. Além disso:
 - as proteções principais são quebradas de propósito, para provar que os
