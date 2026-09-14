@@ -129,3 +129,16 @@
     transform: translateX(-100%);
   }
 }
+
+/*
+ * Os avisos (sonner, richColors) no tema claro vêm com texto abaixo de 4,5:1 —
+ * o verde de "salvo" dava 4,29 e o amarelo de alerta 3,07. Mesmos tons, mais
+ * escuros, medidos contra o fundo de cada um (5,2 a 6,1:1). O `html` na frente
+ * ganha da regra da biblioteca, que é injetada em tempo de execução.
+ */
+html [data-sonner-toaster][data-sonner-theme='light'] {
+  --success-text: hsl(140, 100%, 24%);
+  --info-text: hsl(210, 92%, 38%);
+  --warning-text: hsl(31, 92%, 30%);
+  --error-text: hsl(360, 100%, 38%);
+}

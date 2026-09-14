@@ -192,7 +192,8 @@ Ninguém rebaixa nem remove o último OWNER.
 | POST | `/public/quotes/{token}/reject` | `{ reason? }` | 1 |
 | POST | `/public/quotes/{token}/questions` | `{ message }` → notifica a oficina | 1 |
 | GET / POST | `/public/reviews/{token}` | Avaliação de 1 a 5 estrelas + comentário | 2 |
-| GET / POST | `/public/supplier-quotes/{token}` | Fornecedor responde a cotação (preço, marca, prazo) | 2 |
+| GET | `/public/supplier-quotes/{token}` | Página do fornecedor (E11): peças, carro sem placa (chassi só se a oficina marcou), a resposta DELE. Token errado, substituído ou de fornecedor tirado da lista → 404. 60/min | 2 |
+| POST | `/public/supplier-quotes/{token}/responses` | `{ contentHash, responderName, shippingCents?, notes?, items[{ requestItemId, availability, unitPriceCents, brand?, leadTimeDays?, notes? }] }` — toda peça exatamente uma vez; cada envio é uma versão nova e imutável. Encerrada/vencida/cancelada → 422 `SUPPLIER_QUOTE_CLOSED`; hash diferente → 409 `SUPPLIER_QUOTE_OUTDATED`. 10/min | 2 |
 | GET | `/public/work-orders/{token}/status` | "Acompanhe seu veículo" | 2 |
 
 ### Catálogo — `/services`, `/parts`, `/part-categories`
@@ -217,11 +218,26 @@ Ninguém rebaixa nem remove o último OWNER.
 | POST | `/suppliers` (só `name` é obrigatório; CNPJ repetido na oficina → 409 `SUPPLIER_DOCUMENT_TAKEN`) | `suppliers:write` | 2 |
 | PATCH | `/suppliers/{id}` (sem padrões: o que não vem não é apagado) | `suppliers:write` | 2 |
 | DELETE | `/suppliers/{id}` (soft delete; as peças que o tinham como preferido ficam sem preferido, e o CNPJ volta a poder ser usado) | `suppliers:write` | 2 |
-| GET | `/suppliers/{id}/history` (cotações e compras) | `suppliers:read` | 2 (E11/E12) |
+| GET | `/suppliers/{id}/history` (cotações e compras) | `suppliers:read` | 2 (E12) |
 
 Dono, admin e gerente escrevem; atendente e financeiro leem; o mecânico não vê
 fornecedor. Não há contato mascarado como no cliente: quem enxerga fornecedor é
 justamente quem precisa ligar para ele.
+
+### Cotação com fornecedores — `/supplier-quotes` (MVP 2, E11)
+
+| Método | Rota | Permissão | Fase |
+|---|---|---|---|
+| POST | `/supplier-quotes` `{ workOrderId, workOrderItemIds, supplierIds, includeVin?, message?, expiresInHours? }` → `{ quote, links[] }`. Só peças da própria OS (400), fornecedores ativos da oficina (400), OS entregue/cancelada → 422. O conteúdo que o fornecedor vê sai do banco; o link sai em texto só aqui e o banco guarda o sha256 | `supplier_quotes:send` | 2 |
+| GET | `/supplier-quotes/{id}` — quadro: itens, convites (abriu? respondeu? quantas versões), última resposta de cada um, mais barata/mais rápida, totais. **Sem `parts:view_cost` (atendente): `pricesHidden: true`, preço, frete, totais e "mais barata" vêm vazios** | `suppliers:read` | 2 |
+| GET | `/work-orders/{id}/supplier-quotes` | `suppliers:read` | 2 |
+| POST | `/supplier-quotes/{id}/invites/{inviteId}/reissue` → link novo; o anterior deixa de abrir na hora. Só com a cotação aberta e no prazo | `supplier_quotes:send` | 2 |
+| POST | `/supplier-quotes/{id}/cancel` `{ reason }`. Cancelar a OS cancela as cotações abertas dela | `supplier_quotes:send` | 2 |
+| POST | `/supplier-quotes/{id}/award` `{ awards[{ requestItemId, responseItemId }] }` — só oferta válida da ÚLTIMA versão e da mesma peça (400). A primeira escolha encerra a cotação e grava todos os preços válidos em `part_price_history`; o custo vai para o item da OS só se ele ainda é rascunho; o preço de venda não muda | `supplier_quotes:award` | 2 |
+
+Atendente pede cotação e acompanha quem respondeu, mas não vê preço (é custo) nem
+escolhe; dono, admin e gerente fazem tudo. A resposta do fornecedor entra na
+timeline da OS e no sino de quem pode pedir cotação, sempre sem valores.
 
 ### Estoque — `/inventory`
 

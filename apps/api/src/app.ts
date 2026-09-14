@@ -26,6 +26,9 @@ import { notificationRoutes } from './modules/notifications/notifications.routes
 import { NotificationsService } from './modules/notifications/notifications.service';
 import { appointmentRoutes } from './modules/appointments/appointments.routes';
 import { dashboardRoutes } from './modules/dashboard/dashboard.routes';
+import { publicSupplierQuoteRoutes } from './modules/supplier-quotes/public-supplier-quotes.routes';
+import { supplierQuoteRoutes, workOrderSupplierQuoteRoutes } from './modules/supplier-quotes/supplier-quotes.routes';
+import { SupplierQuotesService } from './modules/supplier-quotes/supplier-quotes.service';
 import { supplierRoutes } from './modules/suppliers/suppliers.routes';
 import { SuppliersService } from './modules/suppliers/suppliers.service';
 import { DashboardService } from './modules/dashboard/dashboard.service';
@@ -67,6 +70,7 @@ export interface Services {
   appointments: AppointmentsService;
   dashboard: DashboardService;
   suppliers: SuppliersService;
+  supplierQuotes: SupplierQuotesService;
 }
 
 declare module 'fastify' {
@@ -140,6 +144,7 @@ export async function buildApp({
     appointments: new AppointmentsService(deps, workOrders),
     dashboard: new DashboardService(deps),
     suppliers: new SuppliersService(deps),
+    supplierQuotes: new SupplierQuotesService(deps),
   };
 
   app.decorate('db', db);
@@ -184,8 +189,11 @@ export async function buildApp({
   await app.register(appointmentRoutes, { prefix: '/api/v1/appointments' });
   await app.register(dashboardRoutes, { prefix: '/api/v1/dashboard' });
   await app.register(supplierRoutes, { prefix: '/api/v1/suppliers' });
+  await app.register(supplierQuoteRoutes, { prefix: '/api/v1/supplier-quotes' });
+  await app.register(workOrderSupplierQuoteRoutes, { prefix: '/api/v1/work-orders' });
   // sem login: o token do link é a credencial (limite por IP em cada rota)
   await app.register(publicQuoteRoutes, { prefix: '/api/v1/public' });
+  await app.register(publicSupplierQuoteRoutes, { prefix: '/api/v1/public' });
 
   return app;
 }

@@ -54,6 +54,11 @@ export const ErrorCode = {
   // fornecedores
   /** já existe fornecedor com este CNPJ na oficina */
   SUPPLIER_DOCUMENT_TAKEN: 'SUPPLIER_DOCUMENT_TAKEN',
+  // cotação com fornecedores
+  /** cancelada, já escolhida ou vencida: não aceita mais resposta */
+  SUPPLIER_QUOTE_CLOSED: 'SUPPLIER_QUOTE_CLOSED',
+  /** a resposta veio para um conteúdo diferente do atual */
+  SUPPLIER_QUOTE_OUTDATED: 'SUPPLIER_QUOTE_OUTDATED',
   // agenda
   /** o mecânico já tem compromisso naquela hora; com `force` o encaixe passa */
   APPOINTMENT_CONFLICT: 'APPOINTMENT_CONFLICT',

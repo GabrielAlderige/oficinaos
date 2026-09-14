@@ -57,6 +57,18 @@ describe('matriz de permissões', () => {
     expect(can('MECHANIC', 'suppliers:read')).toBe(false);
   });
 
+  it('cotação: atendente pede mas não vê preço nem escolhe; mecânico não participa', () => {
+    expect(can('ATTENDANT', 'supplier_quotes:send')).toBe(true);
+    // preço de fornecedor é custo: a regra da E4 continua valendo aqui
+    expect(can('ATTENDANT', 'parts:view_cost')).toBe(false);
+    expect(can('ATTENDANT', 'supplier_quotes:award')).toBe(false);
+    for (const role of ['OWNER', 'ADMIN', 'MANAGER'] as const) {
+      expect(can(role, 'supplier_quotes:award'), role).toBe(true);
+    }
+    expect(can('MECHANIC', 'supplier_quotes:send')).toBe(false);
+    expect(can('FINANCE', 'supplier_quotes:award')).toBe(false);
+  });
+
   it('só OWNER mexe em OWNER', () => {
     expect(canManageRole('OWNER', 'OWNER')).toBe(true);
     expect(canManageRole('ADMIN', 'OWNER')).toBe(false);

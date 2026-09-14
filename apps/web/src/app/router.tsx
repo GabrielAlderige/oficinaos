@@ -79,7 +79,18 @@ export const router = createBrowserRouter([
             children: [
               { index: true, lazy: page(() => import('../features/work-orders/WorkOrdersPage'), 'WorkOrdersPage') },
               { path: 'nova', lazy: page(() => import('../features/work-orders/NewWorkOrderPage'), 'NewWorkOrderPage'), handle: { crumb: 'Nova' } },
-              { path: ':number', lazy: page(() => import('../features/work-orders/WorkOrderPage'), 'WorkOrderPage'), handle: { crumb: 'OS' } },
+              {
+                path: ':number',
+                handle: { crumb: 'OS' },
+                children: [
+                  { index: true, lazy: page(() => import('../features/work-orders/WorkOrderPage'), 'WorkOrderPage') },
+                  {
+                    path: 'cotacoes/:id',
+                    lazy: page(() => import('../features/supplier-quotes/SupplierQuotePage'), 'SupplierQuotePage'),
+                    handle: { crumb: 'Cotação de peças' },
+                  },
+                ],
+              },
             ],
           },
           { path: 'orcamentos', lazy: page(() => import('../features/quotes/QuotesPage'), 'QuotesPage'), handle: { crumb: 'Orçamentos' } },

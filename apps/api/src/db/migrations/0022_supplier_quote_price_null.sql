@@ -1,0 +1,3 @@
+ALTER TABLE "supplier_quote_response_items" DROP CONSTRAINT "supplier_quote_response_items_price_check";--> statement-breakpoint
+ALTER TABLE "supplier_quote_response_items" ADD CONSTRAINT "supplier_quote_response_items_price_check" CHECK (("supplier_quote_response_items"."availability" = 'UNAVAILABLE' and "supplier_quote_response_items"."unit_price_cents" is null)
+          or ("supplier_quote_response_items"."availability" <> 'UNAVAILABLE' and "supplier_quote_response_items"."unit_price_cents" is not null and "supplier_quote_response_items"."unit_price_cents" > 0));

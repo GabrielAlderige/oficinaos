@@ -4,32 +4,36 @@ import react from '@vitejs/plugin-react';
 import { defineConfig, type Plugin } from 'vite';
 
 /**
- * `/orcamento/<token>` é uma URL bonita servida por uma ENTRADA própria. Em
- * produção quem reescreve é o proxy/CDN; em dev, este plugin faz o mesmo, senão
- * o Vite entregaria o index.html do painel.
+ * `/orcamento/<token>` (cliente) e `/cotacao/<token>` (fornecedor) são URLs
+ * bonitas servidas por ENTRADAS próprias. Em produção quem reescreve é o
+ * proxy/CDN; em dev, este plugin faz o mesmo, senão o Vite entregaria o
+ * index.html do painel. A barra final importa: `/cotacoes/...` é do painel.
  */
-const publicQuoteEntry = (): Plugin => ({
-  name: 'oficinaos-orcamento-entry',
+const publicEntries = (): Plugin => ({
+  name: 'oficinaos-public-entries',
   configureServer(server) {
     server.middlewares.use((req, _res, next) => {
       if (req.url?.startsWith('/orcamento/')) req.url = '/orcamento.html';
+      else if (req.url?.startsWith('/cotacao/')) req.url = '/cotacao.html';
       next();
     });
   },
 });
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), publicQuoteEntry()],
+  plugins: [react(), tailwindcss(), publicEntries()],
   build: {
     rollupOptions: {
       /**
-       * Duas entradas: o painel e a página do cliente. Separadas de propósito —
-       * o orçamento abre no celular do cliente, muitas vezes em 3G, e não pode
-       * carregar o painel junto (ARCHITECTURE §8.2: menos de 100 KB de JS).
+       * Três entradas: o painel, a página do cliente e a do fornecedor.
+       * Separadas de propósito — as públicas abrem no celular, muitas vezes em
+       * 3G, e não podem carregar o painel junto (ARCHITECTURE §8.2: menos de
+       * 100 KB de JS).
        */
       input: {
         main: resolve(import.meta.dirname, 'index.html'),
         orcamento: resolve(import.meta.dirname, 'orcamento.html'),
+        cotacao: resolve(import.meta.dirname, 'cotacao.html'),
       },
     },
   },

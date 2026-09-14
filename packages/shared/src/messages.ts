@@ -56,3 +56,27 @@ export function whatsappAppointmentMessage(input: {
     'Consegue vir nesse horário? Se precisar remarcar, é só responder por aqui.',
   ].join('\n\n');
 }
+
+/**
+ * Pedido de cotação para o fornecedor (E11). Curto e direto, como a oficina
+ * escreve no WhatsApp: quem pede, quantas peças, até quando e o link. Nada do
+ * cliente da oficina vai na mensagem — nem nome, nem placa.
+ */
+export function whatsappSupplierQuoteMessage(input: {
+  shopName: string;
+  contactName: string | null;
+  number: number;
+  itemCount: number;
+  /** "terça, 16/09, às 18:00", já no relógio da oficina */
+  expiresAt: string;
+  link: string;
+}): string {
+  const saudacao = input.contactName ? `Olá, ${primeiroNome(input.contactName)}!` : 'Olá!';
+  const pecas = input.itemCount === 1 ? '1 peça' : `${input.itemCount} peças`;
+  return [
+    `${saudacao} Aqui é da ${input.shopName}.`,
+    `Pode me passar preço e prazo de ${pecas}? É a cotação nº ${input.number}.`,
+    `Responde por este link até ${input.expiresAt}:`,
+    input.link,
+  ].join('\n\n');
+}

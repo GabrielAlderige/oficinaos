@@ -73,7 +73,7 @@ pagar nasce da compra, e lucro precisa das duas pontas.
 | Etapa | Entrega | Pronto quando |
 |---|---|---|
 | **E10. Fornecedores** ✅ 14/09 | Cadastro com categorias, prazo e nota; busca e filtro por categoria; ficha com as peças que a oficina compra dele; fornecedor preferido na peça | Isolamento entre oficinas e permissão por papel testados; tirar da lista não quebra a peça. **Cumprido**, com 11/11 mutações pegas |
-| **E11. Cotação por link** | Da OS, pedir preço a vários fornecedores por WhatsApp; página pública para o fornecedor responder; respostas lado a lado; escolher alimenta o histórico de preço | — |
+| **E11. Cotação por link** ✅ 14/09 | Da OS, pedir preço a vários fornecedores por WhatsApp; página pública para o fornecedor responder; respostas lado a lado; escolher alimenta o histórico de preço | Fornecedor não vê placa, cliente nem o preço do outro; atendente não vê preço; link só como hash, reenviar mata o anterior; escolha só da última versão; custo só em item rascunho. **Cumprido**: 30 testes (API + banco), 25/25 mutações pegas, e2e no painel e no celular com auditoria de acessibilidade |
 | **E12. Compras** | Pedido, recebimento total ou parcial, entrada no estoque com custo médio | — |
 | **E13. Financeiro** | Contas a receber e a pagar, fluxo de caixa, lucro estimado | — |
 

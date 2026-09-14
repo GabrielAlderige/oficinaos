@@ -25,13 +25,17 @@ export function CrumbProvider({ children }: { children: ReactNode }) {
 
 export const useCrumbLabels = () => useContext(CrumbContext).labels;
 
-/** A página de detalhe troca "Cliente" pelo nome de verdade na trilha. */
-export function usePageCrumb(label: string | undefined) {
+/**
+ * A página de detalhe troca "Cliente" pelo nome de verdade na trilha. Com
+ * `path`, troca o rótulo de um nível acima (a cotação diz qual OS é a dela).
+ */
+export function usePageCrumb(label: string | undefined, path?: string) {
   const { set } = useContext(CrumbContext);
   const { pathname } = useLocation();
+  const alvo = path ?? pathname;
   useEffect(() => {
     if (!label) return;
-    set(pathname, label);
-    return () => set(pathname, null);
-  }, [label, pathname, set]);
+    set(alvo, label);
+    return () => set(alvo, null);
+  }, [label, alvo, set]);
 }

@@ -42,6 +42,7 @@ import {
 } from './api';
 import { PaymentCard } from '../payments/PaymentCard';
 import { QuoteCard } from '../quotes/QuoteCard';
+import { SupplierQuotesCard } from '../supplier-quotes/SupplierQuotesCard';
 import { CheckInDialog } from './CheckInDialog';
 import { ItemPicker, parseTypedQuantity } from './ItemPicker';
 import { PaymentBadge, StatusActions, StatusBadge } from './status';
@@ -187,6 +188,7 @@ function WorkOrderDetail({ order }: { order: WorkOrder }) {
             <TotalsFooter order={order} canDiscount={canDiscount && canWrite && editable} />
           </Card>
 
+          <SupplierQuotesCard order={order} />
           <DetailsCard order={order} canWrite={canWrite && editable} />
           <TimelineCard order={order} canWrite={canWrite} />
         </div>

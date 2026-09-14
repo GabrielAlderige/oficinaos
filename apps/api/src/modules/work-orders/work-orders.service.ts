@@ -39,6 +39,7 @@ import { assertOdometerNotDecreasing } from '../../core/odometer';
 import { readOrganizationSettings } from '../../core/org-settings';
 import { saldoCents, whatsappLink, whatsappVehicleReadyMessage } from '@oficinaos/shared';
 import { consumeApprovedItems, releaseReservations, type ConsumptionSummary } from '../../core/reservations';
+import { cancelOpenForWorkOrder as cancelOpenSupplierQuotes } from '../supplier-quotes/supplier-quotes.repository';
 import { applyWorkOrderChange, pricingLinesOf } from './totals';
 import type { workOrderItems, workOrders } from '../../db/schema';
 import type { Tx } from '../../db/tenant';
@@ -465,6 +466,9 @@ export class WorkOrdersService {
         // peça reservada volta para o estoque: o carro não vai mais ser feito (§10)
         const items = await repo.listItems(tx, auth.organizationId, id);
         await releaseReservations(tx, auth.organizationId, items.map(({ item }) => item.id));
+        // e a cotação aberta com fornecedores morre junto: ninguém vai comprar
+        // peça para um carro que não vai ser feito (lição do conserto b9d1a36)
+        await cancelOpenSupplierQuotes(tx, auth.organizationId, id);
       }
 
       const updated = await this.applyChange(tx, order, patch);

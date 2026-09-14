@@ -37,6 +37,10 @@ export const PERMISSIONS = [
   /** fornecedores (MVP 2): a cadeia da peça começa aqui */
   'suppliers:read',
   'suppliers:write',
+  /** pedir preço a fornecedores por link (E11); VER o preço é `parts:view_cost` */
+  'supplier_quotes:send',
+  /** escolher a oferta vencedora: grava custo na OS, então é do gerente para cima */
+  'supplier_quotes:award',
   'parts:view_cost',
   'inventory:read',
   'inventory:adjust',
@@ -85,6 +89,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'catalog:write',
     'suppliers:read',
     'suppliers:write',
+    'supplier_quotes:send',
+    'supplier_quotes:award',
     'parts:view_cost',
     'inventory:read',
     'inventory:adjust',
@@ -110,6 +116,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'catalog:read',
     // é quem liga atrás de peça: precisa do contato do fornecedor, não de mexer no cadastro
     'suppliers:read',
+    // pede a cotação, mas não vê o preço (é custo) nem escolhe — decisão de 14/09/2026
+    'supplier_quotes:send',
     'inventory:read',
     // o atendente costuma ser o caixa: registra o pagamento, mas não vê o financeiro
     'payments:record',

@@ -115,7 +115,7 @@ CREATE POLICY tenant_isolation ON customers
 | Pagamento (mínimo) | `payments` | MVP 1 |
 | Comunicação | `message_templates`, `messages`, `notifications` | MVP 1 |
 | Auditoria | `activity_logs` | MVP 1 |
-| Fornecedores e compras | `suppliers`, `purchase_orders`, `purchase_order_items`, `supplier_quote_requests`, `supplier_quote_request_items`, `supplier_quote_responses`, `part_price_history` | MVP 2 |
+| Fornecedores e compras | `suppliers`, `purchase_orders`, `purchase_order_items`, `supplier_quote_requests`, `supplier_quote_request_items`, `supplier_quote_invites`, `supplier_quote_responses`, `supplier_quote_response_items`, `supplier_quote_awards`, `part_price_history` | MVP 2 |
 | Pesquisa de peças | `part_search_queries`, `part_offers` | MVP 2 |
 | Financeiro | `financial_categories`, `financial_entries` | MVP 2 |
 | Pós-venda e CRM | `reviews`, `follow_ups`, `leads` | MVP 2 |
@@ -891,10 +891,24 @@ suppliers                     ✅ E10 (migrations 0018/0019): id, name, legal_na
 purchase_orders               id, number, supplier_id, status (DRAFT|REQUESTED|ORDERED|PARTIAL|RECEIVED|CANCELED),
                               expected_at, shipping_cents, total_cents, notes, work_order_id (compra para uma OS)
 purchase_order_items          id, purchase_order_id, part_id, description, quantity, received_qty, unit_cost_cents
-supplier_quote_requests       cotação com fornecedores via link (RFQ): id, number, status, work_order_id, expires_at
-supplier_quote_request_items  id, request_id, part_id, description, quantity, vehicle_ref
-supplier_quote_responses      id, request_id, supplier_id, public_token, items jsonb (preço, prazo, marca), responded_at
-part_price_history            id, part_id, supplier_id, price_cents, source (PURCHASE|RFQ|PRICE_LIST|PROVIDER), captured_at
+supplier_quote_requests       ✅ E11 (migrations 0020–0023): id, number, status (OPEN|CLOSED|CANCELED; vencida é
+                              calculada), work_order_id, vehicle jsonb (marca, modelo, versão, ano, motor, chassi),
+                              include_vin, message, content_hash, expires_at, closed_at, canceled_at, cancel_reason.
+                              CHECK: o jsonb nunca tem `plate`; chassi só com include_vin
+supplier_quote_request_items  ✅ E11: id, request_id, work_order_item_id, part_id, description, part_code, brand,
+                              quantity, unit, position — cópia do item da OS no momento do pedido
+supplier_quote_invites        ✅ E11: id, request_id, supplier_id, token_hash (sha256, único; o link em texto não é
+                              guardado), link_issued_at, first/last_viewed_at, view_count. UNIQUE (request, supplier).
+                              Policy `supplier_invite_by_token`: sem oficina no contexto, o hash lê só o próprio convite
+supplier_quote_responses      ✅ E11, append-only: id, invite_id, version (UNIQUE por convite), responder_name,
+                              shipping_cents, notes, content_hash, ip, user_agent — cada envio é uma versão; vale a última
+supplier_quote_response_items ✅ E11, append-only: id, response_id, request_item_id, availability
+                              (AVAILABLE|TO_ORDER|UNAVAILABLE), unit_price_cents (CHECK: obrigatório e > 0 sem ser
+                              UNAVAILABLE; proibido com UNAVAILABLE), brand, lead_time_days, notes
+supplier_quote_awards         ✅ E11: id, request_item_id (UNIQUE: uma escolha por peça), response_item_id,
+                              awarded_by, awarded_at
+part_price_history            ✅ E11, append-only: id, part_id, supplier_id, price_cents (> 0), source
+                              (PURCHASE|RFQ|PRICE_LIST|PROVIDER), supplier_quote_request_id, captured_at
 part_search_queries           id, query, vehicle_id, providers text[], requested_by, created_at
 part_offers                   id, query_id, provider, is_mock, supplier_id, title, brand, code, price_cents,
                               shipping_cents, availability, lead_time_days, offer_url, fetched_at, raw jsonb
