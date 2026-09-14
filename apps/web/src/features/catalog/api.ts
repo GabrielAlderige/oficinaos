@@ -26,6 +26,7 @@ export interface ServiceListParams {
 export interface PartListParams {
   q: string;
   categoryId?: string;
+  supplierId?: string;
   attention: boolean;
   page: number;
   pageSize?: number;
@@ -113,6 +114,7 @@ export function useParts(params: PartListParams, options: { enabled?: boolean } 
         `/parts?${toQueryString({
           q: params.q,
           categoryId: params.categoryId,
+          supplierId: params.supplierId,
           stock: params.attention ? 'attention' : undefined,
           page: params.page,
           pageSize: params.pageSize ?? 25,

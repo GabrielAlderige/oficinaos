@@ -33,6 +33,7 @@ const part = {
   markup: '',
   minQuantity: '',
   location: '',
+  preferredSupplierId: '',
   trackStock: true,
   isActive: true,
   initialQuantity: '',
@@ -55,12 +56,19 @@ describe('formulários do catálogo (texto digitado → formato da API)', () => 
     const out = partFormSchema.parse({ ...part, salePrice: '1.234,56', markup: '12,5', minQuantity: '2,5', initialQuantity: '4,5', initialUnitCost: '42,00' });
     expect(out).toMatchObject({
       categoryId: null,
+      // "Nenhum" no seletor vira null, não um id vazio que o banco recusaria
+      preferredSupplierId: null,
       salePriceCents: 123456,
       markupBps: 1250,
       minQuantity: 2.5,
       initialQuantity: 4.5,
       initialUnitCostCents: 4200,
     });
+  });
+
+  it('peça: o fornecedor escolhido no seletor chega como id', () => {
+    const id = '01a09c30-ca23-758e-8590-30c069903c7b';
+    expect(partFormSchema.parse({ ...part, preferredSupplierId: id }).preferredSupplierId).toBe(id);
   });
 
   it('peça: "12.5" como preço é ambíguo e é recusado', () => {

@@ -173,6 +173,8 @@ const partFields = {
   markupBps: z.number().int().min(0).max(100_000).nullable(),
   minQuantity: quantitySchema,
   location: optionalText(60),
+  /** de quem a oficina costuma comprar; a cotação por link (E11) começa por ele */
+  preferredSupplierId: z.uuid().nullable(),
   trackStock: z.boolean(),
   isActive: z.boolean(),
 };
@@ -190,6 +192,7 @@ export const createPartSchema = z.object({
   markupBps: partFields.markupBps.default(null),
   minQuantity: partFields.minQuantity.default(0),
   location: partFields.location.default(''),
+  preferredSupplierId: partFields.preferredSupplierId.default(null),
   trackStock: partFields.trackStock.default(true),
   isActive: partFields.isActive.default(true),
   /** estoque que já existe na prateleira no dia do cadastro (vira movimento "estoque inicial") */
@@ -214,14 +217,16 @@ export const partFormSchema = z
     markup: percentText,
     minQuantity: quantityText,
     location: partFields.location,
+    preferredSupplierId: z.string(),
     trackStock: z.boolean(),
     isActive: z.boolean(),
     initialQuantity: quantityText,
     initialUnitCost: moneyText,
   })
-  .transform(({ salePrice, markup, initialUnitCost, categoryId, ...rest }) => ({
+  .transform(({ salePrice, markup, initialUnitCost, categoryId, preferredSupplierId, ...rest }) => ({
     ...rest,
     categoryId: categoryId === '' ? null : categoryId,
+    preferredSupplierId: preferredSupplierId === '' ? null : preferredSupplierId,
     salePriceCents: salePrice,
     markupBps: markup,
     initialUnitCostCents: initialUnitCost,
@@ -251,6 +256,7 @@ export const partSchema = z.object({
   minQuantity: z.number(),
   stockStatus: z.enum(STOCK_STATUSES),
   location: z.string().nullable(),
+  preferredSupplier: z.object({ id: z.uuid(), name: z.string() }).nullable(),
   trackStock: z.boolean(),
   isActive: z.boolean(),
   createdAt: z.string(),
@@ -276,6 +282,8 @@ export const partListItemSchema = z.object({
 export const partListQuerySchema = z.object({
   q: z.string().trim().max(100).optional(),
   categoryId: z.uuid().optional(),
+  /** só as peças que têm este fornecedor como preferido (ficha do fornecedor) */
+  supplierId: z.uuid().optional(),
   /** attention = abaixo do mínimo, sem estoque ou negativo */
   stock: z.enum(['all', 'attention']).default('all'),
   page: z.coerce.number().int().min(1).default(1),

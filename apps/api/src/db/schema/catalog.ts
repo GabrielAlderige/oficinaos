@@ -16,6 +16,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { MOVEMENT_TYPES, PART_UNITS, PRICING_MODES } from '@oficinaos/shared';
 import { id, timestamps, timestamptz } from './_columns';
+import { suppliers } from './suppliers';
 import { organizations, users } from './tenancy';
 
 const list = (values: readonly string[]) => sql.raw(values.map((v) => `'${v}'`).join(','));
@@ -102,6 +103,8 @@ export const parts = pgTable(
     quantityReserved: quantity().notNull().default('0'),
     minQuantity: quantity().notNull().default('0'),
     location: text(),
+    /** de quem a oficina costuma comprar esta peça; a cotação (E11) começa por ele */
+    preferredSupplierId: uuid(),
     isActive: boolean().notNull().default(true),
     createdBy: uuid().references(() => users.id),
     deletedAt: timestamptz(),
@@ -114,6 +117,12 @@ export const parts = pgTable(
       columns: [t.organizationId, t.categoryId],
       foreignColumns: [partCategories.organizationId, partCategories.id],
     }),
+    foreignKey({
+      name: 'parts_preferred_supplier_fk',
+      columns: [t.organizationId, t.preferredSupplierId],
+      foreignColumns: [suppliers.organizationId, suppliers.id],
+    }),
+    index('parts_org_preferred_supplier_idx').on(t.organizationId, t.preferredSupplierId),
     uniqueIndex('parts_org_sku_unique')
       .on(t.organizationId, sql`lower(sku)`)
       .where(sql`sku is not null and deleted_at is null`),

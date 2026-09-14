@@ -37,6 +37,7 @@ export * from './schemas/auth';
 export * from './schemas/organization';
 export * from './schemas/members';
 export * from './schemas/customers';
+export * from './schemas/suppliers';
 export * from './schemas/vehicles';
 export * from './schemas/search';
 export * from './schemas/catalog';

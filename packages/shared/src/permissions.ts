@@ -34,6 +34,9 @@ export const PERMISSIONS = [
   'quotes:record_manual_approval',
   'catalog:read',
   'catalog:write',
+  /** fornecedores (MVP 2): a cadeia da peça começa aqui */
+  'suppliers:read',
+  'suppliers:write',
   'parts:view_cost',
   'inventory:read',
   'inventory:adjust',
@@ -80,6 +83,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'quotes:record_manual_approval',
     'catalog:read',
     'catalog:write',
+    'suppliers:read',
+    'suppliers:write',
     'parts:view_cost',
     'inventory:read',
     'inventory:adjust',
@@ -103,6 +108,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'quotes:send',
     'quotes:record_manual_approval',
     'catalog:read',
+    // é quem liga atrás de peça: precisa do contato do fornecedor, não de mexer no cadastro
+    'suppliers:read',
     'inventory:read',
     // o atendente costuma ser o caixa: registra o pagamento, mas não vê o financeiro
     'payments:record',
@@ -125,6 +132,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'customers:view_contact',
     'work_orders:read',
     'catalog:read',
+    // quem paga o fornecedor precisa do cadastro dele
+    'suppliers:read',
     'parts:view_cost',
     'inventory:read',
     'payments:record',

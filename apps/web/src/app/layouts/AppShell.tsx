@@ -7,6 +7,7 @@ import {
   House,
   Menu,
   Package,
+  Truck,
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
@@ -46,6 +47,7 @@ const NAV: NavItem[] = [
   { to: '/veiculos', label: 'Veículos', icon: Car },
   { to: '/servicos', label: 'Serviços', icon: Wrench, permission: 'catalog:read' },
   { to: '/pecas', label: 'Peças e estoque', icon: Package, permission: 'catalog:read' },
+  { to: '/fornecedores', label: 'Fornecedores', icon: Truck, permission: 'suppliers:read' },
   { to: '/configuracoes', label: 'Configurações', icon: Settings },
 ];
 

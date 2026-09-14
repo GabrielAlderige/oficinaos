@@ -25,6 +25,7 @@ import { applyFieldErrors, errorMessage } from '../../lib/errors';
 import { useCan } from '../../lib/session';
 import { useOrganizationSettings } from '../settings/api';
 import { usePartCategories, useSavePart } from './api';
+import { useSuppliers } from '../suppliers/api';
 import { quantityInput } from './stock';
 
 function toFormValues(part?: Part): PartForm {
@@ -41,6 +42,7 @@ function toFormValues(part?: Part): PartForm {
     markup: part?.markupBps != null ? formatPercentInput(part.markupBps) : '',
     minQuantity: quantityInput(part?.minQuantity ?? null),
     location: part?.location ?? '',
+    preferredSupplierId: part?.preferredSupplier?.id ?? '',
     trackStock: part?.trackStock ?? true,
     isActive: part?.isActive ?? true,
     initialQuantity: '',
@@ -85,6 +87,8 @@ function PartFormBody({ part, onDone }: { part?: Part; onDone(saved?: Part): voi
   const categories = usePartCategories();
   const settings = useOrganizationSettings();
   const canSeeCost = useCan('parts:view_cost') && !part?.costHidden;
+  const podeVerFornecedor = useCan('suppliers:read');
+  const fornecedores = useSuppliers({ q: '', page: 1, pageSize: 100 }, { enabled: podeVerFornecedor });
   const {
     register,
     handleSubmit,
@@ -110,6 +114,8 @@ function PartFormBody({ part, onDone }: { part?: Part; onDone(saved?: Part): voi
       delete body.initialQuantity;
       delete body.initialUnitCostCents;
     }
+    // quem não vê fornecedor não tem o campo na tela: mandar null apagaria o preferido sem saber
+    if (!podeVerFornecedor) delete body.preferredSupplierId;
     try {
       const saved = await save.mutateAsync({ id: part?.id, body });
       toast.success(part ? 'Peça atualizada.' : `${saved.name} cadastrada.`);
@@ -163,6 +169,29 @@ function PartFormBody({ part, onDone }: { part?: Part; onDone(saved?: Part): voi
           <Field label="Localização" htmlFor="p-location" error={e.location?.message}>
             <Input {...fieldA11y('p-location', e.location?.message)} placeholder="Ex.: prateleira B3" {...register('location')} />
           </Field>
+          {podeVerFornecedor && (
+            <Field
+              label="Fornecedor preferido"
+              htmlFor="p-supplier"
+              error={e.preferredSupplierId?.message}
+              hint="De quem a oficina costuma comprar. A cotação começa por ele."
+              className="sm:col-span-2"
+            >
+              <Select {...fieldA11y('p-supplier', e.preferredSupplierId?.message, true)} {...register('preferredSupplierId')}>
+                <option value="">Nenhum</option>
+                {/* o preferido atual entra mesmo que não esteja entre os 100 primeiros da lista */}
+                {part?.preferredSupplier &&
+                  !fornecedores.data?.data.some((f) => f.id === part.preferredSupplier!.id) && (
+                    <option value={part.preferredSupplier.id}>{part.preferredSupplier.name}</option>
+                  )}
+                {fornecedores.data?.data.map((fornecedor) => (
+                  <option key={fornecedor.id} value={fornecedor.id}>
+                    {fornecedor.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
         </div>
 
         <Section title="Preço">

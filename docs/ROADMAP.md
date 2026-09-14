@@ -64,9 +64,24 @@ por API, gateway de pagamento, nota fiscal e IA.
 
 ## MVP 2: comprar melhor e fechar o caixa
 
+### Ordem de construção
+
+Começou em 14/09/2026 pela **cadeia da peça**, que se sustenta em cima de si
+mesma: cotação precisa de fornecedor, pedido de compra nasce da cotação, conta a
+pagar nasce da compra, e lucro precisa das duas pontas.
+
+| Etapa | Entrega | Pronto quando |
+|---|---|---|
+| **E10. Fornecedores** ✅ 14/09 | Cadastro com categorias, prazo e nota; busca e filtro por categoria; ficha com as peças que a oficina compra dele; fornecedor preferido na peça | Isolamento entre oficinas e permissão por papel testados; tirar da lista não quebra a peça. **Cumprido**, com 11/11 mutações pegas |
+| **E11. Cotação por link** | Da OS, pedir preço a vários fornecedores por WhatsApp; página pública para o fornecedor responder; respostas lado a lado; escolher alimenta o histórico de preço | — |
+| **E12. Compras** | Pedido, recebimento total ou parcial, entrada no estoque com custo médio | — |
+| **E13. Financeiro** | Contas a receber e a pagar, fluxo de caixa, lucro estimado | — |
+
+### Blocos
+
 | Bloco | Entrega |
 |---|---|
-| **Fornecedores** | Cadastro, categorias, histórico de compras, preços, prazo e avaliação |
+| **Fornecedores** ✅ E10 | Cadastro, categorias, histórico de compras, preços, prazo e avaliação. O histórico de compras e preços é preenchido pela E11 e pela E12 |
 | **Cotação com fornecedores por link** *(recomendado como fonte principal de preço)* | A oficina escolhe as peças da OS e 3 fornecedores; cada um recebe um link (WhatsApp) e responde preço, marca e prazo numa página pública; as respostas aparecem lado a lado; escolher gera o pedido de compra. É o que a oficina já faz hoje por WhatsApp, só que organizado. Legal, sem scraping, com preço real |
 | **Pesquisar Peças** | Busca por nome, código, fabricante, veículo e aplicação sobre os providers: estoque interno, catálogo e listas de preço de fornecedores (importação CSV), respostas de cotação, marketplaces **só onde houver API oficial e os termos permitirem**, e o mock rotulado para desenvolvimento |
 | **Melhor preço** | Comparador com 🏆 melhor preço (produto + frete), ⚡ entrega mais rápida e ⭐ custo-benefício (regra explicada na tela); margem configurável; preço sugerido editável; "adicionar à OS" |

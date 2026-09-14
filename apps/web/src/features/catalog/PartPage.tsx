@@ -70,6 +70,8 @@ function PartDetail({ part }: { part: Part }) {
   const navigate = useNavigate();
   const canWrite = useCan('catalog:write');
   const canAdjust = useCan('inventory:adjust');
+  // o atendente vê a peça mas pode não ver fornecedor: aí o nome aparece sem link
+  const podeVerFornecedor = useCan('suppliers:read');
   const canSeeMovements = useCan('inventory:read');
   const settings = useOrganizationSettings();
   const remove = useDeletePart();
@@ -185,6 +187,16 @@ function PartDetail({ part }: { part: Part }) {
             <dl className="px-5 py-3">
               <Info label="Unidade">{PART_UNIT_LABELS[part.unit]}</Info>
               <Info label="Categoria">{part.category?.name}</Info>
+              <Info label="Fornecedor preferido">
+                {part.preferredSupplier &&
+                  (podeVerFornecedor ? (
+                    <Link to={`/fornecedores/${part.preferredSupplier.id}`} className="hover:underline">
+                      {part.preferredSupplier.name}
+                    </Link>
+                  ) : (
+                    part.preferredSupplier.name
+                  ))}
+              </Info>
               <Info label="Código de barras">{part.ean}</Info>
               <Info label="Descrição">{part.description && <span className="whitespace-pre-line">{part.description}</span>}</Info>
             </dl>

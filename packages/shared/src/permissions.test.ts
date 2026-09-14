@@ -45,6 +45,18 @@ describe('matriz de permissões', () => {
     }
   });
 
+  it('fornecedor: gerente cadastra, atendente e financeiro consultam, mecânico não vê', () => {
+    for (const role of ['OWNER', 'ADMIN', 'MANAGER'] as const) {
+      expect(can(role, 'suppliers:write'), role).toBe(true);
+    }
+    // o atendente liga atrás de peça e o financeiro paga: os dois precisam do contato
+    for (const role of ['ATTENDANT', 'FINANCE'] as const) {
+      expect(can(role, 'suppliers:read'), role).toBe(true);
+      expect(can(role, 'suppliers:write'), role).toBe(false);
+    }
+    expect(can('MECHANIC', 'suppliers:read')).toBe(false);
+  });
+
   it('só OWNER mexe em OWNER', () => {
     expect(canManageRole('OWNER', 'OWNER')).toBe(true);
     expect(canManageRole('ADMIN', 'OWNER')).toBe(false);

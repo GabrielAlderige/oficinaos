@@ -201,12 +201,27 @@ Ninguém rebaixa nem remove o último OWNER.
 |---|---|---|---|
 | GET | `/services?q=&page=` | `catalog:read` | 1 |
 | POST / PATCH / DELETE | `/services[/{id}]` | `catalog:write` | 1 |
-| GET | `/parts?q=&categoryId=&lowStock=true&page=` (custo só com `parts:view_cost`) | `catalog:read` | 1 |
-| POST / PATCH / DELETE | `/parts[/{id}]` | `catalog:write` | 1 |
+| GET | `/parts?q=&categoryId=&supplierId=&stock=attention&page=` (custo só com `parts:view_cost`; `supplierId` = peças que o têm como preferido, E10) | `catalog:read` | 1 |
+| POST / PATCH / DELETE | `/parts[/{id}]` (aceita `preferredSupplierId`: fornecedor ativo da oficina, senão 400) | `catalog:write` | 1 |
 | GET / POST / DELETE | `/parts/{id}/applications[/{appId}]` | `catalog:read` / `catalog:write` | 1 |
 | GET | `/parts/{id}/availability` (em estoque, reservado, disponível, OS que reservaram) | `inventory:read` | 1 |
 | GET / POST / PATCH | `/part-categories[/{id}]` | `catalog:read` / `catalog:write` | 1 |
 | POST | `/parts/import` (CSV) | `catalog:write` | 2 |
+
+### Fornecedores — `/suppliers` (MVP 2, E10)
+
+| Método | Rota | Permissão | Fase |
+|---|---|---|---|
+| GET | `/suppliers?q=&category=&page=` (busca por nome, razão social, vendedor, CNPJ ou telefone; `category` ignora maiúscula e acento) | `suppliers:read` | 2 |
+| GET | `/suppliers/{id}` (com `preferredPartCount`) | `suppliers:read` | 2 |
+| POST | `/suppliers` (só `name` é obrigatório; CNPJ repetido na oficina → 409 `SUPPLIER_DOCUMENT_TAKEN`) | `suppliers:write` | 2 |
+| PATCH | `/suppliers/{id}` (sem padrões: o que não vem não é apagado) | `suppliers:write` | 2 |
+| DELETE | `/suppliers/{id}` (soft delete; as peças que o tinham como preferido ficam sem preferido, e o CNPJ volta a poder ser usado) | `suppliers:write` | 2 |
+| GET | `/suppliers/{id}/history` (cotações e compras) | `suppliers:read` | 2 (E11/E12) |
+
+Dono, admin e gerente escrevem; atendente e financeiro leem; o mecânico não vê
+fornecedor. Não há contato mascarado como no cliente: quem enxerga fornecedor é
+justamente quem precisa ligar para ele.
 
 ### Estoque — `/inventory`
 
@@ -252,7 +267,6 @@ Ninguém rebaixa nem remove o último OWNER.
 
 | Grupo | Rotas principais |
 |---|---|
-| Fornecedores | `GET/POST/PATCH/DELETE /suppliers[/{id}]`, `GET /suppliers/{id}/history` (compras, preços, prazo) |
 | Cotação com fornecedores | `POST /supplier-quote-requests` (cria e gera links), `GET /supplier-quote-requests/{id}` (respostas lado a lado), `POST /supplier-quote-requests/{id}/award` (escolhe → gera pedido) |
 | Pesquisa de peças | `POST /parts-search` (`{ query, vehicleId?, providers? }` → ofertas por provider, com `isMock` e `fetchedAt`), `GET /parts-search/{queryId}/compare` (melhor preço, mais rápida, custo-benefício), `POST /parts-search/offers/{offerId}/add-to-work-order` (com margem) |
 | Compras | `GET/POST/PATCH /purchase-orders[/{id}]`, `POST /purchase-orders/{id}/request` · `/order` · `/cancel`, `POST /purchase-orders/{id}/receipts` (recebimento total ou parcial → estoque e custo médio) |

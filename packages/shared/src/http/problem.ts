@@ -51,6 +51,9 @@ export const ErrorCode = {
   PAYMENT_EXCEEDS_BALANCE: 'PAYMENT_EXCEEDS_BALANCE',
   /** o lançamento já estava cancelado */
   PAYMENT_ALREADY_CANCELED: 'PAYMENT_ALREADY_CANCELED',
+  // fornecedores
+  /** já existe fornecedor com este CNPJ na oficina */
+  SUPPLIER_DOCUMENT_TAKEN: 'SUPPLIER_DOCUMENT_TAKEN',
   // agenda
   /** o mecânico já tem compromisso naquela hora; com `force` o encaixe passa */
   APPOINTMENT_CONFLICT: 'APPOINTMENT_CONFLICT',

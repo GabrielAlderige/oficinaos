@@ -609,7 +609,7 @@ aceita. Com a IA desligada, a tela simplesmente não mostra a sugestão.
 | Área | Rotas |
 |---|---|
 | Autenticação | `/entrar`, `/criar-conta`, `/esqueci-senha`, `/redefinir-senha/:token`, `/convite/:token` |
-| Painel | `/` (dashboard), `/ordens`, `/ordens/nova`, `/ordens/:numero`, `/clientes`, `/clientes/:id`, `/veiculos`, `/veiculos/:id`, `/agenda`, `/catalogo/servicos`, `/catalogo/pecas`, `/estoque`, `/atividades`, `/configuracoes/*` |
+| Painel | `/` (Início: dashboard), `/agenda`, `/ordens`, `/ordens/nova`, `/ordens/:numero`, `/ordens/:numero/imprimir`, `/orcamentos`, `/clientes`, `/clientes/:id`, `/veiculos`, `/veiculos/:id`, `/servicos`, `/pecas`, `/pecas/:id`, `/fornecedores`, `/fornecedores/:id`, `/configuracoes/*` (conferido com `apps/web/src/app/router.tsx` em 14/09/2026) |
 | Público | `/orcamento/:token` (MVP 1), `/avaliacao/:token` e `/cotacao/:token` para fornecedor (MVP 2) |
 
 A OS usa o **número** na URL (`/ordens/182`), que é o que a equipe fala e digita.

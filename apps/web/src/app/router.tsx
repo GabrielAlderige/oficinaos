@@ -93,6 +93,14 @@ export const router = createBrowserRouter([
             ],
           },
           {
+            path: 'fornecedores',
+            handle: { crumb: 'Fornecedores' },
+            children: [
+              { index: true, lazy: page(() => import('../features/suppliers/SuppliersPage'), 'SuppliersPage') },
+              { path: ':id', lazy: page(() => import('../features/suppliers/SupplierPage'), 'SupplierPage'), handle: { crumb: 'Fornecedor' } },
+            ],
+          },
+          {
             path: 'configuracoes',
             lazy: page(() => import('../features/settings/SettingsLayout'), 'SettingsLayout'),
             handle: { crumb: 'Configurações' },

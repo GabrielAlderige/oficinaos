@@ -1,6 +1,6 @@
 import { and, asc, count, desc, eq, isNull, or, sql, type SQL } from 'drizzle-orm';
 import { likeContains } from '../../core/normalize';
-import { inventoryMovements, partApplications, partCategories, parts, users } from '../../db/schema';
+import { inventoryMovements, partApplications, partCategories, parts, suppliers, users } from '../../db/schema';
 import type { Tx } from '../../db/tenant';
 
 export type PartRow = typeof parts.$inferSelect;
@@ -73,11 +73,19 @@ const listColumns = {
 export async function listParts(
   tx: Tx,
   organizationId: string,
-  options: { q?: string; categoryId?: string; attentionOnly: boolean; limit: number; offset: number },
+  options: {
+    q?: string;
+    categoryId?: string;
+    supplierId?: string;
+    attentionOnly: boolean;
+    limit: number;
+    offset: number;
+  },
 ) {
   const where = and(
     active(organizationId),
     options.categoryId ? eq(parts.categoryId, options.categoryId) : undefined,
+    options.supplierId ? eq(parts.preferredSupplierId, options.supplierId) : undefined,
     options.attentionOnly ? needsAttention : undefined,
     options.q ? partMatches(options.q) : undefined,
   );
@@ -95,10 +103,33 @@ export async function listParts(
 
 export async function findPart(tx: Tx, organizationId: string, id: string) {
   const [row] = await tx
-    .select({ part: parts, category: { id: partCategories.id, name: partCategories.name } })
+    .select({
+      part: parts,
+      category: { id: partCategories.id, name: partCategories.name },
+      // fornecedor apagado não aparece como preferido (o soft delete já limpa, isto é a rede)
+      supplier: { id: suppliers.id, name: suppliers.name },
+    })
     .from(parts)
     .leftJoin(partCategories, categoryJoin)
+    .leftJoin(
+      suppliers,
+      and(
+        eq(suppliers.organizationId, parts.organizationId),
+        eq(suppliers.id, parts.preferredSupplierId),
+        isNull(suppliers.deletedAt),
+      ),
+    )
     .where(and(active(organizationId), eq(parts.id, id)))
+    .limit(1);
+  return row;
+}
+
+/** O fornecedor existe nesta oficina e não foi tirado da lista? */
+export async function findActiveSupplier(tx: Tx, organizationId: string, supplierId: string) {
+  const [row] = await tx
+    .select({ id: suppliers.id })
+    .from(suppliers)
+    .where(and(eq(suppliers.organizationId, organizationId), eq(suppliers.id, supplierId), isNull(suppliers.deletedAt)))
     .limit(1);
   return row;
 }

@@ -127,6 +127,20 @@
       "when": 1789306684511,
       "tag": "0017_appointments_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1789349434765,
+      "tag": "0018_suppliers",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1789349453936,
+      "tag": "0019_suppliers_rls",
+      "breakpoints": true
     }
   ]
 }

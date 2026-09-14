@@ -11,7 +11,7 @@ O diferencial inicial é um fluxo:
 
 ## Status
 
-**MVP 1 concluído — E1 a E9.** Sobre a fundação da E1 (monorepo, banco com
+**MVP 1 concluído (E1 a E9). MVP 2 em andamento: E10 concluída.** Sobre a fundação da E1 (monorepo, banco com
 isolamento por oficina via RLS, API com erros padronizados e segurança básica),
 a E2 trouxe:
 
@@ -153,6 +153,29 @@ A E9 fechou o MVP 1 com o painel de Início:
 | E8. Agenda | ✅ 13/09/2026 |
 | E9. Dashboard e acabamento | ✅ 13/09/2026 |
 
+| Etapa do MVP 2 | Situação |
+|---|---|
+| E10. Fornecedores | ✅ 14/09/2026 |
+| E11. Cotação por link com fornecedores | próxima |
+| E12. Compras | — |
+| E13. Financeiro | — |
+
+A E10 abriu a cadeia da peça com o cadastro de fornecedores:
+
+- **só o nome é obrigatório** — o "Zé da distribuidora" com um WhatsApp também é
+  fornecedor, e travar por CNPJ faria a oficina continuar no caderno;
+- **categorias como etiquetas**, sugeridas a partir das categorias de peça, e
+  **filtro por categoria** na lista: "quem vende freio?";
+- **prazo médio de entrega e nota de 1 a 5**, que a cotação por link vai usar
+  para apontar o mais rápido;
+- busca por nome, vendedor, CNPJ ou pedaço do telefone;
+- **fornecedor preferido na peça**, e a ficha do fornecedor mostrando o que a
+  oficina compra dele;
+- tirar da lista **não quebra nada**: o histórico fica, as peças ficam sem
+  preferido e o CNPJ volta a poder ser cadastrado;
+- dono, admin e gerente cadastram; atendente e financeiro consultam; o mecânico
+  não vê fornecedor.
+
 Toda etapa só fecha com `npm run check` verde. Além disso:
 - as proteções principais são quebradas de propósito, para provar que os
   testes pegam a falha;
@@ -212,7 +235,7 @@ senha (`admin@`, `manager@`, `mechanic@`, `attendant@`, `finance@oficinaos.dev`)
 o que serve para ver o painel com os olhos de cada papel — o mecânico, por
 exemplo, não enxerga valor nenhum.
 
-São 10 clientes, 15 veículos, 20 ordens de serviço em todos os status,
+São 10 clientes, 15 veículos, 5 fornecedores ligados às peças, 20 ordens de serviço em todos os status,
 orçamentos aprovados, recusados e parados, pagamentos, agendamentos e estoque.
 Tudo é criado **pela própria API**, então passa pelas mesmas regras da tela; só
 as datas são espalhadas pelos últimos 30 dias depois, senão o painel mostraria

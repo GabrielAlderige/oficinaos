@@ -783,7 +783,7 @@ parts (
   qty_reserved numeric(12,3) NOT NULL DEFAULT 0,
   min_qty      numeric(12,3) NOT NULL DEFAULT 0,
   location text,                                -- "Prateleira B3"
-  preferred_supplier_id uuid,                   -- MVP 2
+  preferred_supplier_id uuid,                   -- E10: FK composta → suppliers; limpo quando o fornecedor sai da lista
   is_active boolean NOT NULL DEFAULT true, deleted_at timestamptz
 )
 -- GIN trigram em name e manufacturer_code; parcial (organization_id) WHERE qty_on_hand - qty_reserved < min_qty
@@ -884,9 +884,10 @@ As duas são gravadas pela mesma chamada de serviço, na mesma transação.
 ## 6. Esboço do MVP 2 (para garantir que o MVP 1 não feche portas)
 
 ```text
-suppliers                     id, name, legal_name, document (CNPJ), contact_name, phone, whatsapp, email,
-                              address, categories text[], rating smallint, lead_time_days, notes,
-                              directory_supplier_id (V3 → marketplace)
+suppliers                     ✅ E10 (migrations 0018/0019): id, name, legal_name, document (CNPJ), contact_name,
+                              phone, whatsapp, email, address, categories text[] (GIN), rating smallint (1–5),
+                              lead_time_days, notes, deleted_at. UNIQUE (organization_id, document) só entre
+                              os ativos. directory_supplier_id fica para o V3 (marketplace)
 purchase_orders               id, number, supplier_id, status (DRAFT|REQUESTED|ORDERED|PARTIAL|RECEIVED|CANCELED),
                               expected_at, shipping_cents, total_cents, notes, work_order_id (compra para uma OS)
 purchase_order_items          id, purchase_order_id, part_id, description, quantity, received_qty, unit_cost_cents
@@ -934,4 +935,4 @@ desenvolvimento nunca pode ser confundida com preço real.
 |---|---|---|
 | `plans` | STARTER, PROFESSIONAL, BUSINESS com limites e recursos | Toda instalação |
 | `defaults` (por oficina) | 11 categorias de peça, template de checklist, templates de mensagem | Ao criar uma oficina |
-| `demo` | 1 oficina fictícia, 6 usuários (um por papel), 10 clientes, 15 veículos, 20 OS em todos os status, orçamentos (aprovados, recusados, pendentes), 10 peças, 12 serviços, 10 agendamentos, pagamentos, movimentos de estoque; 5 fornecedores e contas no MVP 2 | Só em dev/demo, com dados obviamente fictícios: "Oficina Demonstração", CPFs gerados válidos mas marcados, telefones `+55 11 90000-00xx` |
+| `demo` | 1 oficina fictícia, 6 usuários (um por papel), 10 clientes, 15 veículos, 20 OS em todos os status, orçamentos (aprovados, recusados, pendentes), 10 peças, 12 serviços, 10 agendamentos, pagamentos, movimentos de estoque; **5 fornecedores ligados às peças (E10)**; contas a pagar e receber quando o financeiro existir | Só em dev/demo, com dados obviamente fictícios: "Oficina Demonstração", CPFs gerados válidos mas marcados, telefones `+55 11 90000-00xx` |

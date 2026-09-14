@@ -106,6 +106,18 @@ const PECAS = [
   { name: 'Fluido de freio DOT 4', sku: 'FR-FLUI', salePriceCents: 3900, initialQuantity: 10, initialUnitCostCents: 1900, minQuantity: 4 },
 ];
 
+/** Fornecedores fictícios (DATABASE.md §8): telefone da faixa de exemplo, sem CNPJ de ninguém. */
+const FORNECEDORES = [
+  { name: 'Central Autopeças Demonstração', contactName: 'Roberto', categories: ['Freios', 'Suspensão'], leadTimeDays: 1, rating: 5 },
+  { name: 'Distribuidora de Motores Exemplo', contactName: 'Sandra', categories: ['Motor', 'Filtros', 'Lubrificantes'], leadTimeDays: 2, rating: 4 },
+  { name: 'Elétrica Automotiva Fictícia', contactName: 'Paulo', categories: ['Elétrica'], leadTimeDays: 3, rating: 4 },
+  { name: 'Peças Rápidas de Teste', contactName: 'Mônica', categories: ['Freios', 'Filtros'], leadTimeDays: 0, rating: 3 },
+  { name: 'Atacado de Suspensão Modelo', contactName: 'Jair', categories: ['Suspensão', 'Direção'], leadTimeDays: 5, rating: 3 },
+];
+
+/** A peça de índice N compra do fornecedor de índice X (as sem entrada ficam sem preferido). */
+const PREFERIDO_POR_PECA: Record<number, number> = { 0: 1, 1: 1, 2: 1, 3: 0, 4: 0, 5: 1, 6: 2, 7: 4, 9: 3 };
+
 const EQUIPE = [
   { name: 'Bruno Tavares', role: 'ADMIN' as const },
   { name: 'Carla Menezes', role: 'MANAGER' as const },
@@ -150,7 +162,8 @@ const NA_ORDEM = [
   'quote_approvals', 'quote_attachments', 'quote_items', 'quotes',
   'work_order_events', 'vehicle_inspections', 'attachments', 'payments',
   'work_order_items', 'inventory_movements', 'appointments', 'work_orders',
-  'part_applications', 'parts', 'part_categories', 'services',
+  // a peça aponta para o fornecedor preferido: fornecedor sai depois dela
+  'part_applications', 'parts', 'suppliers', 'part_categories', 'services',
   'odometer_readings', 'vehicles', 'customers',
   'messages', 'notifications', 'activity_logs',
   'organization_counters', 'usage_counters', 'subscriptions', 'invitations', 'memberships',
@@ -321,9 +334,26 @@ async function main(): Promise<void> {
     const criado = (await chamar('POST', '/services', servico, dono)) as { id: string };
     servicos.push(criado.id);
   }
+  const fornecedores: string[] = [];
+  for (const [indice, fornecedor] of FORNECEDORES.entries()) {
+    const criado = (await chamar(
+      'POST',
+      '/suppliers',
+      { ...fornecedor, whatsapp: telefoneFicticio(indice + 40) },
+      dono,
+    )) as { id: string };
+    fornecedores.push(criado.id);
+  }
+
   const pecas: string[] = [];
-  for (const peca of PECAS) {
-    const criada = (await chamar('POST', '/parts', peca, dono)) as { id: string };
+  for (const [indice, peca] of PECAS.entries()) {
+    const preferido = PREFERIDO_POR_PECA[indice];
+    const criada = (await chamar(
+      'POST',
+      '/parts',
+      { ...peca, preferredSupplierId: preferido === undefined ? null : fornecedores[preferido] },
+      dono,
+    )) as { id: string };
     pecas.push(criada.id);
   }
 
@@ -537,7 +567,7 @@ async function main(): Promise<void> {
   console.log(`Oficina de demonstração criada: ${ORG}`);
   console.log(`  entrar com: ${DEMO_EMAIL} / ${DEMO_PASSWORD}`);
   console.log(`  a equipe usa a mesma senha: admin@ / manager@ / mechanic@ / attendant@ / finance@oficinaos.dev`);
-  console.log(`  ${criadas.length} ordens de serviço, ${clientes.length} clientes, ${veiculos.length} veículos`);
+  console.log(`  ${criadas.length} ordens de serviço, ${clientes.length} clientes, ${veiculos.length} veículos, ${fornecedores.length} fornecedores`);
   console.log(`  faturado no mês: ${formatBRL(resumo.billedCents)} em ${resumo.completedOrders} OS`);
   console.log('');
 

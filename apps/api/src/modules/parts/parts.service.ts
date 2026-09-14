@@ -57,6 +57,7 @@ const categoryTaken = () =>
 function toPartDto(
   row: repo.PartRow,
   category: { id: string | null; name: string | null } | null,
+  supplier: { id: string | null; name: string | null } | null,
   settings: OrganizationSettings,
   showCost: boolean,
 ): Part {
@@ -87,6 +88,7 @@ function toPartDto(
     minQuantity: milliToNumber(min),
     stockStatus: stockStatus({ trackStock: row.trackStock, onHandMilli: onHand, reservedMilli: reserved, minMilli: min }),
     location: row.location,
+    preferredSupplier: supplier?.id && supplier.name ? { id: supplier.id, name: supplier.name } : null,
     trackStock: row.trackStock,
     isActive: row.isActive,
     createdAt: row.createdAt.toISOString(),
@@ -108,6 +110,7 @@ function toValues(input: Partial<CreateInput>) {
     markupBps: input.markupBps,
     minQuantity: input.minQuantity === undefined ? undefined : milliToDecimal(toMilli(input.minQuantity)),
     location: blankToNull(input.location),
+    preferredSupplierId: input.preferredSupplierId,
     trackStock: input.trackStock,
     isActive: input.isActive,
   };
@@ -148,6 +151,7 @@ export class PartsService {
       repo.listParts(tx, auth.organizationId, {
         q: query.q || undefined,
         categoryId: query.categoryId,
+        supplierId: query.supplierId,
         attentionOnly: query.stock === 'attention',
         limit: query.pageSize,
         offset: (query.page - 1) * query.pageSize,
@@ -186,6 +190,7 @@ export class PartsService {
     try {
       return await withTenant(this.deps.db, auth, async (tx) => {
         await this.assertCategory(tx, auth.organizationId, input.categoryId);
+        await this.assertSupplier(tx, auth.organizationId, input.preferredSupplierId);
         const initialMilli = input.trackStock ? toMilli(input.initialQuantity) : 0;
         const cost = input.initialUnitCostCents;
 
@@ -234,6 +239,9 @@ export class PartsService {
         const before = await repo.lockPart(tx, auth.organizationId, id);
         if (!before) throw notFound('Peça não encontrada.');
         if (input.categoryId !== undefined) await this.assertCategory(tx, auth.organizationId, input.categoryId);
+        if (input.preferredSupplierId !== undefined) {
+          await this.assertSupplier(tx, auth.organizationId, input.preferredSupplierId);
+        }
 
         const patch = toValues(input);
         // quem não vê custo não mexe em margem (receberia null e poderia apagar a margem sem saber)
@@ -492,10 +500,20 @@ export class PartsService {
     const found = await repo.findPart(tx, auth.organizationId, id);
     if (!found) throw notFound('Peça não encontrada.');
     const settings = await readOrganizationSettings(tx, auth.organizationId);
-    return toPartDto(found.part, found.category, settings, canSeeCost(auth));
+    return toPartDto(found.part, found.category, found.supplier, settings, canSeeCost(auth));
   }
 
   /** Categoria tem que ser desta oficina (a FK composta garante; aqui a mensagem fica clara). */
+  /**
+   * A FK composta já impede fornecedor de outra oficina; isto barra o que o
+   * banco deixaria passar: um fornecedor desta oficina que já foi tirado da lista.
+   */
+  private async assertSupplier(tx: Tx, organizationId: string, supplierId: string | null) {
+    if (supplierId && !(await repo.findActiveSupplier(tx, organizationId, supplierId))) {
+      throw validationFailed([{ path: 'body.preferredSupplierId', message: 'Fornecedor não encontrado' }]);
+    }
+  }
+
   private async assertCategory(tx: Tx, organizationId: string, categoryId: string | null) {
     if (categoryId && !(await repo.findCategory(tx, organizationId, categoryId))) {
       throw validationFailed([{ path: 'body.categoryId', message: 'Categoria não encontrada' }]);
