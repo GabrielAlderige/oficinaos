@@ -15,6 +15,13 @@ const DEVIDO = sql`case when work_orders.approved_total_cents > 0
                         then work_orders.approved_total_cents
                         else work_orders.total_cents end`;
 
+/**
+ * A OS não foi cancelada. Orçamento de OS cancelada não está "aguardando
+ * resposta": não há mais o que o cliente responder, e cobrar a oficina por isso
+ * é ruído no painel.
+ */
+const OS_VIVA = sql`work_orders.status <> 'CANCELED'`;
+
 /** O carro ainda está na oficina. */
 const NO_PATIO = sql`work_orders.status not in ('DELIVERED', 'CANCELED')`;
 
@@ -147,8 +154,11 @@ export async function aprovacoesNoPeriodo(tx: Tx, organizationId: string, janela
 /** Orçamentos ainda sem resposta, agora. */
 export async function orcamentosPendentes(tx: Tx, organizationId: string): Promise<number> {
   const { rows } = await tx.execute<{ total: number }>(sql`
-    select count(*)::int as total from quotes
-    where organization_id = ${organizationId} and status = 'SENT'
+    select count(*)::int as total
+    from quotes
+    join work_orders on work_orders.organization_id = quotes.organization_id
+                    and work_orders.id = quotes.work_order_id
+    where quotes.organization_id = ${organizationId} and quotes.status = 'SENT' and ${OS_VIVA}
   `);
   return rows[0]?.total ?? 0;
 }
@@ -210,6 +220,7 @@ export async function orcamentosParados(tx: Tx, organizationId: string, semVerDe
     join vehicles on vehicles.organization_id = work_orders.organization_id and vehicles.id = work_orders.vehicle_id
     where quotes.organization_id = ${organizationId}
       and quotes.status = 'SENT'
+      and ${OS_VIVA}
       -- quem nem abriu tem grupo próprio, mais urgente: não repete aqui
       and (quotes.first_viewed_at is not null or quotes.sent_at >= ${semVerDesde})
     order by quotes.sent_at
@@ -223,6 +234,7 @@ export async function orcamentosParados(tx: Tx, organizationId: string, semVerDe
     join vehicles on vehicles.organization_id = work_orders.organization_id and vehicles.id = work_orders.vehicle_id
     where quotes.organization_id = ${organizationId}
       and quotes.status = 'SENT'
+      and ${OS_VIVA}
       and quotes.first_viewed_at is null
       and quotes.sent_at < ${semVerDesde}
     order by quotes.sent_at

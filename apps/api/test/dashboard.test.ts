@@ -323,4 +323,25 @@ describe('dashboard', () => {
     expect(pontos[0]!.day).toBe(hoje.period.from);
     expect(pontos[0]!.value, 'o faturado do dia da oficina').toBe(hoje.billedCents);
   });
+  it('OS cancelada tira o orçamento da fila de espera', async () => {
+    const veiculo = await createVehicle(t.app, owner, customerId, { plate: 'DSH6F78' });
+    const order = await createWorkOrder(t.app, owner, {
+      customerId,
+      vehicleId: veiculo.id,
+      items: [{ type: 'SERVICE', serviceId }],
+    });
+    await post(`/api/v1/work-orders/${order.id}/quotes`, {});
+    const comOrcamento = await resumo();
+
+    const cancelada = await post(`/api/v1/work-orders/${order.id}/cancel`, { reason: 'Cliente desistiu' });
+    expect(cancelada.statusCode, cancelada.body).toBe(200);
+
+    const depois = await resumo();
+    expect(depois.approval.pending, 'não há mais o que o cliente responder').toBe(
+      comOrcamento.approval.pending - 1,
+    );
+    const atencao = (await get('/api/v1/dashboard/attention')).json() as TestAttention;
+    const esperando = atencao.groups.find((g) => g.key === 'QUOTES_WAITING');
+    expect(esperando?.items.some((item) => item.to === `/ordens/${order.number}`)).toBeFalsy();
+  });
 });
