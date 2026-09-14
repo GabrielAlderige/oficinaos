@@ -1,178 +1,196 @@
-import { ROLE_LABELS } from '@oficinaos/shared';
-import { AlertTriangle, ArrowRight, Check } from 'lucide-react';
-import { Link } from 'react-router';
-import { Button } from '../../components/ui/button';
-import { Card, CardHeader, PageHeader } from '../../components/ui/display';
+import {
+  DASHBOARD_PERIOD_LABELS,
+  formatBRL,
+  WORK_ORDER_STATUS_LABELS,
+  type DashboardPeriod,
+  type DashboardSummary,
+} from '@oficinaos/shared';
+import { useSearchParams } from 'react-router';
+import { Alert, Card, CardHeader, PageHeader, Skeleton } from '../../components/ui/display';
 import { cn } from '../../lib/cn';
 import { firstName } from '../../lib/format';
 import { useCan, useMe } from '../../lib/session';
-import { useInventorySummary, useParts, useServices } from '../catalog/api';
-import { useCustomers } from '../customers/api';
-import { useInvitations, useMembers, useOrganization } from '../settings/api';
+import { AttentionPanel } from '../dashboard/AttentionPanel';
+import { useDashboardSummary } from '../dashboard/api';
+import { MetricChart } from '../dashboard/MetricChart';
+import { HeroFigure, StatTile } from '../dashboard/StatTile';
+import { SetupChecklist } from './SetupChecklist';
 
-interface Step {
-  title: string;
-  description: string;
-  done: boolean;
-  to?: string;
-  action?: string;
+const PERIODOS: DashboardPeriod[] = ['today', 'week', 'month'];
+const ehPeriodo = (valor: string | null): valor is DashboardPeriod =>
+  PERIODOS.includes(valor as DashboardPeriod);
+
+/** "8 de 10" vira "80%"; sem resposta nenhuma, não inventa porcentagem. */
+function taxa(dados: DashboardSummary): string {
+  if (!dados.approval.answered) return '—';
+  return `${Math.round((dados.approval.approved / dados.approval.answered) * 100)}%`;
 }
 
-/** Peças abaixo do mínimo, zeradas ou negativas: dado real do estoque, só quando há o que ver. */
-function StockAlert() {
-  const canSeeStock = useCan('inventory:read');
-  const summary = useInventorySummary(canSeeStock);
-  const s = summary.data;
-  const count = s ? s.low + s.out + s.negative : 0;
-  if (!count) return null;
+function Numeros({ dados }: { dados: DashboardSummary }) {
+  const naOficina = dados.openByStatus.filter((linha) => linha.count > 0);
   return (
-    <Card className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-3 px-5 py-4">
-      <span className="grid size-9 shrink-0 place-items-center rounded-full bg-warning-soft text-warning" aria-hidden="true">
-        <AlertTriangle className="size-4" />
-      </span>
-      <div className="min-w-0 flex-1 basis-60">
-        <p className="text-sm font-medium">
-          {count} {count === 1 ? 'peça precisa' : 'peças precisam'} de atenção no estoque
-        </p>
-        <p className="text-sm text-muted">
-          {[s!.low && `${s!.low} abaixo do mínimo`, s!.out && `${s!.out} sem estoque`, s!.negative && `${s!.negative} negativo`]
-            .filter(Boolean)
+    <>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <StatTile
+          label="Veículos na oficina"
+          value={dados.vehiclesInShop}
+          hint={naOficina
+            .slice(0, 2)
+            .map((linha) => `${linha.count} ${WORK_ORDER_STATUS_LABELS[linha.status].toLowerCase()}`)
             .join(' · ')}
-        </p>
+          to="/ordens"
+        />
+        <StatTile
+          label="Aguardando aprovação"
+          value={dados.awaitingApproval}
+          hint={dados.approval.pending ? `${dados.approval.pending} orçamento(s) sem resposta` : undefined}
+          to="/orcamentos"
+          tone={dados.awaitingApproval > 0 ? 'accent' : 'neutral'}
+        />
+        <StatTile
+          label="Agendamentos de hoje"
+          value={dados.appointmentsToday}
+          to="/agenda?visao=dia"
+        />
       </div>
-      <Button asChild variant="secondary" size="sm">
-        <Link to="/pecas?estoque=atencao">
-          Ver peças
-          <ArrowRight />
-        </Link>
-      </Button>
-    </Card>
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {dados.receivedCents !== null && (
+          <StatTile label="Recebido no período" value={formatBRL(dados.receivedCents)} />
+        )}
+        {dados.avgTicketCents !== null && (
+          <StatTile label="Ticket médio" value={formatBRL(dados.avgTicketCents)} />
+        )}
+        <StatTile
+          label="Serviços concluídos"
+          value={dados.completedServices}
+          hint={`${dados.completedOrders} OS · ${dados.vehiclesServed} veículo(s)`}
+        />
+        <StatTile
+          label="Taxa de aprovação"
+          value={taxa(dados)}
+          hint={dados.approval.answered ? `${dados.approval.approved} de ${dados.approval.answered} respondidos` : 'sem resposta no período'}
+        />
+      </div>
+    </>
+  );
+}
+
+/** Os dois mais usados do período, lado a lado. Lista curta: é resumo, não relatório. */
+function MaisUsados({ dados }: { dados: DashboardSummary }) {
+  if (!dados.topServices.length && !dados.topParts.length) return null;
+  const colunas = [
+    { titulo: 'Serviços mais feitos', linhas: dados.topServices.map((s) => ({ nome: s.name, valor: `${s.count}×` })) },
+    {
+      titulo: 'Peças mais usadas',
+      linhas: dados.topParts.map((p) => ({ nome: p.name, valor: `${p.quantity.toLocaleString('pt-BR')}` })),
+    },
+  ].filter((coluna) => coluna.linhas.length);
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      {colunas.map((coluna) => (
+        <Card key={coluna.titulo}>
+          <CardHeader title={coluna.titulo} />
+          <ul className="divide-y divide-border border-t border-border">
+            {coluna.linhas.map((linha) => (
+              <li key={linha.nome} className="flex items-center justify-between gap-3 px-5 py-2.5 text-sm">
+                <span className="min-w-0 truncate">{linha.nome}</span>
+                <span className="shrink-0 tabular-nums text-muted">{linha.valor}</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      ))}
+    </div>
   );
 }
 
 /**
- * Início da E2: boas-vindas + primeiros passos que JÁ existem. O dashboard de
- * verdade (faturamento, OS, "atenção necessária") chega na E9, com dados reais.
+ * O painel de Início (E9). A ordem é a da oficina: primeiro o que ela vendeu no
+ * período, depois o pátio de hoje, e então **o que está travado**. Os primeiros
+ * passos ficam por último e somem quando terminam.
  */
 export function HomePage() {
   const me = useMe();
-  const canManageOrg = useCan('organization:manage');
-  const canManageTeam = useCan('team:manage');
-  const organization = useOrganization();
-  const members = useMembers();
-  const invitations = useInvitations(canManageTeam);
-  const canWriteCustomers = useCan('customers:write');
-  const customers = useCustomers({ q: '', page: 1, pageSize: 1 }, { enabled: canWriteCustomers });
-  const canWriteCatalog = useCan('catalog:write');
-  const services = useServices({ q: '', status: 'all', page: 1, pageSize: 1 }, { enabled: canWriteCatalog });
-  const parts = useParts({ q: '', attention: false, page: 1, pageSize: 1 }, { enabled: canWriteCatalog });
+  const podeVer = useCan('dashboard:view');
+  const [params, setParams] = useSearchParams();
+  const escolhido = params.get('periodo');
+  const periodo: DashboardPeriod = ehPeriodo(escolhido) ? escolhido : 'month';
+  const resumo = useDashboardSummary({ period: periodo }, podeVer);
+  const dados = resumo.data;
 
-  const org = organization.data;
-  const steps: Step[] = [
-    { title: 'Conta criada', description: `${me.organization.name} já está no OficinaOS.`, done: true },
-  ];
-  if (canManageOrg) {
-    steps.push({
-      title: 'Complete os dados da oficina',
-      description: 'CNPJ, endereço e horário de funcionamento vão aparecer nos orçamentos e na OS impressa.',
-      done: Boolean(org?.document && org.address.city && Object.keys(org.businessHours).length),
-      to: '/configuracoes/oficina',
-      action: 'Completar dados',
-    });
-  }
-  if (canWriteCustomers) {
-    steps.push({
-      title: 'Cadastre o primeiro cliente e o carro dele',
-      description: 'Depois é só digitar a placa (antiga ou Mercosul) em qualquer tela, com Ctrl+K.',
-      done: (customers.data?.meta.total ?? 0) > 0,
-      to: '/clientes',
-      action: 'Cadastrar cliente',
-    });
-  }
-  if (canWriteCatalog) {
-    const hasServices = (services.data?.meta.total ?? 0) > 0;
-    steps.push({
-      title: 'Monte o catálogo de serviços e peças',
-      description: 'Com preço e tempo padrão cadastrados, o orçamento sai em poucos cliques.',
-      done: hasServices && (parts.data?.meta.total ?? 0) > 0,
-      to: hasServices ? '/pecas' : '/servicos',
-      action: hasServices ? 'Cadastrar peças' : 'Cadastrar serviços',
-    });
-  }
-  if (canManageTeam) {
-    steps.push({
-      title: 'Convide a sua equipe',
-      description: 'Mecânicos e atendentes entram com o próprio acesso, e cada um vê só o que precisa.',
-      done: (members.data?.length ?? 0) > 1 || (invitations.data?.length ?? 0) > 0,
-      to: '/configuracoes/equipe',
-      action: 'Convidar',
-    });
-  }
-  // quem não gerencia oficina nem equipe não tem passos a cumprir: sem checklist de fachada
-  if (steps.length === 1) {
-    return (
-      <>
-        <PageHeader title={`Olá, ${firstName(me.user.name)}`} description={`Você está no painel da ${me.organization.name}.`} />
-        <Card className="px-5 py-10 text-center">
-          <p className="font-medium">Tudo certo com o seu acesso</p>
-          <p className="mx-auto mt-1 max-w-md text-sm text-muted">
-            Você entrou na equipe como {ROLE_LABELS[me.role]}. As ordens de serviço e a agenda da oficina vão
-            aparecer aqui assim que estiverem em uso.
-          </p>
-        </Card>
-        <StockAlert />
-      </>
-    );
-  }
-
-  const doneCount = steps.filter((s) => s.done).length;
-  const loading = organization.isPending || members.isPending;
+  const trocarPeriodo = (valor: DashboardPeriod) => {
+    const proximo = new URLSearchParams(params);
+    if (valor === 'month') proximo.delete('periodo');
+    else proximo.set('periodo', valor);
+    setParams(proximo, { replace: true });
+  };
 
   return (
     <>
-      <PageHeader title={`Olá, ${firstName(me.user.name)}`} description={`Você está no painel da ${me.organization.name}.`} />
-      <Card>
-        <CardHeader
-          title="Primeiros passos"
-          description={loading ? 'Carregando…' : `${doneCount} de ${steps.length} concluídos`}
-          action={
-            <div className="h-2 w-32 overflow-hidden rounded-full bg-surface-muted" aria-hidden="true">
-              <div className="h-full rounded-full bg-accent-bright transition-[width]" style={{ width: `${(doneCount / steps.length) * 100}%` }} />
+      <PageHeader
+        title={`Olá, ${firstName(me.user.name)}`}
+        description={`Você está no painel da ${me.organization.name}.`}
+        actions={
+          podeVer && (
+            <div className="flex rounded-md border border-border p-0.5" role="group" aria-label="Período">
+              {PERIODOS.map((opcao) => (
+                <button
+                  key={opcao}
+                  type="button"
+                  aria-pressed={periodo === opcao}
+                  onClick={() => trocarPeriodo(opcao)}
+                  className={cn(
+                    'rounded px-3 py-1 text-sm',
+                    periodo === opcao ? 'bg-surface-muted font-medium' : 'text-muted hover:text-fg',
+                  )}
+                >
+                  {DASHBOARD_PERIOD_LABELS[opcao]}
+                </button>
+              ))}
             </div>
-          }
-        />
-        <ol className="divide-y divide-border">
-          {steps.map((step) => (
-            <li key={step.title} className="flex flex-wrap items-center gap-x-4 gap-y-3 px-5 py-4">
-              <span
-                className={cn(
-                  'grid size-7 shrink-0 place-items-center rounded-full border',
-                  step.done ? 'border-transparent bg-success text-white dark:text-[#121211]' : 'border-border text-transparent',
-                )}
-                aria-hidden="true"
-              >
-                <Check className="size-4" />
-              </span>
-              <div className="min-w-0 flex-1 basis-60">
-                <p className={cn('text-sm font-medium', step.done && 'text-muted line-through decoration-muted/50')}>
-                  {step.title}
-                  <span className="sr-only">{step.done ? ' (concluído)' : ' (pendente)'}</span>
-                </p>
-                <p className="text-sm text-muted">{step.description}</p>
-              </div>
-              {!step.done && step.to && (
-                <Button asChild variant="secondary" size="sm">
-                  <Link to={step.to}>
-                    {step.action}
-                    <ArrowRight />
-                  </Link>
-                </Button>
-              )}
-            </li>
-          ))}
-        </ol>
-      </Card>
-      <StockAlert />
+          )
+        }
+      />
+
+      <div className="space-y-4">
+        {podeVer && resumo.isError && (
+          <Alert variant="danger">Não deu para carregar os números. Atualize a página.</Alert>
+        )}
+        {podeVer && !dados && !resumo.isError && (
+          <>
+            <Skeleton className="h-28 w-full" />
+            <Skeleton className="h-20 w-full" />
+          </>
+        )}
+        {dados && (
+          <>
+            <Card className="px-5 py-4">
+              <HeroFigure
+                label={
+                  dados.billedCents !== null
+                    ? `Faturado — ${dados.period.label}`
+                    : `Veículos na oficina — ${dados.period.label}`
+                }
+                value={
+                  dados.billedCents !== null ? formatBRL(dados.billedCents) : String(dados.vehiclesInShop)
+                }
+                hint={
+                  dados.billedCents !== null
+                    ? `${dados.completedOrders} OS finalizada(s) no período · faturar não é receber`
+                    : `${dados.completedOrders} OS finalizada(s) no período`
+                }
+              />
+            </Card>
+            <Numeros dados={dados} />
+            <AttentionPanel />
+            <MetricChart periodo={{ period: periodo }} podeVerDinheiro={dados.billedCents !== null} />
+            <MaisUsados dados={dados} />
+          </>
+        )}
+        <SetupChecklist />
+      </div>
     </>
   );
 }

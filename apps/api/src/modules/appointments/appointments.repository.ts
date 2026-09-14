@@ -1,15 +1,6 @@
 import { and, asc, eq, gt, lt, sql, type SQL } from 'drizzle-orm';
 import { BLOCKING_APPOINTMENT_STATUSES, type AppointmentListQuery } from '@oficinaos/shared';
-import {
-  appointments,
-  customers,
-  memberships,
-  organizations,
-  services,
-  users,
-  vehicles,
-  workOrders,
-} from '../../db/schema';
+import { appointments, customers, memberships, services, users, vehicles, workOrders } from '../../db/schema';
 import type { Tx } from '../../db/tenant';
 
 export type AppointmentRow = typeof appointments.$inferSelect;
@@ -149,12 +140,3 @@ export async function findActiveMember(tx: Tx, organizationId: string, userId: s
 }
 
 
-/** O fuso da oficina, para escrever horários nas mensagens de conflito e de aviso. */
-export async function readTimezone(tx: Tx, organizationId: string): Promise<string> {
-  const [row] = await tx
-    .select({ timezone: organizations.timezone })
-    .from(organizations)
-    .where(eq(organizations.id, organizationId))
-    .limit(1);
-  return row?.timezone ?? 'America/Sao_Paulo';
-}

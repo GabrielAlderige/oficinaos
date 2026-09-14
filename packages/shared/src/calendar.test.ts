@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   addDays,
+  addMonths,
+  daysBetween,
   businessIntervals,
   dayKey,
   dayPosition,
@@ -12,6 +14,7 @@ import {
   isWithinBusinessHours,
   minutesOfDay,
   monthGrid,
+  periodRange,
   overlaps,
   startOfWeek,
   wallClock,
@@ -209,5 +212,52 @@ describe('mensagem para o cliente', () => {
   it('escreve o dia e a hora no relógio da oficina', () => {
     expect(formatWhen(at('2026-09-14T12:00:00Z'), SP)).toBe('segunda, 14/09, às 09:00');
     expect(formatWhen(at('2026-09-14T12:00:00Z'), 'America/Manaus')).toBe('segunda, 14/09, às 08:00');
+  });
+});
+
+describe('período do dashboard', () => {
+  // 2026-09-13 é um domingo; 11:00Z é 08:00 em SP e 07:00 em Manaus
+  const agora = at('2026-09-13T11:00:00Z');
+
+  it('"hoje" começa e termina no calendário da oficina', () => {
+    const sp = periodRange('today', SP, undefined, agora);
+    expect(sp.fromDay).toBe('2026-09-13');
+    expect(sp.from.toISOString()).toBe('2026-09-13T03:00:00.000Z');
+    expect(sp.to.toISOString()).toBe('2026-09-14T03:00:00.000Z');
+
+    // a oficina de Manaus vira o dia uma hora depois
+    const manaus = periodRange('today', 'America/Manaus', undefined, agora);
+    expect(manaus.from.toISOString()).toBe('2026-09-13T04:00:00.000Z');
+    expect(manaus.to.toISOString()).toBe('2026-09-14T04:00:00.000Z');
+  });
+
+  it('a semana começa na segunda e o mês pega o mês inteiro', () => {
+    const semana = periodRange('week', SP, undefined, agora);
+    expect([semana.fromDay, semana.toDay]).toEqual(['2026-09-07', '2026-09-13']);
+    const mes = periodRange('month', SP, undefined, agora);
+    expect([mes.fromDay, mes.toDay]).toEqual(['2026-09-01', '2026-09-30']);
+  });
+
+  it('período escolhido inclui o último dia inteiro, mesmo de trás para frente', () => {
+    const escolhido = periodRange('custom', SP, { from: '2026-09-01', to: '2026-09-03' }, agora);
+    expect(escolhido.to.toISOString()).toBe('2026-09-04T03:00:00.000Z');
+    const invertido = periodRange('custom', SP, { from: '2026-09-03', to: '2026-09-01' }, agora);
+    expect([invertido.fromDay, invertido.toDay]).toEqual(['2026-09-01', '2026-09-03']);
+  });
+
+  it('somar mês prende no último dia do mês curto', () => {
+    expect(addMonths('2026-01-31', 1)).toBe('2026-02-28');
+    expect(addMonths('2026-03-15', -1)).toBe('2026-02-15');
+    expect(addMonths('2026-12-10', 1)).toBe('2027-01-10');
+  });
+
+  it('lista os dias do período para as colunas do gráfico', () => {
+    expect(daysBetween('2026-09-28', '2026-10-02')).toEqual([
+      '2026-09-28',
+      '2026-09-29',
+      '2026-09-30',
+      '2026-10-01',
+      '2026-10-02',
+    ]);
   });
 });

@@ -339,3 +339,77 @@ export function isWithinBusinessHours(
       position.startMinutes >= interval.startMinutes && position.endMinutes <= interval.endMinutes,
   );
 }
+
+// ------------------------------ períodos ----------------------------------
+
+export const DASHBOARD_PERIODS = ['today', 'week', 'month', 'custom'] as const;
+export type DashboardPeriod = (typeof DASHBOARD_PERIODS)[number];
+
+export const DASHBOARD_PERIOD_LABELS: Record<DashboardPeriod, string> = {
+  today: 'Hoje',
+  week: 'Esta semana',
+  month: 'Este mês',
+  custom: 'Período',
+};
+
+/**
+ * A janela do dashboard, em instantes, a partir do calendário da OFICINA.
+ * "Hoje" numa oficina de Manaus começa e termina uma hora depois do que numa de
+ * São Paulo — se o corte saísse do relógio do servidor, o faturamento do dia
+ * pegaria a última hora da véspera.
+ *
+ * O fim é **exclusivo** (`[from, to)`), como toda comparação de tempo aqui.
+ */
+export function periodRange(
+  period: DashboardPeriod,
+  timeZone: string,
+  custom?: { from?: string | null; to?: string | null },
+  agora: Date = new Date(),
+): { from: Date; to: Date; fromDay: string; toDay: string } {
+  const hoje = dayKey(agora, timeZone);
+  const [primeiro, ultimo] = (() => {
+    switch (period) {
+      case 'today':
+        return [hoje, hoje];
+      case 'week':
+        return [startOfWeek(hoje), addDays(startOfWeek(hoje), 6)];
+      case 'month':
+        return [startOfMonth(hoje), addDays(addMonths(startOfMonth(hoje), 1), -1)];
+      case 'custom': {
+        const de = custom?.from ?? hoje;
+        const ate = custom?.to ?? hoje;
+        // datas trocadas não devolvem período vazio: a pessoa quis o intervalo
+        return de <= ate ? [de, ate] : [ate, de];
+      }
+    }
+  })();
+  return {
+    from: fromDayKey(primeiro, 0, timeZone),
+    to: fromDayKey(addDays(ultimo, 1), 0, timeZone),
+    fromDay: primeiro,
+    toDay: ultimo,
+  };
+}
+
+/** Soma meses no calendário, prendendo no último dia (31/01 + 1 mês = 28/02). */
+export function addMonths(key: string, months: number): string {
+  const { year, month, day } = parseDayKey(key);
+  const alvo = new Date(Date.UTC(year, month - 1 + months, 1));
+  const ultimoDia = new Date(Date.UTC(alvo.getUTCFullYear(), alvo.getUTCMonth() + 1, 0)).getUTCDate();
+  return toDayKey({
+    year: alvo.getUTCFullYear(),
+    month: alvo.getUTCMonth() + 1,
+    day: Math.min(day, ultimoDia),
+  });
+}
+
+/** Os dias de um período, para as colunas do gráfico. Teto de 400 para não estourar a tela. */
+export function daysBetween(fromDay: string, toDay: string): string[] {
+  const dias: string[] = [];
+  let cursor = fromDay;
+  while (cursor <= toDay && dias.length < 400) {
+    dias.push(cursor);
+    cursor = addDays(cursor, 1);
+  }
+  return dias;
+}

@@ -243,9 +243,9 @@ Ninguém rebaixa nem remove o último OWNER.
 | Método | Rota | Permissão | Fase |
 |---|---|---|---|
 | GET | `/search?q=ABC1234` → `{ customers, vehicles, workOrders, quotes }` (máx. 5 de cada) | autenticado (filtrado por permissão) | 1 |
-| GET | `/dashboard/summary?period=today\|week\|month\|custom&from=&to=` | `dashboard:view` (valores com `:view_financial`) | 1 |
-| GET | `/dashboard/attention` ("Atenção necessária") | `dashboard:view` | 1 |
-| GET | `/dashboard/charts?metric=revenue\|work_orders\|avg_ticket\|approval_rate\|new_customers&period=` | `dashboard:view_financial` | 1 |
+| GET | `/dashboard/summary?period=today\|week\|month\|custom&from=&to=` | `dashboard:view`; **sem `:view_financial` os campos de dinheiro vêm `null`** (nunca zero) | 1 |
+| GET | `/dashboard/attention` ("Atenção necessária": grupos com contagem, os primeiros itens e o caminho no painel) | `dashboard:view` | 1 |
+| GET | `/dashboard/charts?metric=revenue\|work_orders\|avg_ticket\|approval_rate\|new_customers&period=` | `dashboard:view`; as séries de dinheiro vêm **vazias** sem `:view_financial` | 1 |
 | GET | `/activity-logs?entityType=&entityId=&actorId=&cursor=` | `audit:read` | 1 |
 
 ### MVP 2

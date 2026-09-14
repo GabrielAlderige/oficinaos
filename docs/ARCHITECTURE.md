@@ -92,6 +92,7 @@ uma refatoração, não uma reescrita.
 | D27 | Ordem autorização × validação (E3) | O guard roda em **`preValidation`**: sem permissão = 403 antes de validar o corpo | Guard em `preHandler` (depois da validação) | Quem não pode usar a rota não aprende o formato esperado pelas mensagens de erro (há teste) |
 | D26 | Regra de acesso das rotas (E2) | `config.auth` em cada rota, avaliado por um hook global; **sem declaração = exige login** | `preHandler` por rota | Esquecer a marcação nunca abre uma rota (há teste provando isso) |
 | D28 | Grade da agenda (E8) | **Componente próprio** em CSS grid, com o instante convertido para o relógio da oficina por `Intl.DateTimeFormat` (`packages/shared/calendar.ts`) | react-big-calendar (D20) | A biblioteca traz junto moment, moment-timezone, luxon, globalize, lodash e dayjs, exige CSS próprio para casar com o Tailwind e **desenha no fuso do navegador** — o fuso da oficina só sairia mexendo no moment global. Como "o fuso da oficina é respeitado" é o critério de pronto da E8, a conversão tinha de ser nossa de qualquer jeito |
+| D29 | Gráficos do dashboard (E9) | **Componentes próprios** (colunas em HTML/CSS, uma série por vez) | Recharts | As cinco séries do MVP são um total por dia — barra e rótulo, nada que exija biblioteca. O Recharts custaria ~35 kB gzip (ele puxa vários módulos do d3) **no pedaço que carrega logo depois do login**, já que o dashboard é a tela de Início. O gráfico inteiro custou ~1 kB. Vale reavaliar quando chegarem os relatórios do MVP 2, com muitas séries |
 
 ---
 

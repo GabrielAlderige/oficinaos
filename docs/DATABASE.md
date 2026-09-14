@@ -923,7 +923,7 @@ desenvolvimento nunca pode ser confundida com preço real.
 | Busca por placa | btree `(organization_id, plate_canonical)` + prefixo |
 | Busca por nome/telefone | GIN trigram sobre `immutable_unaccent(name)`; btree em `whatsapp`/`phone` |
 | Listas da OS | btree `(organization_id, status, opened_at DESC)` |
-| Dashboard | agregações por `(organization_id, completed_at)` e `(organization_id, paid_at)`; cache de 60 s por oficina |
+| Dashboard | agregações por `(organization_id, completed_at)` e `(organization_id, paid_at)`. **O cache de 60 s não entrou no MVP 1** (E9): em oficina pequena a consulta é barata, e número velho logo depois de registrar um pagamento parece defeito — entra quando houver volume |
 | Crescimento (`activity_logs`, `inventory_movements`, `messages`) | índice começando por `organization_id`; particionamento por mês quando passar de dezenas de milhões |
 
 ---

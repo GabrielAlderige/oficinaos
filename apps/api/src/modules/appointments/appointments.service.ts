@@ -23,6 +23,7 @@ import {
   type WorkOrder,
 } from '@oficinaos/shared';
 import { recordActivity } from '../../core/audit';
+import { readTimezone } from '../../core/org-settings';
 import type { AuthContext, ClientInfo, ServiceDeps } from '../../core/auth-context';
 import { AppError, notFound, validationFailed, type FieldError } from '../../core/errors';
 import { blankToNull, isoOrNull } from '../../core/normalize';
@@ -359,7 +360,7 @@ export class AppointmentsService {
       });
 
       // a OS precisa dizer de onde veio: quem abre a ficha entende o histórico
-      const timezone = await repo.readTimezone(tx, auth.organizationId);
+      const timezone = await readTimezone(tx, auth.organizationId);
       await workOrderRepo.insertEvent(tx, {
         organizationId: auth.organizationId,
         workOrderId: order.id,
@@ -396,7 +397,7 @@ export class AppointmentsService {
       if (!row) throw notFound('Agendamento não encontrado.');
 
       const oficina = await workOrderRepo.findOrganization(tx, auth.organizationId);
-      const timezone = await repo.readTimezone(tx, auth.organizationId);
+      const timezone = await readTimezone(tx, auth.organizationId);
       const message = whatsappAppointmentMessage({
         customerName: row.customerName,
         shopName: oficina?.name ?? 'Oficina',
@@ -504,7 +505,7 @@ export class AppointmentsService {
     if (!rows.length) return false;
     if (force) return true;
 
-    const timezone = await repo.readTimezone(tx, organizationId);
+    const timezone = await readTimezone(tx, organizationId);
     const errors: FieldError[] = rows.map((row) => ({
       path: 'body.startsAt',
       message: `${row.mechanicName ?? 'O mecânico'} já tem "${row.appointment.title}" (${row.customerName}) ${faixaTexto(row.appointment.startsAt, row.appointment.endsAt, timezone)}`,

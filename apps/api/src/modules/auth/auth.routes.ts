@@ -54,10 +54,21 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
   const service = app.services.auth;
   const env = app.env;
 
+  /**
+   * Em DESENVOLVIMENTO o limite por hora atrapalha mais do que protege: cada
+   * execução do e2e cria várias oficinas, e na segunda rodada da hora tudo
+   * falha com 429. Em teste e em produção ele continua apertado — inclusive há
+   * teste provando que o limite existe.
+   */
+  const porHora = (max: number) => ({
+    max: env.NODE_ENV === 'development' ? max * 20 : max,
+    timeWindow: '1 hour',
+  });
+
   app.post(
     '/signup',
     {
-      config: { auth: 'public', rateLimit: { max: 10, timeWindow: '1 hour' } },
+      config: { auth: 'public', rateLimit: porHora(10) },
       schema: { body: signupSchema, response: { 201: authResponseSchema } },
     },
     async (request, reply) => {
@@ -118,8 +129,7 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
       config: {
         auth: 'public',
         rateLimit: {
-          max: 3,
-          timeWindow: '1 hour',
+          ...porHora(3),
           hook: 'preHandler',
           keyGenerator: (request) => `forgot:${emailKey(request)}`,
         },
@@ -136,7 +146,7 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
   app.post(
     '/reset-password',
     {
-      config: { auth: 'public', rateLimit: { max: 10, timeWindow: '1 hour' } },
+      config: { auth: 'public', rateLimit: porHora(10) },
       schema: { body: resetPasswordSchema },
     },
     async (request, reply) => {

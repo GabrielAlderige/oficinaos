@@ -11,7 +11,7 @@ O diferencial inicial é um fluxo:
 
 ## Status
 
-**MVP 1, etapas E1 a E8 concluídas.** Sobre a fundação da E1 (monorepo, banco com
+**MVP 1 concluído — E1 a E9.** Sobre a fundação da E1 (monorepo, banco com
 isolamento por oficina via RLS, API com erros padronizados e segurança básica),
 a E2 trouxe:
 
@@ -122,6 +122,25 @@ A E8 trouxe a agenda:
   próprio, e não o react-big-calendar previsto na D20 (que desenha no relógio do
   aparelho e traria seis bibliotecas de data junto).
 
+A E9 fechou o MVP 1 com o painel de Início:
+
+- **faturado e recebido são contas separadas**: faturado é o serviço entregue no
+  período, recebido é o dinheiro que entrou. Com fiado os dois nunca batem, e
+  juntar num número só esconderia o problema;
+- quem não tem permissão de ver dinheiro recebe **`null`, nunca zero** — zero
+  faria o mecânico ler "faturamento R$ 0,00" e achar que a oficina não vendeu;
+- **Atenção necessária**: orçamento parado, orçamento que o cliente **nem
+  abriu** em 24 h, previsão de entrega vencida, pronto e não entregue há 2 dias,
+  entregue devendo, peça abaixo do mínimo e agendamento de hoje sem confirmação
+  — cada item com o caminho para resolver. É aqui que o estoque negativo da E7
+  finalmente aparece para a oficina;
+- **gráficos** de faturamento, OS finalizadas, ticket médio, taxa de aprovação e
+  novos clientes, desenhados sem biblioteca (~1 kB) e com os mesmos valores numa
+  tabela para leitor de tela;
+- **checklist de configuração** que some sozinho quando termina;
+- **oficina de demonstração** (`npm run db:seed:demo`) e **auditoria de
+  acessibilidade** com axe-core no e2e, sobre o painel cheio.
+
 | Etapa do MVP 1 | Situação |
 |---|---|
 | E1. Fundação (monorepo, banco com RLS, API base) | ✅ 10/09/2026 |
@@ -132,7 +151,7 @@ A E8 trouxe a agenda:
 | E6. Orçamento com link e aprovação pelo celular | ✅ 12/09/2026 |
 | E7. Execução, entrega e pagamento | ✅ 12/09/2026 |
 | E8. Agenda | ✅ 13/09/2026 |
-| E9. Dashboard e acabamento | próxima |
+| E9. Dashboard e acabamento | ✅ 13/09/2026 |
 
 Toda etapa só fecha com `npm run check` verde. Além disso:
 - as proteções principais são quebradas de propósito, para provar que os
@@ -182,6 +201,29 @@ npm run db:setup            # roles, bancos oficinaos_dev e oficinaos_test, exte
 npm run db:migrate          # tabelas + isolamento por oficina (RLS)
 ```
 
+### Oficina de demonstração (opcional, mas recomendado)
+
+```bash
+npm run db:seed:demo        # cria a "Oficina Demonstração" com um mês de movimento
+```
+
+Entre com **`demo@oficinaos.dev`** / **`demonstracao2026`**. A equipe usa a mesma
+senha (`admin@`, `manager@`, `mechanic@`, `attendant@`, `finance@oficinaos.dev`),
+o que serve para ver o painel com os olhos de cada papel — o mecânico, por
+exemplo, não enxerga valor nenhum.
+
+São 10 clientes, 15 veículos, 20 ordens de serviço em todos os status,
+orçamentos aprovados, recusados e parados, pagamentos, agendamentos e estoque.
+Tudo é criado **pela própria API**, então passa pelas mesmas regras da tela; só
+as datas são espalhadas pelos últimos 30 dias depois, senão o painel mostraria
+tudo num dia só. Os dados são **obviamente fictícios** (CPF e CNPJ da faixa
+`9000…`, telefones `(11) 90000-00xx`, e-mails `@exemplo.invalido`).
+
+```bash
+npm run db:seed:demo -- --reset          # apaga a oficina de demonstração
+npm run db:seed:demo -- --reset --seed   # apaga e cria de novo, do zero
+```
+
 ### Dia a dia
 
 ```bash
@@ -207,9 +249,14 @@ Os fluxos de ponta a ponta ficam **fora** do `check`, porque precisam de
 navegador e do servidor no ar:
 
 ```bash
-npm run e2e                 # Playwright: a oficina enviando e o cliente aprovando
+npm run e2e                 # Playwright: painel e celular do cliente, ponta a ponta
 npm run e2e:ui              # o mesmo, com a interface do Playwright para depurar
 ```
+
+Os cenários cobrem o orçamento aprovado pelo celular, o pagamento, a entrega, a
+agenda (inclusive com o navegador em outro fuso) e o painel de Início. Um deles
+é uma **auditoria de acessibilidade** com o axe-core sobre as telas do dia a
+dia, com o painel cheio de dados — tela vazia passa fácil e não prova nada.
 
 Se não houver `npm run dev` no ar, o Playwright sobe um. Ele usa o banco de
 **desenvolvimento**, e cada cenário cria a própria oficina, com e-mail e placa
@@ -230,6 +277,7 @@ ficam em `e2e/screenshots/`, fora do git.
 | `npm run db:setup` | Prepara o Postgres local (idempotente; roda de novo para trocar senhas) |
 | `npm run db:generate` | Gera a migration SQL a partir de mudanças no schema Drizzle |
 | `npm run db:migrate` | Aplica as migrations no banco de dev (`-- --test` para o de teste) |
+| `npm run db:seed:demo` | Cria a oficina de demonstração (`-- --reset` apaga, `-- --reset --seed` recria) |
 
 ## Variáveis de ambiente
 

@@ -6,7 +6,7 @@
 
 ---
 
-## MVP 1: a oficina trabalha dentro do sistema
+## MVP 1: a oficina trabalha dentro do sistema ✅ concluído em 13/09/2026
 
 **Objetivo:** o dono cadastra cliente e veículo, abre a OS, orça, manda o link
 pelo WhatsApp, o cliente aprova pelo celular e a OS muda sozinha para aprovada.
@@ -26,7 +26,7 @@ tela sem backend por trás.
 | **E6. Orçamento e aprovação (prioridade absoluta)** ✅ 12/09 | Snapshot versionado; link público; página mobile com necessários × recomendados, fotos por item, confirmação explícita, recusa e pergunta; visualização registrada; notificação na oficina; aprovação manual e presencial; orçamento complementar; link antigo leva à versão nova; **reserva de estoque na aprovação**; botão **Enviar pelo WhatsApp** com mensagem pronta; lista de orçamentos por situação; sino de avisos no painel | **E2E Playwright dos 11 passos** do briefing, com a aprovação num viewport de celular; testes de aprovação dupla, versão velha, expirada e parcial. **Cumprido**: os quatro casos estão na suíte da API, e os fluxos viraram Playwright TS em `e2e/` — a oficina enviando no desktop e o cliente aprovando num celular de 390 px, com `npm run e2e` |
 | **E7. Execução, entrega e pagamento** ✅ 12/09 | Iniciar, aguardar peça e finalizar (com **baixa de estoque**); **registro simples de pagamento** **[ajuste]**; entrega com aviso de saldo em aberto; "veículo pronto" pelo WhatsApp com registro na timeline; garantia impressa (já vinha da E5) | Teste de baixa (inclusive estoque insuficiente → negativo + alerta); `payment_status` correto em pagamento parcial. **Cumprido**, com uma ressalva: o saldo fica negativo e é registrado (no evento da baixa e na ficha da peça), mas o painel **"Atenção necessária"** que mostra isso para a oficina é da E9 |
 | **E8. Agenda** ✅ 13/09 | Dia, semana e mês; coluna por mecânico; arrastar e soltar; aviso de conflito com "confirmar mesmo assim"; status; **check-in a partir do agendamento cria a OS**; confirmação pelo WhatsApp | Conflito detectado em sobreposição parcial; o fuso da oficina é respeitado. **Cumprido**: a sobreposição é meio-aberta (encostar não é conflito) e sai como **aviso** com quem colide, não como impedimento; o fuso vem de `organizations` e há teste de API (oficina em Manaus) e de navegador (aparelho em Kiritimati). A grade virou componente próprio — **D28 revisa a D20** |
-| **E9. Dashboard e acabamento** | Indicadores e gráficos do MVP (abaixo); **Atenção necessária**; checklist de configuração da oficina **[ajuste]**; seed de demonstração e conta demo; estados vazios, skeletons, responsividade revisada; README com instalação real | Conta demo navegável do login à aprovação; auditoria de acessibilidade básica; README executável do zero |
+| **E9. Dashboard e acabamento** ✅ 13/09 | Indicadores e gráficos do MVP (abaixo); **Atenção necessária**; checklist de configuração da oficina **[ajuste]**; seed de demonstração e conta demo; estados vazios, skeletons, responsividade revisada; README com instalação real | Conta demo navegável do login à aprovação; auditoria de acessibilidade básica; README executável do zero. **Cumprido**: `npm run db:seed:demo` cria a Oficina Demonstração (20 OS em todos os status, um usuário por papel) pela própria API; a auditoria com axe-core (WCAG 2.1 AA) roda no e2e sobre o painel **cheio**, sem regra desligada; o README ganhou a conta demo e teve dois comandos corrigidos. **Faturado e recebido são contas separadas**, e quem não tem `dashboard:view_financial` recebe `null` — nunca zero |
 
 ### Dashboard do MVP 1
 

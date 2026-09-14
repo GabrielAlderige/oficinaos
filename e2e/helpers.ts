@@ -131,6 +131,32 @@ export async function enviarOrcamento(oficina: Oficina, ordemId: string): Promis
   return { ...orcamento, publicUrl: orcamento.publicUrl.replace('http://localhost:5173', BASE_URL) };
 }
 
+/** Uma OS aprovada, finalizada e paga pela metade, mais um orçamento parado. */
+export async function oficinaComMovimento(): Promise<Oficina & { numero: number }> {
+  const oficina = await criarOficina('inicio', 'INI1A23');
+  const ordem = await abrirOS(oficina);
+  const orcamento = await api<{ id: string }>(`/work-orders/${ordem.id}/quotes`, {
+    token: oficina.token,
+    payload: {},
+  });
+  await api(`/quotes/${orcamento.id}/manual-decision`, {
+    token: oficina.token,
+    payload: { decision: 'APPROVED', channel: 'PHONE' },
+  });
+  await api(`/work-orders/${ordem.id}/start`, { token: oficina.token, payload: {} });
+  await api(`/work-orders/${ordem.id}/complete`, { token: oficina.token, payload: {} });
+  await api(`/work-orders/${ordem.id}/payments`, {
+    token: oficina.token,
+    payload: { method: 'PIX', amountCents: 10000 },
+  });
+  await api(`/work-orders/${ordem.id}/deliver`, { token: oficina.token, payload: {} });
+
+  // um segundo carro, com orçamento esperando resposta
+  const segunda = await abrirOS(oficina);
+  await api(`/work-orders/${segunda.id}/quotes`, { token: oficina.token, payload: {} });
+  return { ...oficina, numero: ordem.number };
+}
+
 export async function entrarNoPainel(page: Page, email: string): Promise<void> {
   await page.goto('/entrar');
   await page.getByLabel('E-mail', { exact: true }).fill(email);

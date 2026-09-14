@@ -25,6 +25,8 @@ import { PartsService } from './modules/parts/parts.service';
 import { notificationRoutes } from './modules/notifications/notifications.routes';
 import { NotificationsService } from './modules/notifications/notifications.service';
 import { appointmentRoutes } from './modules/appointments/appointments.routes';
+import { dashboardRoutes } from './modules/dashboard/dashboard.routes';
+import { DashboardService } from './modules/dashboard/dashboard.service';
 import { AppointmentsService } from './modules/appointments/appointments.service';
 import { paymentRoutes, workOrderPaymentRoutes } from './modules/payments/payments.routes';
 import { PaymentsService } from './modules/payments/payments.service';
@@ -61,6 +63,7 @@ export interface Services {
   notifications: NotificationsService;
   payments: PaymentsService;
   appointments: AppointmentsService;
+  dashboard: DashboardService;
 }
 
 declare module 'fastify' {
@@ -132,6 +135,7 @@ export async function buildApp({
     notifications: new NotificationsService(deps),
     payments: new PaymentsService(deps),
     appointments: new AppointmentsService(deps, workOrders),
+    dashboard: new DashboardService(deps),
   };
 
   app.decorate('db', db);
@@ -174,6 +178,7 @@ export async function buildApp({
   await app.register(workOrderPaymentRoutes, { prefix: '/api/v1/work-orders' });
   await app.register(paymentRoutes, { prefix: '/api/v1/payments' });
   await app.register(appointmentRoutes, { prefix: '/api/v1/appointments' });
+  await app.register(dashboardRoutes, { prefix: '/api/v1/dashboard' });
   // sem login: o token do link é a credencial (limite por IP em cada rota)
   await app.register(publicQuoteRoutes, { prefix: '/api/v1/public' });
 
