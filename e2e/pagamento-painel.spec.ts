@@ -51,8 +51,10 @@ test('a oficina recebe em partes, fecha a conta e cancela um lançamento errado'
     await dialogo.getByRole('button', { name: 'Registrar', exact: true }).click();
     await expect(page.getByRole('dialog')).toHaveCount(0);
 
+    // a ficha rebusca depois de registrar: esperar o selo aparecer, em vez de
+    // ler o texto no instante seguinte (era corrida, e falhava na suíte cheia)
+    await expect(page.getByText('Parcial', { exact: true }).first()).toBeVisible();
     const cartao = await textoDe(page.locator('main'));
-    expect(cartao).toContain('Parcial');
     expect(cartao, 'recebido').toContain('R$ 100,00');
     expect(cartao, 'falta o restante').toContain('R$ 580,00');
     await captura(page, 'pagamento-03-parcial');
@@ -82,6 +84,7 @@ test('a oficina recebe em partes, fecha a conta e cancela um lançamento errado'
     await dialogo.getByRole('button', { name: 'Cancelar lançamento', exact: true }).click();
     await expect(page.getByRole('dialog')).toHaveCount(0);
 
+    await expect(page.getByText('Lançado em duplicidade')).toBeVisible();
     const cartao = await textoDe(page.locator('main'));
     expect(cartao, 'o saldo volta a ficar em aberto').toContain('Parcial');
     expect(cartao, 'o lançamento continua na lista, marcado').toContain('Lançado em duplicidade');

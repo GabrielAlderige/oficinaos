@@ -395,7 +395,10 @@ async function main(): Promise<void> {
     await acao('finish-diagnosis');
     if (roteiro === 'AWAITING_QUOTE') continue;
 
-    const orcamento = (await chamar('POST', `/work-orders/${ordem.id}/quotes`, {}, dono)) as { id: string };
+    const orcamento = (await chamar('POST', `/work-orders/${ordem.id}/quotes`, {}, dono)) as {
+      id: string;
+      items: { id: string; isOptional: boolean }[];
+    };
     if (roteiro === 'AWAITING_APPROVAL') continue;
     if (roteiro === 'QUOTE_REJECTED') {
       await chamar(
@@ -406,10 +409,19 @@ async function main(): Promise<void> {
       );
       continue;
     }
+    // quando há item recomendado, o cliente aprova só o necessário: é o caso
+    // que faz "taxa em valor" ser diferente de "taxa em quantidade"
+    const recomendados = orcamento.items.filter((item) => item.isOptional);
     await chamar(
       'POST',
       `/quotes/${orcamento.id}/manual-decision`,
-      { decision: 'APPROVED', channel: indice % 2 ? 'PHONE' : 'IN_PERSON' },
+      recomendados.length
+        ? {
+            decision: 'PARTIALLY_APPROVED',
+            channel: 'WHATSAPP',
+            approvedItemIds: orcamento.items.filter((item) => !item.isOptional).map((item) => item.id),
+          }
+        : { decision: 'APPROVED', channel: indice % 2 ? 'PHONE' : 'IN_PERSON' },
       dono,
     );
     if (roteiro === 'APPROVED') continue;
@@ -479,18 +491,22 @@ async function main(): Promise<void> {
   if (!ownerUrl) throw new Error('Falta DATABASE_OWNER_URL no .env');
   const dona = createDatabase(ownerUrl, { max: 1 });
   await withTenant(dona.db, { organizationId, userId: me.user.id }, async (tx) => {
+    // o deslocamento cabe no mês corrente: espalhado o bastante para o gráfico
+    // ter forma, e sem jogar metade do movimento para o mês passado — foi o que
+    // fez a única recusa cair fora da conta e a taxa de aprovação virar 100%
+    const DIAS = sql`make_interval(days => (number * 5) % greatest(extract(day from now())::int, 1))`;
     await tx.execute(sql`
       update work_orders set
-        opened_at    = opened_at    - make_interval(days => (number % 28) + 1),
-        approved_at  = approved_at  - make_interval(days => (number % 28)),
-        started_at   = started_at   - make_interval(days => (number % 28)),
-        completed_at = completed_at - make_interval(days => greatest((number % 28) - 1, 0)),
-        delivered_at = delivered_at - make_interval(days => greatest((number % 28) - 1, 0)),
-        created_at   = created_at   - make_interval(days => (number % 28) + 1)
+        opened_at    = opened_at    - ${DIAS} - interval '1 day',
+        approved_at  = approved_at  - ${DIAS},
+        started_at   = started_at   - ${DIAS},
+        completed_at = completed_at - ${DIAS},
+        delivered_at = delivered_at - ${DIAS},
+        created_at   = created_at   - ${DIAS} - interval '1 day'
       where organization_id = ${organizationId}
     `);
     await tx.execute(sql`
-      update quotes set sent_at = sent_at - make_interval(days => (number % 28))
+      update quotes set sent_at = sent_at - make_interval(days => (number * 5) % greatest(extract(day from now())::int, 1))
       where organization_id = ${organizationId}
     `);
     await tx.execute(sql`
