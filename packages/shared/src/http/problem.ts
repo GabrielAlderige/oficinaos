@@ -59,6 +59,13 @@ export const ErrorCode = {
   SUPPLIER_QUOTE_CLOSED: 'SUPPLIER_QUOTE_CLOSED',
   /** a resposta veio para um conteúdo diferente do atual */
   SUPPLIER_QUOTE_OUTDATED: 'SUPPLIER_QUOTE_OUTDATED',
+  // compras
+  /** a escolha desta peça já virou pedido de compra: não se troca mais */
+  SUPPLIER_QUOTE_ORDERED: 'SUPPLIER_QUOTE_ORDERED',
+  /** o pedido não está numa situação que aceite esta ação (editar rascunho, receber, cancelar) */
+  PURCHASE_ORDER_STATE: 'PURCHASE_ORDER_STATE',
+  /** o rascunho mudou desde que a tela abriu */
+  PURCHASE_ORDER_VERSION_CONFLICT: 'PURCHASE_ORDER_VERSION_CONFLICT',
   // agenda
   /** o mecânico já tem compromisso naquela hora; com `force` o encaixe passa */
   APPOINTMENT_CONFLICT: 'APPOINTMENT_CONFLICT',

@@ -62,6 +62,36 @@ export function whatsappAppointmentMessage(input: {
  * escreve no WhatsApp: quem pede, quantas peças, até quando e o link. Nada do
  * cliente da oficina vai na mensagem — nem nome, nem placa.
  */
+/**
+ * O pedido de compra, pronto para o WhatsApp do fornecedor (E12). Leva as peças,
+ * as quantidades e o preço combinado — o fornecedor confere antes de separar.
+ */
+export function whatsappPurchaseOrderMessage(input: {
+  shopName: string;
+  contactName: string | null;
+  number: number;
+  lines: { description: string; partCode: string | null; quantity: string; unitCost: string }[];
+  shipping: string | null;
+  /** "16/09", quando combinado */
+  expectedOn: string | null;
+}): string {
+  const saudacao = input.contactName ? `Olá, ${primeiroNome(input.contactName)}!` : 'Olá!';
+  const itens = input.lines.map(
+    (linha) => `• ${linha.quantity} × ${linha.description}${linha.partCode ? ` (${linha.partCode})` : ''} — ${linha.unitCost} cada`,
+  );
+  return [
+    `${saudacao} Aqui é da ${input.shopName}.`,
+    `Confirmando o pedido nº ${input.number}:`,
+    itens.join('\n'),
+    [input.shipping && `Frete: ${input.shipping}.`, input.expectedOn && `Previsão de entrega: ${input.expectedOn}.`]
+      .filter(Boolean)
+      .join(' '),
+    'Obrigado!',
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+}
+
 export function whatsappSupplierQuoteMessage(input: {
   shopName: string;
   contactName: string | null;

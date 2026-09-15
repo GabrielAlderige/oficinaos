@@ -36,6 +36,7 @@ import type { Tx } from '../../db/tenant';
 import { withSupplierToken, withTenant } from '../../db/tenant';
 import { randomToken, sha256 } from '../auth/tokens';
 import * as workOrderRepo from '../work-orders/work-orders.repository';
+import * as purchaseRepo from '../purchases/purchases.repository';
 import * as repo from './supplier-quotes.repository';
 
 export const COUNTER_SUPPLIER_QUOTE = 'supplier_quote';
@@ -338,6 +339,23 @@ export class SupplierQuotesService {
         if (!oferta || oferta.requestItemId !== escolha.requestItemId) {
           throw validationFailed([{ path: `body.awards.${indice}.responseItemId`, message: 'Oferta inválida para esta peça' }]);
         }
+      }
+
+      // trocar a escolha que já virou pedido de compra compraria duas vezes: a
+      // compra (E12) é que torna a escolha definitiva
+      const vigentes = await repo.listAwards(tx, org, cotacao.id);
+      const trocadas = vigentes.filter(({ award }) =>
+        input.awards.some((e) => e.requestItemId === award.requestItemId && e.responseItemId !== award.responseItemId),
+      );
+      const [pedida] = await purchaseRepo.listActiveLines(tx, org, { awardIds: trocadas.map(({ award }) => award.id) });
+      if (pedida) {
+        const item = itemPorId.get(trocadas.find(({ award }) => award.id === pedida.awardId)!.award.requestItemId)!;
+        throw new AppError(
+          422,
+          ErrorCode.SUPPLIER_QUOTE_ORDERED,
+          'Escolha já virou pedido',
+          `A escolha de ${item.description} já está no pedido de compra nº ${pedida.orderNumber}. Cancele o pedido para trocar.`,
+        );
       }
 
       const custoAplicado: string[] = [];
@@ -680,6 +698,12 @@ export class SupplierQuotesService {
       })),
     }));
     const ultimas = latestVersions(versoes);
+    const pedidoDaEscolha = new Map(
+      (await purchaseRepo.listActiveLines(tx, org, { awardIds: escolhas.map(({ award }) => award.id) })).map((linha) => [
+        linha.awardId,
+        { id: linha.orderId, number: linha.orderNumber },
+      ]),
+    );
     const comparacao = new Map(compareOffers(itens.map((item) => item.id), ultimas).map((c) => [c.requestItemId, c]));
     const supplierDaLinha = new Map(respostas.flatMap(({ supplierId, items }) => items.map((linha) => [linha.id, supplierId] as const)));
 
@@ -719,6 +743,7 @@ export class SupplierQuotesService {
                 awardedByName: escolha.awardedByName,
               }
             : null,
+          purchaseOrder: escolha ? (pedidoDaEscolha.get(escolha.award.id) ?? null) : null,
           // "o mais barato" já é informação de preço: some junto com o preço
           cheapestResponseItemId: escondido ? null : (c?.cheapest?.responseItemId ?? null),
           fastestResponseItemId: c?.fastest?.responseItemId ?? null,

@@ -1,0 +1,2 @@
+ALTER TABLE "purchase_order_items" DROP CONSTRAINT "purchase_order_items_received_check";--> statement-breakpoint
+ALTER TABLE "purchase_order_items" ADD CONSTRAINT "purchase_order_items_received_check" CHECK ("purchase_order_items"."received_quantity" >= 0 and "purchase_order_items"."received_quantity" - "purchase_order_items"."returned_quantity" <= "purchase_order_items"."quantity");

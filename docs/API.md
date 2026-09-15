@@ -218,7 +218,7 @@ Ninguém rebaixa nem remove o último OWNER.
 | POST | `/suppliers` (só `name` é obrigatório; CNPJ repetido na oficina → 409 `SUPPLIER_DOCUMENT_TAKEN`) | `suppliers:write` | 2 |
 | PATCH | `/suppliers/{id}` (sem padrões: o que não vem não é apagado) | `suppliers:write` | 2 |
 | DELETE | `/suppliers/{id}` (soft delete; as peças que o tinham como preferido ficam sem preferido, e o CNPJ volta a poder ser usado) | `suppliers:write` | 2 |
-| GET | `/suppliers/{id}/history` (cotações e compras) | `suppliers:read` | 2 (E12) |
+| GET | `/suppliers/{id}/history` → `{ quotes, purchases }`: cotações enviadas a ele (respondeu ou não) e pedidos; `purchases` vem `null` para quem não tem `purchases:read` | `suppliers:read` | 2 |
 
 Dono, admin e gerente escrevem; atendente e financeiro leem; o mecânico não vê
 fornecedor. Não há contato mascarado como no cliente: quem enxerga fornecedor é
@@ -238,6 +238,29 @@ justamente quem precisa ligar para ele.
 Atendente pede cotação e acompanha quem respondeu, mas não vê preço (é custo) nem
 escolhe; dono, admin e gerente fazem tudo. A resposta do fornecedor entra na
 timeline da OS e no sino de quem pode pedir cotação, sempre sem valores.
+
+### Compras — `/purchase-orders` (MVP 2, E12)
+
+| Método | Rota | Permissão | Fase |
+|---|---|---|---|
+| GET | `/purchase-orders?status=open\|all\|DRAFT\|…&supplierId=&q=&page=` (`q` = número ou nome do fornecedor, sem acento) | `purchases:read` | 2 |
+| POST | `/purchase-orders` `{ supplierId, expectedOn?, shippingCents?, notes?, items[{ partId, quantity, unitCostCents, workOrderItemId? }] }` → rascunho. Nome e código da linha saem do cadastro. Peça da OS: tem de ser peça, a mesma do pedido, não trazida pelo cliente, de OS em andamento, ainda não baixada e fora de outro pedido vivo (400 com o motivo) | `purchases:write` | 2 |
+| PATCH | `/purchase-orders/{id}` `{ version, … }` — só rascunho (422 `PURCHASE_ORDER_STATE`); versão velha → 409 `PURCHASE_ORDER_VERSION_CONFLICT`; linhas vindas da cotação continuam ligadas à escolha | `purchases:write` | 2 |
+| POST | `/purchase-orders/{id}/order` `{ version, expectedOn? }` → `{ order, message, whatsappUrl }`: congela as linhas, avisa a timeline das OS (`PURCHASE_ORDERED`) e devolve a mensagem para o fornecedor | `purchases:write` | 2 |
+| POST | `/purchase-orders/{id}/receipts` `{ clientRequestId, invoiceNumber?, notes?, shippingCents?, items[{ purchaseOrderItemId, quantity, unitCostCents }] }` → 201. Entrada `PURCHASE_IN` pelo custo da nota + frete rateado pelo valor; custo médio e último custo recalculados; preço sem frete no histórico; peça de OS vira "do estoque" e, aprovada, é reservada (até o disponível); timeline `PURCHASE_RECEIVED` + aviso. Mais do que falta → 400; a mesma `clientRequestId` devolve o resultado do primeiro envio; de outro pedido → 409 | `purchases:write` | 2 |
+| POST | `/purchase-orders/{id}/returns` `{ clientRequestId, reason, items[{ purchaseOrderItemId, quantity }] }` → 201. Saída `SUPPLIER_RETURN` pelo custo médio das entradas daquela linha (receber e devolver volta o médio ao de antes); desfaz a reserva da OS e avisa; o que voltou passa a faltar. Mais do que chegou → 400 | `purchases:write` | 2 |
+| POST | `/purchase-orders/{id}/cancel` `{ reason }` — só rascunho ou pedido sem nada recebido | `purchases:write` | 2 |
+| POST | `/purchase-orders/{id}/close` `{ reason }` — "o resto não vem": com parte recebida, fecha como recebido | `purchases:write` | 2 |
+| POST | `/purchase-orders/from-quote` `{ supplierQuoteRequestId }` → 201 `{ orders, skipped }`: um rascunho por fornecedor com as escolhas da cotação, pelo preço e frete respondidos; escolha já pedida, peça sem cadastro ou fornecedor fora da lista ficam em `skipped`. Nada a pedir → 422 | `purchases:write` | 2 |
+| GET | `/purchase-orders/suggestions` → grupos por fornecedor preferido: peças abaixo do mínimo (mínimo − disponível − o que já vem) e peças que OS em andamento esperam sem pedido | `purchases:read` | 2 |
+| GET | `/purchase-orders/{id}` (linhas com o que falta, recebimentos e devoluções) · `GET /work-orders/{id}/purchases` | `purchases:read` | 2 |
+| GET | `/parts/{id}/price-history` (cotado e pago, com a cotação ou o pedido de origem) | `parts:view_cost` | 2 |
+
+Situações: `DRAFT → ORDERED → PARTIAL → RECEIVED`, `CANCELED`. O que falta numa
+linha é **pedido − (recebido − devolvido)**: devolver a peça errada reabre a
+espera pela certa. Dono, admin e gerente compram; o financeiro consulta;
+atendente e mecânico não veem compras (é custo). Na cotação (E11), trocar uma
+escolha que já virou pedido vivo → 422 `SUPPLIER_QUOTE_ORDERED`.
 
 ### Estoque — `/inventory`
 
@@ -285,7 +308,7 @@ timeline da OS e no sino de quem pode pedir cotação, sempre sem valores.
 |---|---|
 | Cotação com fornecedores | `POST /supplier-quote-requests` (cria e gera links), `GET /supplier-quote-requests/{id}` (respostas lado a lado), `POST /supplier-quote-requests/{id}/award` (escolhe → gera pedido) |
 | Pesquisa de peças | `POST /parts-search` (`{ query, vehicleId?, providers? }` → ofertas por provider, com `isMock` e `fetchedAt`), `GET /parts-search/{queryId}/compare` (melhor preço, mais rápida, custo-benefício), `POST /parts-search/offers/{offerId}/add-to-work-order` (com margem) |
-| Compras | `GET/POST/PATCH /purchase-orders[/{id}]`, `POST /purchase-orders/{id}/request` · `/order` · `/cancel`, `POST /purchase-orders/{id}/receipts` (recebimento total ou parcial → estoque e custo médio) |
+| Compras ✅ E12 | Ver a seção **Compras** acima |
 | Financeiro | `GET/POST/PATCH /finance/entries`, `POST /finance/entries/{id}/settle`, `GET /finance/summary`, `GET /finance/cash-flow`, `GET/POST /finance/categories` |
 | Relatórios | `GET /reports/{revenue\|profit\|services\|parts\|customers\|vehicles\|mechanics\|avg-ticket\|approval\|inventory\|suppliers}?from=&to=` + exportação CSV |
 | Pós-venda | `GET /follow-ups?due=today` (fila do dia), `POST /follow-ups/{id}/done` · `/skip` |

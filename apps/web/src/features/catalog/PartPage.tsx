@@ -15,6 +15,7 @@ import { useCan } from '../../lib/session';
 import { useOrganizationSettings } from '../settings/api';
 import { useDeletePart, usePart, usePartApplications, usePartMovements, useRemoveApplication } from './api';
 import { ApplicationDialog } from './ApplicationDialog';
+import { PartPriceHistoryCard } from '../purchases/HistoryCards';
 import { PartFormDialog } from './PartFormDialog';
 import { StockMovementDialog, type MovementMode } from './StockMovementDialog';
 import { formatQty, StockBadge } from './stock';
@@ -73,6 +74,8 @@ function PartDetail({ part }: { part: Part }) {
   // o atendente vê a peça mas pode não ver fornecedor: aí o nome aparece sem link
   const podeVerFornecedor = useCan('suppliers:read');
   const canSeeMovements = useCan('inventory:read');
+  // preço de fornecedor é custo (E4)
+  const canSeeCost = useCan('parts:view_cost');
   const settings = useOrganizationSettings();
   const remove = useDeletePart();
   const [editing, setEditing] = useState(false);
@@ -155,6 +158,7 @@ function PartDetail({ part }: { part: Part }) {
           </Card>
 
           {canSeeMovements && <MovementsCard part={part} />}
+          {canSeeCost && <PartPriceHistoryCard partId={part.id} />}
           <ApplicationsCard partId={part.id} canWrite={canWrite} />
         </div>
 

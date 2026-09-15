@@ -112,6 +112,27 @@ export const router = createBrowserRouter([
             ],
           },
           {
+            path: 'compras',
+            handle: { crumb: 'Compras' },
+            children: [
+              { index: true, lazy: page(() => import('../features/purchases/PurchaseOrdersPage'), 'PurchaseOrdersPage') },
+              { path: 'novo', lazy: page(() => import('../features/purchases/PurchaseOrderFormPage'), 'PurchaseOrderFormPage'), handle: { crumb: 'Novo pedido' } },
+              {
+                path: 'sugestao',
+                lazy: page(() => import('../features/purchases/PurchaseSuggestionsPage'), 'PurchaseSuggestionsPage'),
+                handle: { crumb: 'Sugestão de compra' },
+              },
+              {
+                path: ':id',
+                handle: { crumb: 'Pedido' },
+                children: [
+                  { index: true, lazy: page(() => import('../features/purchases/PurchaseOrderPage'), 'PurchaseOrderPage') },
+                  { path: 'editar', lazy: page(() => import('../features/purchases/PurchaseOrderFormPage'), 'PurchaseOrderFormPage'), handle: { crumb: 'Editar' } },
+                ],
+              },
+            ],
+          },
+          {
             path: 'configuracoes',
             lazy: page(() => import('../features/settings/SettingsLayout'), 'SettingsLayout'),
             handle: { crumb: 'Configurações' },

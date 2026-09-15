@@ -115,7 +115,7 @@ CREATE POLICY tenant_isolation ON customers
 | Pagamento (mínimo) | `payments` | MVP 1 |
 | Comunicação | `message_templates`, `messages`, `notifications` | MVP 1 |
 | Auditoria | `activity_logs` | MVP 1 |
-| Fornecedores e compras | `suppliers`, `purchase_orders`, `purchase_order_items`, `supplier_quote_requests`, `supplier_quote_request_items`, `supplier_quote_invites`, `supplier_quote_responses`, `supplier_quote_response_items`, `supplier_quote_awards`, `part_price_history` | MVP 2 |
+| Fornecedores e compras | `suppliers`, `purchase_orders`, `purchase_order_items`, `supplier_quote_requests`, `supplier_quote_request_items`, `supplier_quote_invites`, `supplier_quote_responses`, `supplier_quote_response_items`, `supplier_quote_awards`, `purchase_receipts`, `purchase_receipt_items`, `purchase_returns`, `purchase_return_items`, `part_price_history` | MVP 2 |
 | Pesquisa de peças | `part_search_queries`, `part_offers` | MVP 2 |
 | Financeiro | `financial_categories`, `financial_entries` | MVP 2 |
 | Pós-venda e CRM | `reviews`, `follow_ups`, `leads` | MVP 2 |
@@ -888,9 +888,22 @@ suppliers                     ✅ E10 (migrations 0018/0019): id, name, legal_na
                               phone, whatsapp, email, address, categories text[] (GIN), rating smallint (1–5),
                               lead_time_days, notes, deleted_at. UNIQUE (organization_id, document) só entre
                               os ativos. directory_supplier_id fica para o V3 (marketplace)
-purchase_orders               id, number, supplier_id, status (DRAFT|REQUESTED|ORDERED|PARTIAL|RECEIVED|CANCELED),
-                              expected_at, shipping_cents, total_cents, notes, work_order_id (compra para uma OS)
-purchase_order_items          id, purchase_order_id, part_id, description, quantity, received_qty, unit_cost_cents
+purchase_orders               ✅ E12 (migrations 0024–0026): id, number, supplier_id, status (DRAFT|ORDERED|PARTIAL|
+                              RECEIVED|CANCELED), supplier_quote_request_id, expected_on date, shipping_cents,
+                              notes, ordered_at/by, received_at, closed_short_at + close_reason, canceled_at/by +
+                              cancel_reason, created_by, version. CHECKs: fora do rascunho tem ordered_at;
+                              cancelado ⇔ canceled_at, com motivo. A OS de cada peça fica na linha
+purchase_order_items          ✅ E12: id, purchase_order_id, part_id (obrigatório: estoque e custo são da peça),
+                              work_order_item_id, supplier_quote_award_id, description, part_code, quantity,
+                              unit_cost_cents, received_quantity, returned_quantity, position. CHECKs: devolvido ≤
+                              recebido e (recebido − devolvido) ≤ pedido
+purchase_receipts             ✅ E12, append-only: id, purchase_order_id, client_request_id (UNIQUE por oficina),
+                              invoice_number, shipping_cents, notes, received_by, received_at
+purchase_receipt_items        ✅ E12, append-only: receipt_id, purchase_order_item_id, quantity, unit_cost_cents (nota),
+                              freight_cents (rateio), landed_unit_cost_cents, inventory_movement_id
+purchase_returns              ✅ E12, append-only: id, purchase_order_id, client_request_id (UNIQUE), reason, returned_by/at
+purchase_return_items         ✅ E12, append-only: return_id, purchase_order_item_id, quantity, unit_cost_cents,
+                              inventory_movement_id
 supplier_quote_requests       ✅ E11 (migrations 0020–0023): id, number, status (OPEN|CLOSED|CANCELED; vencida é
                               calculada), work_order_id, vehicle jsonb (marca, modelo, versão, ano, motor, chassi),
                               include_vin, message, content_hash, expires_at, closed_at, canceled_at, cancel_reason.
@@ -908,7 +921,8 @@ supplier_quote_response_items ✅ E11, append-only: id, response_id, request_ite
 supplier_quote_awards         ✅ E11: id, request_item_id (UNIQUE: uma escolha por peça), response_item_id,
                               awarded_by, awarded_at
 part_price_history            ✅ E11, append-only: id, part_id, supplier_id, price_cents (> 0), source
-                              (PURCHASE|RFQ|PRICE_LIST|PROVIDER), supplier_quote_request_id, captured_at
+                              (PURCHASE|RFQ|PRICE_LIST|PROVIDER), supplier_quote_request_id, purchase_order_id (E12),
+                              captured_at. CHECK: PURCHASE aponta a compra e RFQ a cotação
 part_search_queries           id, query, vehicle_id, providers text[], requested_by, created_at
 part_offers                   id, query_id, provider, is_mock, supplier_id, title, brand, code, price_cents,
                               shipping_cents, availability, lead_time_days, offer_url, fetched_at, raw jsonb

@@ -131,6 +131,10 @@ export const WORK_ORDER_EVENT_TYPES = [
   'SUPPLIER_QUOTE_SENT',
   /** um fornecedor respondeu a cotação (E11) */
   'SUPPLIER_QUOTE_ANSWERED',
+  /** peça desta OS pedida ao fornecedor (E12) */
+  'PURCHASE_ORDERED',
+  /** peça desta OS chegou e foi reservada (E12) */
+  'PURCHASE_RECEIVED',
 ] as const;
 export type WorkOrderEventType = (typeof WORK_ORDER_EVENT_TYPES)[number];
 export const WORK_ORDER_EVENT_TYPE_LABELS: Record<WorkOrderEventType, string> = {
@@ -152,6 +156,8 @@ export const WORK_ORDER_EVENT_TYPE_LABELS: Record<WorkOrderEventType, string> = 
   CANCELED: 'OS cancelada',
   SUPPLIER_QUOTE_SENT: 'Cotação enviada a fornecedores',
   SUPPLIER_QUOTE_ANSWERED: 'Fornecedor respondeu a cotação',
+  PURCHASE_ORDERED: 'Peça pedida ao fornecedor',
+  PURCHASE_RECEIVED: 'Peça chegou',
 };
 
 /** Quem gerou o evento: a equipe, o cliente na página pública (E6) ou o sistema. */

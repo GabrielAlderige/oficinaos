@@ -69,6 +69,20 @@ describe('matriz de permissões', () => {
     expect(can('FINANCE', 'supplier_quotes:award')).toBe(false);
   });
 
+  it('compras: gerente para cima compra e recebe; financeiro só consulta', () => {
+    for (const role of ['OWNER', 'ADMIN', 'MANAGER'] as const) {
+      expect(can(role, 'purchases:write'), role).toBe(true);
+      expect(can(role, 'purchases:read'), role).toBe(true);
+    }
+    expect(can('FINANCE', 'purchases:read')).toBe(true);
+    expect(can('FINANCE', 'purchases:write')).toBe(false);
+    // compra é custo: quem não vê custo não vê pedido
+    for (const role of ['ATTENDANT', 'MECHANIC'] as const) {
+      expect(can(role, 'purchases:read'), role).toBe(false);
+      expect(can(role, 'purchases:write'), role).toBe(false);
+    }
+  });
+
   it('só OWNER mexe em OWNER', () => {
     expect(canManageRole('OWNER', 'OWNER')).toBe(true);
     expect(canManageRole('ADMIN', 'OWNER')).toBe(false);

@@ -7,6 +7,7 @@ import {
   House,
   Menu,
   Package,
+  ShoppingCart,
   Truck,
   PanelLeftClose,
   PanelLeftOpen,
@@ -48,6 +49,7 @@ const NAV: NavItem[] = [
   { to: '/servicos', label: 'Serviços', icon: Wrench, permission: 'catalog:read' },
   { to: '/pecas', label: 'Peças e estoque', icon: Package, permission: 'catalog:read' },
   { to: '/fornecedores', label: 'Fornecedores', icon: Truck, permission: 'suppliers:read' },
+  { to: '/compras', label: 'Compras', icon: ShoppingCart, permission: 'purchases:read' },
   { to: '/configuracoes', label: 'Configurações', icon: Settings },
 ];
 

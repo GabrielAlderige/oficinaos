@@ -8,7 +8,7 @@ import {
   type OfferAvailability,
   type SupplierQuote,
 } from '@oficinaos/shared';
-import { Ban, EyeOff, Link2, Trophy, Zap } from 'lucide-react';
+import { Ban, EyeOff, Link2, ShoppingCart, Trophy, Zap } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { toast } from 'sonner';
@@ -22,6 +22,7 @@ import { cn } from '../../lib/cn';
 import { errorMessage } from '../../lib/errors';
 import { formatDateTime, formatRelative } from '../../lib/format';
 import { useCan } from '../../lib/session';
+import { usePurchaseOrdersFromQuote } from '../purchases/api';
 import { useAwardSupplierQuote, useCancelSupplierQuote, useReissueSupplierLink, useSupplierQuote } from './api';
 import { SupplierLinks } from './SupplierLinks';
 import { SupplierQuoteStatusBadge } from './SupplierQuotesCard';
@@ -86,6 +87,10 @@ function Quadro({ cotacao }: { cotacao: SupplierQuote }) {
   const aberta = cotacao.status === 'OPEN' && !cotacao.expired;
   const cancelada = cotacao.status === 'CANCELED';
   const escolhendo = podeEscolher && !cancelada && !cotacao.pricesHidden;
+  const podeComprar = useCan('purchases:write');
+  const [gerando, setGerando] = useState(false);
+  // só com a escolha salva e ainda sem pedido; escolha em edição na tela não conta
+  const podeGerarPedidos = podeComprar && !cancelada && cotacao.items.some((item) => item.award && !item.purchaseOrder) && mudou.length === 0;
   const respondidos = cotacao.invites.filter((convite) => convite.response);
   const nomeDe = new Map(cotacao.invites.map((convite) => [convite.supplier.id, convite.supplier.name]));
 
@@ -120,13 +125,20 @@ function Quadro({ cotacao }: { cotacao: SupplierQuote }) {
           .filter(Boolean)
           .join(' · ')}
         actions={
-          podeEnviar &&
-          !cancelada && (
-            <Button variant="secondary" onClick={() => setCancelando(true)}>
-              <Ban />
-              Cancelar cotação
-            </Button>
-          )
+          <span className="flex flex-wrap gap-2">
+            {podeGerarPedidos && (
+              <Button onClick={() => setGerando(true)}>
+                <ShoppingCart />
+                Gerar pedidos de compra
+              </Button>
+            )}
+            {podeEnviar && !cancelada && (
+              <Button variant="secondary" onClick={() => setCancelando(true)}>
+                <Ban />
+                Cancelar cotação
+              </Button>
+            )}
+          </span>
         }
       />
 
@@ -186,6 +198,15 @@ function Quadro({ cotacao }: { cotacao: SupplierQuote }) {
                     .filter(Boolean)
                     .join(' · ')}
                 />
+                {item.purchaseOrder && (
+                  <p className="border-b border-border bg-surface-muted/40 px-5 py-2 text-xs">
+                    Esta escolha já está no{' '}
+                    <Link to={`/compras/${item.purchaseOrder.id}`} className="font-medium text-accent hover:underline dark:text-accent-bright">
+                      pedido de compra nº {item.purchaseOrder.number}
+                    </Link>
+                    : para trocar, cancele o pedido.
+                  </p>
+                )}
                 {ofertas.length === 0 ? (
                   <p className="px-5 py-5 text-sm text-muted">Nenhuma resposta para esta peça ainda.</p>
                 ) : (
@@ -210,7 +231,8 @@ function Quadro({ cotacao }: { cotacao: SupplierQuote }) {
                                   type="radio"
                                   className="mt-1 size-4"
                                   name={`escolha-${item.id}`}
-                                  disabled={!valida}
+                                  // escolha que já virou pedido de compra não se troca (E12)
+                                  disabled={!valida || Boolean(item.purchaseOrder)}
                                   checked={marcada}
                                   onChange={() => setEscolha((atual) => new Map(atual).set(item.id, oferta.id))}
                                   aria-label={`Escolher ${convite.supplier.name} para ${item.description}`}
@@ -301,6 +323,7 @@ function Quadro({ cotacao }: { cotacao: SupplierQuote }) {
         onConfirm={salvarEscolha}
       />
       {cancelando && <CancelarDialog cotacao={cotacao} onClose={() => setCancelando(false)} />}
+      {gerando && <GerarPedidosDialog cotacao={cotacao} onClose={() => setGerando(false)} />}
     </>
   );
 }
@@ -327,6 +350,78 @@ function SugestaoDePreco({ item, oferta }: { item: SupplierQuote['items'][number
         'Este item já foi no orçamento para o cliente: o custo dele na OS não será alterado.'
       )}
     </p>
+  );
+}
+
+/** Um rascunho de pedido por fornecedor, com as escolhas que ainda não viraram pedido. */
+function GerarPedidosDialog({ cotacao, onClose }: { cotacao: SupplierQuote; onClose(): void }) {
+  const gerar = usePurchaseOrdersFromQuote();
+  const [erro, setErro] = useState<string | null>(null);
+  const resultado = gerar.data;
+  const pendentes = cotacao.items.filter((item) => item.award && !item.purchaseOrder);
+  const fornecedores = new Set(pendentes.map((item) => item.award!.supplierId));
+
+  async function confirmar() {
+    setErro(null);
+    try {
+      await gerar.mutateAsync(cotacao.id);
+    } catch (err) {
+      setErro(errorMessage(err));
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        {resultado ? (
+          <>
+            <DialogHeader
+              title={resultado.orders.length === 1 ? 'Rascunho de pedido criado' : `${resultado.orders.length} rascunhos de pedido criados`}
+              description="Confira cada um e marque como pedido para mandar ao fornecedor."
+            />
+            <ul className="divide-y divide-border rounded-lg border border-border">
+              {resultado.orders.map((pedido) => (
+                <li key={pedido.id} className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm">
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium">{pedido.supplier.name}</span>
+                    <span className="block text-xs text-muted">
+                      Pedido nº {pedido.number} · {pedido.items.length} {pedido.items.length === 1 ? 'peça' : 'peças'} · {formatBRL(pedido.totalCents)}
+                    </span>
+                  </span>
+                  <Button asChild size="sm" variant="secondary">
+                    <Link to={`/compras/${pedido.id}`}>Abrir</Link>
+                  </Button>
+                </li>
+              ))}
+            </ul>
+            {resultado.skipped.length > 0 && (
+              <Alert variant="warning" className="mt-4">
+                Ficou de fora: {resultado.skipped.map((s) => `${s.description} (${s.reason})`).join('; ')}.
+              </Alert>
+            )}
+            <DialogFooter>
+              <Button onClick={onClose}>Fechar</Button>
+            </DialogFooter>
+          </>
+        ) : (
+          <>
+            <DialogHeader
+              title="Gerar pedidos de compra?"
+              description={`Sai um rascunho por fornecedor (${fornecedores.size}) com as ${pendentes.length === 1 ? 'peça escolhida' : `${pendentes.length} peças escolhidas`}, pelo preço e frete que cada um respondeu. Depois disso, a escolha dessas peças não se troca mais.`}
+            />
+            {erro && <Alert variant="danger">{erro}</Alert>}
+            <DialogFooter>
+              <Button variant="secondary" onClick={onClose}>
+                Voltar
+              </Button>
+              <Button loading={gerar.isPending} onClick={() => void confirmar()}>
+                Gerar rascunhos
+              </Button>
+            </DialogFooter>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 

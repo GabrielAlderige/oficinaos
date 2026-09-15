@@ -124,6 +124,8 @@ export const supplierQuoteSchema = z.object({
           awardedByName: z.string().nullable(),
         })
         .nullable(),
+      /** o pedido de compra em que esta escolha entrou (E12); com ele, a escolha não se troca */
+      purchaseOrder: z.object({ id: z.uuid(), number: z.number().int() }).nullable(),
       /** revela ordem de preço: null com os preços escondidos */
       cheapestResponseItemId: z.uuid().nullable(),
       fastestResponseItemId: z.uuid().nullable(),

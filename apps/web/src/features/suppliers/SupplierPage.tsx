@@ -13,6 +13,7 @@ import { errorMessage } from '../../lib/errors';
 import { formatDate } from '../../lib/format';
 import { useCan } from '../../lib/session';
 import { useParts } from '../catalog/api';
+import { SupplierHistoryCard } from '../purchases/HistoryCards';
 import { useDeleteSupplier, useSupplier } from './api';
 import { SupplierFormDialog } from './SupplierFormDialog';
 
@@ -53,8 +54,7 @@ function Info({ label, children }: { label: string; children: ReactNode }) {
 
 /**
  * A ficha do fornecedor. O que ele fornece vem das peças que o têm como
- * preferido; o histórico de cotações e compras entra na E11 e na E12 — e o
- * espaço fica dito, em vez de um quadro vazio fingindo que existe.
+ * preferido; as cotações e os pedidos feitos a ele, do histórico da E11 e da E12.
  */
 function Ficha({ fornecedor }: { fornecedor: Supplier }) {
   const navigate = useNavigate();
@@ -163,13 +163,7 @@ function Ficha({ fornecedor }: { fornecedor: Supplier }) {
             </Card>
           )}
 
-          <Card className="px-5 py-4">
-            <p className="text-sm font-medium">Cotações e compras</p>
-            <p className="mt-1 text-sm text-muted">
-              O histórico de preços que ele passou e do que a oficina comprou aparece aqui quando a cotação por
-              link e as compras estiverem prontas.
-            </p>
-          </Card>
+          <SupplierHistoryCard supplierId={fornecedor.id} />
         </div>
 
         <Card>

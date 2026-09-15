@@ -42,6 +42,7 @@ import {
 } from './api';
 import { PaymentCard } from '../payments/PaymentCard';
 import { QuoteCard } from '../quotes/QuoteCard';
+import { WorkOrderPurchasesCard } from '../purchases/WorkOrderPurchasesCard';
 import { SupplierQuotesCard } from '../supplier-quotes/SupplierQuotesCard';
 import { CheckInDialog } from './CheckInDialog';
 import { ItemPicker, parseTypedQuantity } from './ItemPicker';
@@ -189,6 +190,7 @@ function WorkOrderDetail({ order }: { order: WorkOrder }) {
           </Card>
 
           <SupplierQuotesCard order={order} />
+          <WorkOrderPurchasesCard order={order} />
           <DetailsCard order={order} canWrite={canWrite && editable} />
           <TimelineCard order={order} canWrite={canWrite} />
         </div>

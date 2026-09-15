@@ -80,6 +80,8 @@ export const NOTIFICATION_TYPES = [
   'QUOTE_QUESTION',
   /** um fornecedor respondeu a cotação por link (E11) */
   'SUPPLIER_QUOTE_ANSWERED',
+  /** chegou peça comprada para uma OS (E12) */
+  'PURCHASE_RECEIVED',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
@@ -89,6 +91,7 @@ export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
   QUOTE_REJECTED: 'Orçamento recusado',
   QUOTE_QUESTION: 'Pergunta do cliente',
   SUPPLIER_QUOTE_ANSWERED: 'Fornecedor respondeu a cotação',
+  PURCHASE_RECEIVED: 'Peça chegou',
 };
 
 export const MESSAGE_CHANNELS = ['WHATSAPP_LINK', 'EMAIL', 'PUBLIC_PAGE'] as const;

@@ -23,6 +23,30 @@ export function weightedAverageCost(input: {
   return Number((total * 2n + quantity) / (2n * quantity)); // arredonda meio para cima
 }
 
+/**
+ * Custo médio depois de devolver ao fornecedor (E12). A devolução corrige uma
+ * entrada, então tira o valor PELO CUSTO DE ENTRADA daquela compra:
+ *   novo = (saldo × médio − saída × custo da entrada) / (saldo − saída)
+ * Se nada mexeu no estoque entre receber e devolver, o médio volta exatamente
+ * ao de antes. Sem saldo depois da saída, ou com a conta ficando negativa
+ * (a peça já saiu por OS a outro custo), mantém o médio vigente.
+ */
+export function averageCostAfterReturn(input: {
+  onHandMilli: number;
+  averageCostCents: number | null;
+  outMilli: number;
+  unitCostCents: number;
+}): number | null {
+  const { onHandMilli, averageCostCents, outMilli, unitCostCents } = input;
+  if (averageCostCents === null) return null;
+  const resto = onHandMilli - outMilli;
+  if (onHandMilli <= 0 || resto <= 0) return averageCostCents;
+  const total = BigInt(onHandMilli) * BigInt(averageCostCents) - BigInt(outMilli) * BigInt(unitCostCents);
+  if (total < 0n) return averageCostCents;
+  const quantidade = BigInt(resto);
+  return Number((total * 2n + quantidade) / (2n * quantidade));
+}
+
 /** Preço sugerido = custo × (1 + margem). A oficina sempre pode editar. */
 export function suggestedSalePrice(costCents: number, markupBps: number): number {
   return Math.round((costCents * (10_000 + markupBps)) / 10_000);

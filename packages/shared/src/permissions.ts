@@ -41,6 +41,12 @@ export const PERMISSIONS = [
   'supplier_quotes:send',
   /** escolher a oferta vencedora: grava custo na OS, então é do gerente para cima */
   'supplier_quotes:award',
+  /**
+   * compras (E12): ver pedidos e recebimentos (o financeiro paga na E13) e
+   * criar, pedir, receber e devolver — que mexem em estoque e custo
+   */
+  'purchases:read',
+  'purchases:write',
   'parts:view_cost',
   'inventory:read',
   'inventory:adjust',
@@ -91,6 +97,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'suppliers:write',
     'supplier_quotes:send',
     'supplier_quotes:award',
+    'purchases:read',
+    'purchases:write',
     'parts:view_cost',
     'inventory:read',
     'inventory:adjust',
@@ -140,8 +148,9 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'customers:view_contact',
     'work_orders:read',
     'catalog:read',
-    // quem paga o fornecedor precisa do cadastro dele
+    // quem paga o fornecedor precisa do cadastro dele e do que foi comprado
     'suppliers:read',
+    'purchases:read',
     'parts:view_cost',
     'inventory:read',
     'payments:record',

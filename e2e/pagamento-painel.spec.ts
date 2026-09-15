@@ -68,11 +68,12 @@ test('a oficina recebe em partes, fecha a conta e cancela um lançamento errado'
     await dialogo.getByRole('button', { name: 'Registrar', exact: true }).click();
     await expect(page.getByRole('dialog')).toHaveCount(0);
 
+    // a ficha rebusca depois de gravar: esperar o botão sumir (conta fechada) antes de ler o
+    // texto — ler na hora pegava a ficha velha quando a OS demorava mais para recarregar
+    await expect(page.getByRole('button', { name: 'Registrar pagamento', exact: true })).toHaveCount(0);
     const cartao = await textoDe(page.locator('main'));
     expect(cartao).toContain('Pago');
     expect(cartao, 'não falta nada').toContain('R$ 0,00');
-    // com a conta fechada, não se oferece registrar de novo
-    await expect(page.getByRole('button', { name: 'Registrar pagamento', exact: true })).toHaveCount(0);
     await captura(page, 'pagamento-04-pago');
   });
 

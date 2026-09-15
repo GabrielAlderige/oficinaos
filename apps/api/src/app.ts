@@ -29,6 +29,13 @@ import { dashboardRoutes } from './modules/dashboard/dashboard.routes';
 import { publicSupplierQuoteRoutes } from './modules/supplier-quotes/public-supplier-quotes.routes';
 import { supplierQuoteRoutes, workOrderSupplierQuoteRoutes } from './modules/supplier-quotes/supplier-quotes.routes';
 import { SupplierQuotesService } from './modules/supplier-quotes/supplier-quotes.service';
+import {
+  partPriceHistoryRoutes,
+  purchaseOrderRoutes,
+  supplierHistoryRoutes,
+  workOrderPurchaseRoutes,
+} from './modules/purchases/purchases.routes';
+import { PurchasesService } from './modules/purchases/purchases.service';
 import { supplierRoutes } from './modules/suppliers/suppliers.routes';
 import { SuppliersService } from './modules/suppliers/suppliers.service';
 import { DashboardService } from './modules/dashboard/dashboard.service';
@@ -71,6 +78,7 @@ export interface Services {
   dashboard: DashboardService;
   suppliers: SuppliersService;
   supplierQuotes: SupplierQuotesService;
+  purchases: PurchasesService;
 }
 
 declare module 'fastify' {
@@ -145,6 +153,7 @@ export async function buildApp({
     dashboard: new DashboardService(deps),
     suppliers: new SuppliersService(deps),
     supplierQuotes: new SupplierQuotesService(deps),
+    purchases: new PurchasesService(deps),
   };
 
   app.decorate('db', db);
@@ -191,6 +200,10 @@ export async function buildApp({
   await app.register(supplierRoutes, { prefix: '/api/v1/suppliers' });
   await app.register(supplierQuoteRoutes, { prefix: '/api/v1/supplier-quotes' });
   await app.register(workOrderSupplierQuoteRoutes, { prefix: '/api/v1/work-orders' });
+  await app.register(purchaseOrderRoutes, { prefix: '/api/v1/purchase-orders' });
+  await app.register(workOrderPurchaseRoutes, { prefix: '/api/v1/work-orders' });
+  await app.register(supplierHistoryRoutes, { prefix: '/api/v1/suppliers' });
+  await app.register(partPriceHistoryRoutes, { prefix: '/api/v1/parts' });
   // sem login: o token do link é a credencial (limite por IP em cada rota)
   await app.register(publicQuoteRoutes, { prefix: '/api/v1/public' });
   await app.register(publicSupplierQuoteRoutes, { prefix: '/api/v1/public' });

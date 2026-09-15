@@ -74,7 +74,7 @@ pagar nasce da compra, e lucro precisa das duas pontas.
 |---|---|---|
 | **E10. Fornecedores** ✅ 14/09 | Cadastro com categorias, prazo e nota; busca e filtro por categoria; ficha com as peças que a oficina compra dele; fornecedor preferido na peça | Isolamento entre oficinas e permissão por papel testados; tirar da lista não quebra a peça. **Cumprido**, com 11/11 mutações pegas |
 | **E11. Cotação por link** ✅ 14/09 | Da OS, pedir preço a vários fornecedores por WhatsApp; página pública para o fornecedor responder; respostas lado a lado; escolher alimenta o histórico de preço | Fornecedor não vê placa, cliente nem o preço do outro; atendente não vê preço; link só como hash, reenviar mata o anterior; escolha só da última versão; custo só em item rascunho. **Cumprido**: 30 testes (API + banco), 25/25 mutações pegas, e2e no painel e no celular com auditoria de acessibilidade |
-| **E12. Compras** | Pedido, recebimento total ou parcial, entrada no estoque com custo médio | — |
+| **E12. Compras** ✅ 14/09 | Pedido, recebimento total ou parcial, entrada no estoque com custo médio | Peça da OS entra no estoque e fica reservada para ela; frete rateado no custo; recebimento errado se corrige com devolução (append-only); clique duplo não dá entrada duas vezes; trava do pedido provada com duas transações; escolha da cotação vira um pedido só; sugestão de compra e históricos no fornecedor e na peça. **Cumprido**: 71 testes novos (banco, API, regras; suíte em 509), 60/60 mutações pegas, 4 cenários e2e (fluxo completo, cotação, sugestão, celular e escuro com auditoria) |
 | **E13. Financeiro** | Contas a receber e a pagar, fluxo de caixa, lucro estimado | — |
 
 ### Blocos

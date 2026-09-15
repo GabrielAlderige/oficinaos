@@ -10,4 +10,5 @@ export * from './notifications';
 export * from './payments';
 export * from './appointments';
 export * from './supplier-quotes';
+export * from './purchases';
 export * from './audit';

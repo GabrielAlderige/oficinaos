@@ -311,6 +311,8 @@ export const partPriceHistory = pgTable(
     priceCents: money().notNull(),
     source: text({ enum: PRICE_SOURCES }).notNull(),
     supplierQuoteRequestId: uuid(),
+    /** preço de uma compra recebida (E12); a FK vive na migration 0025 (import circular) */
+    purchaseOrderId: uuid(),
     capturedAt: timestamptz().notNull().defaultNow(),
   },
   (t) => [
