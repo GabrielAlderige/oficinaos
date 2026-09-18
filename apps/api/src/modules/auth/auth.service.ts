@@ -93,6 +93,7 @@ export class AuthService {
         });
         await repo.insertMembership(tx, { organizationId, userId, role: 'OWNER' });
         await repo.insertDefaultPartCategories(tx, organizationId);
+        await repo.insertDefaultFinancialCategories(tx, organizationId);
 
         const plan = await repo.findPlanByCode(tx, TRIAL_PLAN);
         if (!plan) throw new Error(`Plano ${TRIAL_PLAN} não existe: rode as migrations`);

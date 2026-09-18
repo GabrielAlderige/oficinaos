@@ -92,6 +92,15 @@ export const receivePurchaseOrderSchema = z.object({
   notes: optionalText(500).default(''),
   /** frete desta entrega: é rateado no custo das peças que chegaram */
   shippingCents: cents.default(0),
+  /**
+   * Vencimento da conta a pagar que nasce desta nota (E13). Vazio = à vista, e
+   * a conta vence hoje.
+   */
+  payableDueDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida')
+    .nullable()
+    .default(null),
   items: z
     .array(z.object({ purchaseOrderItemId: z.uuid(), quantity: positiveQuantity, unitCostCents: cents }))
     .min(1, 'Informe o que chegou')

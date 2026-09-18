@@ -133,6 +133,28 @@ export const router = createBrowserRouter([
             ],
           },
           {
+            path: 'financeiro',
+            handle: { crumb: 'Financeiro' },
+            children: [
+              { index: true, element: <Navigate to="receber" replace /> },
+              {
+                path: 'receber',
+                lazy: page(() => import('../features/finance/FinancePage'), 'ReceivablesPage'),
+                handle: { crumb: 'A receber' },
+              },
+              {
+                path: 'pagar',
+                lazy: page(() => import('../features/finance/FinancePage'), 'PayablesPage'),
+                handle: { crumb: 'A pagar' },
+              },
+              {
+                path: 'caixa',
+                lazy: page(() => import('../features/finance/CashFlowPage'), 'CashFlowPage'),
+                handle: { crumb: 'Fluxo de caixa' },
+              },
+            ],
+          },
+          {
             path: 'configuracoes',
             lazy: page(() => import('../features/settings/SettingsLayout'), 'SettingsLayout'),
             handle: { crumb: 'Configurações' },

@@ -9,7 +9,9 @@ import {
   Package,
   ShoppingCart,
   Truck,
+  Landmark,
   PanelLeftClose,
+  Receipt,
   PanelLeftOpen,
   Settings,
   Users,
@@ -50,6 +52,8 @@ const NAV: NavItem[] = [
   { to: '/pecas', label: 'Peças e estoque', icon: Package, permission: 'catalog:read' },
   { to: '/fornecedores', label: 'Fornecedores', icon: Truck, permission: 'suppliers:read' },
   { to: '/compras', label: 'Compras', icon: ShoppingCart, permission: 'purchases:read' },
+  { to: '/financeiro/receber', label: 'A receber', icon: Landmark, permission: 'finance:read' },
+  { to: '/financeiro/pagar', label: 'A pagar', icon: Receipt, permission: 'finance:read' },
   { to: '/configuracoes', label: 'Configurações', icon: Settings },
 ];
 

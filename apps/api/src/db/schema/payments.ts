@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { bigint, check, foreignKey, index, pgTable, smallint, text, uuid } from 'drizzle-orm/pg-core';
+import { bigint, check, foreignKey, index, pgTable, smallint, text, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { PAYMENT_ENTRY_STATUSES, PAYMENT_METHODS } from '@oficinaos/shared';
 import { id, timestamps, timestamptz } from './_columns';
 import { customers } from './customers';
@@ -33,6 +33,11 @@ export const payments = pgTable(
     customerId: uuid().notNull(),
     /** MVP 2: baixa de um lançamento do financeiro */
     financialEntryId: uuid(),
+    /**
+     * Gerado pela tela (E13): clique duplo, ou rede que repete o POST, não
+     * registra o pagamento duas vezes. Nulo nos lançamentos anteriores à E13.
+     */
+    clientRequestId: uuid(),
     method: text({ enum: PAYMENT_METHODS }).notNull(),
     amountCents: money().notNull(),
     /** só registro: parcelar no cartão não gera cobrança no MVP 1 */
@@ -65,6 +70,9 @@ export const payments = pgTable(
     }),
     index('payments_work_order_idx').on(t.organizationId, t.workOrderId, t.createdAt.desc()),
     index('payments_customer_idx').on(t.organizationId, t.customerId, t.createdAt.desc()),
+    uniqueIndex('payments_client_request_unique')
+      .on(t.organizationId, t.clientRequestId)
+      .where(sql`client_request_id is not null`),
     check('payments_method_check', sql`${t.method} in (${list(PAYMENT_METHODS)})`),
     check('payments_status_check', sql`${t.status} in (${list(PAYMENT_ENTRY_STATUSES)})`),
     check('payments_amount_check', sql`${t.amountCents} > 0`),

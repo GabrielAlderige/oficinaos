@@ -71,6 +71,8 @@ export const ATTENTION_KEYS = [
   'PROMISED_LATE',
   'COMPLETED_NOT_DELIVERED',
   'DELIVERED_UNPAID',
+  /** contas a pagar vencidas (E13): o que o financeiro deixou passar */
+  'BILLS_OVERDUE',
   'STOCK',
   'APPOINTMENTS_UNCONFIRMED',
 ] as const;

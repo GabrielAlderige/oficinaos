@@ -10,6 +10,7 @@
  * espalhadas pelos últimos 30 dias, senão o painel mostraria tudo num dia só.
  */
 import { sql } from 'drizzle-orm';
+import { v7 as uuidv7 } from 'uuid';
 import { formatBRL } from '@oficinaos/shared';
 import { buildApp } from '../src/app';
 import { readEnv } from '../src/config/env';
@@ -160,10 +161,12 @@ const RECLAMACOES = [
  */
 const NA_ORDEM = [
   'quote_approvals', 'quote_attachments', 'quote_items', 'quotes',
-  'work_order_events', 'vehicle_inspections', 'attachments', 'payments',
+  // financeiro (E13): a baixa aponta para o lançamento, o pagamento também
+  'financial_settlements', 'payments', 'financial_entries',
+  'work_order_events', 'vehicle_inspections', 'attachments',
   'work_order_items', 'inventory_movements', 'appointments', 'work_orders',
   // a peça aponta para o fornecedor preferido: fornecedor sai depois dela
-  'part_applications', 'parts', 'suppliers', 'part_categories', 'services',
+  'part_applications', 'parts', 'suppliers', 'part_categories', 'services', 'financial_categories',
   'odometer_readings', 'vehicles', 'customers',
   'messages', 'notifications', 'activity_logs',
   'organization_counters', 'usage_counters', 'subscriptions', 'invitations', 'memberships',
@@ -510,6 +513,55 @@ async function main(): Promise<void> {
   }
 
   /**
+   * 6.1 despesas do mês (E13). As contas a RECEBER a própria API criou ao
+   * finalizar cada OS; a oficina também paga aluguel, luz e salário, e sem
+   * isso o fluxo de caixa teria só uma ponta.
+   */
+  const categorias = (await chamar('GET', '/finance/categories?direction=PAYABLE', undefined, dono)) as {
+    data: { id: string; systemKey: string | null }[];
+  };
+  const categoriaPor = (chave: string) => categorias.data.find((c) => c.systemKey === chave)!.id;
+  const diaDoMes = (dia: number) => {
+    const data = new Date();
+    data.setDate(Math.min(dia, 28));
+    return data.toISOString().slice(0, 10);
+  };
+  const DESPESAS = [
+    // os valores acompanham o tamanho da oficina fictícia (ela fatura ~R$ 4 mil
+    // no mês): despesa de oficina grande num movimento pequeno faria a demo
+    // abrir com prejuízo de −266% e não ensinaria nada
+    { chave: 'RENT', descricao: 'Aluguel do galpão', valor: 120000, dia: 5, paga: true },
+    { chave: 'UTILITIES', descricao: 'Energia elétrica', valor: 38400, dia: 10, paga: true },
+    { chave: 'UTILITIES', descricao: 'Internet e telefone', valor: 14900, dia: 12, paga: true },
+    { chave: 'PAYROLL', descricao: 'Salários da equipe', valor: 120000, dia: 5, paga: true },
+    { chave: 'TAXES', descricao: 'Simples Nacional', valor: 32000, dia: 20, paga: false },
+    { chave: 'TOOLS', descricao: 'Manutenção do elevador', valor: 28000, dia: 25, paga: false },
+    { chave: 'PARTS', descricao: 'Óleo e filtros — Distribuidora Paulista', valor: 84000, dia: 15, paga: false },
+  ];
+  for (const despesa of DESPESAS) {
+    const criada = (await chamar(
+      'POST',
+      '/finance/entries',
+      {
+        direction: 'PAYABLE',
+        categoryId: categoriaPor(despesa.chave),
+        description: despesa.descricao,
+        amountCents: despesa.valor,
+        dueDate: diaDoMes(despesa.dia),
+      },
+      dono,
+    )) as { data: { id: string }[] };
+    if (despesa.paga) {
+      await chamar(
+        'POST',
+        `/finance/entries/${criada.data[0]!.id}/settlements`,
+        { clientRequestId: uuidv7(), amountCents: despesa.valor, method: 'BANK_TRANSFER' },
+        dono,
+      );
+    }
+  }
+
+  /**
    * 7. espalhar as datas pelos últimos 30 dias. O resto do seed passa pela API,
    * mas "quando aconteceu" a API sempre grava como agora — e um painel com tudo
    * no mesmo dia não mostra nada. O deslocamento é determinístico pelo número da
@@ -548,6 +600,21 @@ async function main(): Promise<void> {
       update payments p set paid_at = w.delivered_at, created_at = w.delivered_at
       from work_orders w
       where w.id = p.work_order_id and p.organization_id = ${organizationId} and w.delivered_at is not null
+    `);
+    // a baixa da despesa acontece no dia do vencimento, e não no dia em que o
+    // seed rodou: senão o fluxo de caixa mostra tudo numa coluna só
+    await tx.execute(sql`
+      update financial_settlements s set paid_at = e.due_date::timestamptz + interval '10 hours',
+                                         created_at = e.due_date::timestamptz + interval '10 hours'
+      from financial_entries e
+      where e.id = s.entry_id and s.organization_id = ${organizationId}
+    `);
+    // e a conta a receber vence no dia em que a OS foi finalizada
+    await tx.execute(sql`
+      update financial_entries e set due_date = (w.completed_at at time zone 'America/Sao_Paulo')::date,
+                                     created_at = w.completed_at
+      from work_orders w
+      where w.id = e.work_order_id and e.organization_id = ${organizationId} and w.completed_at is not null
     `);
     // clientes novos ao longo do mês, para o gráfico ter o que mostrar
     await tx.execute(sql`

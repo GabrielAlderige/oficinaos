@@ -36,6 +36,8 @@ import {
   workOrderPurchaseRoutes,
 } from './modules/purchases/purchases.routes';
 import { PurchasesService } from './modules/purchases/purchases.service';
+import { financeRoutes } from './modules/finance/finance.routes';
+import { FinanceService } from './modules/finance/finance.service';
 import { supplierRoutes } from './modules/suppliers/suppliers.routes';
 import { SuppliersService } from './modules/suppliers/suppliers.service';
 import { DashboardService } from './modules/dashboard/dashboard.service';
@@ -79,6 +81,7 @@ export interface Services {
   suppliers: SuppliersService;
   supplierQuotes: SupplierQuotesService;
   purchases: PurchasesService;
+  finance: FinanceService;
 }
 
 declare module 'fastify' {
@@ -136,6 +139,7 @@ export async function buildApp({
   const caches = createAuthCaches(AUTH_CACHE_TTL_MS);
   const deps: ServiceDeps = { db, env, email, storage, tokens, caches, log: app.log };
   const workOrders = new WorkOrdersService(deps);
+  const payments = new PaymentsService(deps);
   const services: Services = {
     auth: new AuthService(deps),
     organizations: new OrganizationsService(deps),
@@ -148,12 +152,14 @@ export async function buildApp({
     uploads: new UploadsService(deps),
     quotes: new QuotesService(deps),
     notifications: new NotificationsService(deps),
-    payments: new PaymentsService(deps),
+    payments,
     appointments: new AppointmentsService(deps, workOrders),
     dashboard: new DashboardService(deps),
     suppliers: new SuppliersService(deps),
     supplierQuotes: new SupplierQuotesService(deps),
     purchases: new PurchasesService(deps),
+    // o financeiro baixa conta de OS registrando o pagamento no caixa (E7)
+    finance: new FinanceService(deps, payments),
   };
 
   app.decorate('db', db);
@@ -204,6 +210,7 @@ export async function buildApp({
   await app.register(workOrderPurchaseRoutes, { prefix: '/api/v1/work-orders' });
   await app.register(supplierHistoryRoutes, { prefix: '/api/v1/suppliers' });
   await app.register(partPriceHistoryRoutes, { prefix: '/api/v1/parts' });
+  await app.register(financeRoutes, { prefix: '/api/v1/finance' });
   // sem login: o token do link é a credencial (limite por IP em cada rota)
   await app.register(publicQuoteRoutes, { prefix: '/api/v1/public' });
   await app.register(publicSupplierQuoteRoutes, { prefix: '/api/v1/public' });

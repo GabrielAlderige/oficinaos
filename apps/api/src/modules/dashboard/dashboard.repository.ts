@@ -290,6 +290,30 @@ export async function entregueEmAberto(tx: Tx, organizationId: string) {
   return rows;
 }
 
+/**
+ * Contas a pagar vencidas (E13). Só as a PAGAR: a conta a receber vencida já
+ * aparece como "entregue com saldo em aberto", pela OS, que é onde a oficina
+ * resolve — dois grupos para o mesmo dinheiro seria cobrança em dobro.
+ */
+export async function contasVencidas(tx: Tx, organizationId: string, hoje: string) {
+  const { rows } = await tx.execute<LinhaDeAtencao>(sql`
+    select ${TOTAL}, financial_entries.id, null::int as number,
+           concat_ws(' · ', financial_entries.description, suppliers.name) as label,
+           financial_entries.due_date::timestamptz as since,
+           (financial_entries.amount_cents - financial_entries.paid_cents)::text as amount
+    from financial_entries
+    left join suppliers on suppliers.organization_id = financial_entries.organization_id
+                       and suppliers.id = financial_entries.supplier_id
+    where financial_entries.organization_id = ${organizationId}
+      and financial_entries.direction = 'PAYABLE'
+      and financial_entries.status in ('OPEN', 'PARTIAL')
+      and financial_entries.due_date < ${hoje}
+    order by financial_entries.due_date
+    limit 5
+  `);
+  return rows;
+}
+
 /** Peça no vermelho ou abaixo do mínimo: o mesmo critério da tela de estoque. */
 export async function estoqueEmFalta(tx: Tx, organizationId: string) {
   const { rows } = await tx.execute<LinhaDeAtencao>(sql`

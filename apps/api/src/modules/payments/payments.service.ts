@@ -56,11 +56,23 @@ export class PaymentsService {
     });
   }
 
-  async record(auth: AuthContext, workOrderId: string, input: RecordInput, client: ClientInfo): Promise<PaymentList> {
+  async record(
+    auth: AuthContext,
+    workOrderId: string,
+    input: RecordInput,
+    client: ClientInfo,
+    link: { financialEntryId?: string } = {},
+  ): Promise<PaymentList> {
     return withTenant(this.deps.db, auth, async (tx) => {
       // trava a OS: dois caixas registrando ao mesmo tempo não furam o saldo
       const order = await workOrderRepo.lockWorkOrder(tx, auth.organizationId, workOrderId);
       if (!order) throw notFound('OS não encontrada.');
+
+      // clique duplo, ou rede que repete o POST: a segunda chamada não cobra de novo
+      if (input.clientRequestId) {
+        const repetido = await repo.findByClientRequest(tx, auth.organizationId, input.clientRequestId);
+        if (repetido) return this.carregar(tx, auth.organizationId, workOrderId, devidoCents(order));
+      }
       if (order.status === 'CANCELED') {
         throw new AppError(
           422,
@@ -94,6 +106,8 @@ export class PaymentsService {
         installments: input.installments,
         paidAt: input.paidAt ? new Date(input.paidAt) : new Date(),
         notes: blankToNull(input.notes) ?? null,
+        clientRequestId: input.clientRequestId,
+        financialEntryId: link.financialEntryId ?? null,
         createdBy: auth.userId,
       });
 
@@ -186,6 +200,8 @@ export class PaymentsService {
     workOrderId: string,
   ): Promise<void> {
     const pago = await repo.sumConfirmedCents(tx, organizationId, workOrderId);
+    // o financeiro (E13) espelha a OS: quem sincroniza a conta a receber é o
+    // próprio applyWorkOrderChange, por onde toda gravação da OS passa
     await applyWorkOrderChange(tx, order, {
       paidCents: pago,
       paymentStatus: statusDoPagamento(pago, devidoCents(order)),

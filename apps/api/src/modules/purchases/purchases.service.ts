@@ -42,6 +42,7 @@ import {
   type WorkOrderPurchaseLine,
 } from '@oficinaos/shared';
 import { recordActivity } from '../../core/audit';
+import { createPurchasePayable, reducePurchasePayable } from '../finance/finance.sync';
 import type { AuthContext, ClientInfo, ServiceDeps } from '../../core/auth-context';
 import { nextNumber } from '../../core/counters';
 import { AppError, notFound, validationFailed, type FieldError } from '../../core/errors';
@@ -676,6 +677,20 @@ export class PurchasesService {
         version: pedido.version + 1,
       });
 
+      // financeiro (E13): a nota que chegou vira conta a pagar. É por
+      // RECEBIMENTO e não por pedido, porque o fornecedor cobra por nota —
+      // entrega parcial vira duas contas, como na vida real
+      await createPurchasePayable(tx, org, {
+        purchaseOrderId: pedido.id,
+        purchaseNumber: pedido.number,
+        supplierId: pedido.supplierId,
+        invoiceNumber: recebimento.invoiceNumber,
+        amountCents:
+          entradas.reduce((soma, e) => soma + lineValueCents(e.quantityMilli, e.unitCostCents), 0) + input.shippingCents,
+        dueDate: input.payableDueDate,
+        userId: auth.userId,
+      });
+
       await this.avisarChegada(tx, org, pedido.number, auth.userId, reservas);
       await recordActivity(tx, {
         organizationId: org,
@@ -773,9 +788,11 @@ export class PurchasesService {
       });
 
       const porOs = new Map<string, { number: number; textos: string[] }>();
+      let valorDevolvidoCents = 0;
       for (const saida of saidas) {
         const peca = pecas.get(saida.alvo.line.partId)!;
         const custo = custos.get(saida.alvo.line.id) ?? saida.alvo.line.unitCostCents;
+        valorDevolvidoCents += lineValueCents(saida.quantityMilli, custo);
 
         const itemOs = saida.alvo.line.workOrderItemId ? itensOs.get(saida.alvo.line.workOrderItemId) : undefined;
         if (itemOs && itemOs.item.stockStatus !== 'CONSUMED') {
@@ -854,6 +871,11 @@ export class PurchasesService {
         receivedAt: status === 'RECEIVED' ? pedido.receivedAt : null,
         version: pedido.version + 1,
       });
+
+      // financeiro (E13): o que voltou ao fornecedor sai da conta a pagar,
+      // da nota mais recente para a mais antiga e nunca abaixo do que já foi
+      // pago (crédito com o fornecedor é assunto do V3)
+      await reducePurchasePayable(tx, org, pedido.id, valorDevolvidoCents, auth.userId);
 
       for (const [workOrderId, grupo] of porOs) {
         await workOrderRepo.insertEvent(tx, {

@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, gt, isNull } from 'drizzle-orm';
-import { DEFAULT_PART_CATEGORIES, type PlanCode } from '@oficinaos/shared';
+import { DEFAULT_PART_CATEGORIES, SYSTEM_FINANCIAL_CATEGORIES, type PlanCode } from '@oficinaos/shared';
 import {
+  financialCategories,
   invitations,
   memberships,
   organizations,
@@ -109,6 +110,20 @@ export async function insertDefaultPartCategories(tx: Tx, organizationId: string
   await tx
     .insert(partCategories)
     .values(DEFAULT_PART_CATEGORIES.map((name, index) => ({ organizationId, name, position: index + 1 })));
+}
+
+/** As nove categorias do financeiro (E13) nascem com a oficina. */
+export async function insertDefaultFinancialCategories(tx: Tx, organizationId: string) {
+  await tx
+    .insert(financialCategories)
+    .values(
+      SYSTEM_FINANCIAL_CATEGORIES.map((categoria) => ({
+        organizationId,
+        direction: categoria.direction,
+        name: categoria.name,
+        systemKey: categoria.key,
+      })),
+    );
 }
 
 export async function findOrganizationName(tx: Tx, organizationId: string) {

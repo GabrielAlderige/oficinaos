@@ -66,6 +66,17 @@ export const ErrorCode = {
   PURCHASE_ORDER_STATE: 'PURCHASE_ORDER_STATE',
   /** o rascunho mudou desde que a tela abriu */
   PURCHASE_ORDER_VERSION_CONFLICT: 'PURCHASE_ORDER_VERSION_CONFLICT',
+  // financeiro (E13)
+  /** o lançamento não está numa situação que aceite esta ação (baixar, editar, parcelar) */
+  FINANCE_ENTRY_STATE: 'FINANCE_ENTRY_STATE',
+  /** a baixa passa do que falta no lançamento */
+  FINANCE_EXCEEDS_BALANCE: 'FINANCE_EXCEEDS_BALANCE',
+  /** conta gerada pela OS: o valor é o da OS, e muda lá */
+  FINANCE_ENTRY_MIRRORED: 'FINANCE_ENTRY_MIRRORED',
+  /** já existe categoria com este nome nesta direção */
+  FINANCE_CATEGORY_NAME_TAKEN: 'FINANCE_CATEGORY_NAME_TAKEN',
+  /** categoria em uso, ou do sistema: não se apaga */
+  FINANCE_CATEGORY_IN_USE: 'FINANCE_CATEGORY_IN_USE',
   // agenda
   /** o mecânico já tem compromisso naquela hora; com `force` o encaixe passa */
   APPOINTMENT_CONFLICT: 'APPOINTMENT_CONFLICT',

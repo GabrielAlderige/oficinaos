@@ -7,6 +7,7 @@ import {
 } from '@oficinaos/shared';
 import type { workOrders } from '../../db/schema';
 import type { Tx } from '../../db/tenant';
+import { syncWorkOrderEntries } from '../finance/finance.sync';
 import * as repo from './work-orders.repository';
 
 type OrderPatch = Partial<typeof workOrders.$inferInsert>;
@@ -35,6 +36,10 @@ export async function pricingLinesOf(tx: Tx, order: repo.WorkOrderRow): Promise<
 /**
  * Aplica a mudança, recalcula os totais pelo `pricing.ts` e sobe a versão —
  * tudo numa gravação só. A API nunca confia em total vindo do front.
+ *
+ * Toda gravação da OS passa por aqui, então é aqui que a **conta a receber**
+ * (E13) é mantida colada na OS: aprovar um item, dar desconto ou registrar
+ * pagamento já deixa o financeiro certo, sem ninguém precisar lembrar.
  */
 export async function applyWorkOrderChange(
   tx: Tx,
@@ -65,7 +70,7 @@ export async function applyWorkOrderChange(
     if (total !== item.totalCents) await repo.updateItem(tx, item.id, { totalCents: total });
   }
 
-  return repo.updateWorkOrder(tx, order.id, {
+  const updated = await repo.updateWorkOrder(tx, order.id, {
     ...patch,
     partsSubtotalCents: totals.partsSubtotalCents,
     servicesSubtotalCents: totals.servicesSubtotalCents,
@@ -74,4 +79,6 @@ export async function applyWorkOrderChange(
     approvedTotalCents: approved.totalCents,
     version: order.version + 1,
   });
+  await syncWorkOrderEntries(tx, order.organizationId, updated);
+  return updated;
 }

@@ -26,6 +26,16 @@ export function listPayments(tx: Tx, organizationId: string, workOrderId: string
     .orderBy(desc(payments.createdAt));
 }
 
+/** O mesmo POST repetido (clique duplo, rede ruim) já virou pagamento? */
+export async function findByClientRequest(tx: Tx, organizationId: string, clientRequestId: string) {
+  const [row] = await tx
+    .select()
+    .from(payments)
+    .where(and(eq(payments.organizationId, organizationId), eq(payments.clientRequestId, clientRequestId)))
+    .limit(1);
+  return row;
+}
+
 /** Trava o lançamento: dois cancelamentos simultâneos não se atropelam. */
 export async function lockPayment(tx: Tx, organizationId: string, id: string) {
   const [row] = await tx

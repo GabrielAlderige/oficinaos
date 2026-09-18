@@ -117,7 +117,7 @@ CREATE POLICY tenant_isolation ON customers
 | Auditoria | `activity_logs` | MVP 1 |
 | Fornecedores e compras | `suppliers`, `purchase_orders`, `purchase_order_items`, `supplier_quote_requests`, `supplier_quote_request_items`, `supplier_quote_invites`, `supplier_quote_responses`, `supplier_quote_response_items`, `supplier_quote_awards`, `purchase_receipts`, `purchase_receipt_items`, `purchase_returns`, `purchase_return_items`, `part_price_history` | MVP 2 |
 | Pesquisa de peças | `part_search_queries`, `part_offers` | MVP 2 |
-| Financeiro | `financial_categories`, `financial_entries` | MVP 2 |
+| Financeiro ✅ E13 | `financial_categories`, `financial_entries`, `financial_settlements` | MVP 2 |
 | Pós-venda e CRM | `reviews`, `follow_ups`, `leads` | MVP 2 |
 | Integrações | `integration_connections`, `webhook_events`, `fiscal_documents`, `payment_intents` | V3 |
 | Marketplace | `supplier_directory` (global), `marketplace_orders` | V3+ |
@@ -926,10 +926,18 @@ part_price_history            ✅ E11, append-only: id, part_id, supplier_id, pr
 part_search_queries           id, query, vehicle_id, providers text[], requested_by, created_at
 part_offers                   id, query_id, provider, is_mock, supplier_id, title, brand, code, price_cents,
                               shipping_cents, availability, lead_time_days, offer_url, fetched_at, raw jsonb
-financial_categories          id, name, direction, is_system (PECAS, SALARIOS, ALUGUEL, ENERGIA, AGUA, IMPOSTOS, …)
-financial_entries             id, direction, category_id, description, amount_cents, paid_cents, due_date,
-                              status (OPEN|PARTIAL|PAID|OVERDUE|CANCELED), customer_id, supplier_id,
-                              work_order_id, purchase_order_id, installment_number, installment_count
+financial_categories          ✅ E13 (migrations 0027/0028): id, direction, name, system_key (SERVICES, OTHER_INCOME,
+                              PARTS, PAYROLL, RENT, UTILITIES, TAXES, TOOLS, OTHER_EXPENSE). As nove nascem com a
+                              oficina; renomear pode, apagar não. UNIQUE (org, direction, lower(name))
+financial_entries             ✅ E13: id, direction, status (OPEN|PARTIAL|PAID|CANCELED — vencida é CALCULADA, D31),
+                              origin (MANUAL|WORK_ORDER|PURCHASE), category_id, description, amount_cents,
+                              paid_cents (cache das baixas), due_date, customer_id, supplier_id, work_order_id,
+                              purchase_order_id, group_id + installment_number/count, settled_at, canceled_at/by +
+                              reason, version. CHECKs: pago entre 0 e o valor; automático aponta o documento;
+                              cancelado <=> canceled_at com motivo
+financial_settlements         ✅ E13: id, entry_id, client_request_id (UNIQUE por oficina), amount_cents, method,
+                              paid_at, status (CONFIRMED|CANCELED), payment_id, canceled_at/by + reason. A baixa de
+                              uma conta de OS NÃO mora aqui: é o `payments` da E7 (D30)
 reviews                       id, work_order_id, customer_id, public_token, rating 1..5, comment, submitted_at
 follow_ups                    id, customer_id, vehicle_id, type (POST_SALE_7D|MAINTENANCE_DUE|NO_RETURN_6M),
                               due_at, status (PENDING|DONE|SKIPPED), done_by, message_id

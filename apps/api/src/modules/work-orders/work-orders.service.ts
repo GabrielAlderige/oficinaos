@@ -31,6 +31,7 @@ import {
 } from '@oficinaos/shared';
 import type { z } from 'zod';
 import { diffChanges, recordActivity } from '../../core/audit';
+import { cancelWorkOrderEntries, ensureWorkOrderReceivable } from '../finance/finance.sync';
 import type { AuthContext, ClientInfo, ServiceDeps } from '../../core/auth-context';
 import { COUNTER_WORK_ORDER, nextNumber } from '../../core/counters';
 import { AppError, notFound, validationFailed } from '../../core/errors';
@@ -472,6 +473,17 @@ export class WorkOrdersService {
       }
 
       const updated = await this.applyChange(tx, order, patch);
+
+      // financeiro (E13): a OS finalizada vira conta a receber; a cancelada
+      // leva a conta junto, com motivo — cobrar um serviço que não houve é o
+      // tipo de erro que a oficina só descobre discutindo com o cliente
+      if (action === 'complete') {
+        await ensureWorkOrderReceivable(tx, auth.organizationId, updated, auth.userId);
+      }
+      if (action === 'cancel') {
+        await cancelWorkOrderEntries(tx, auth.organizationId, id, 'OS cancelada', auth.userId);
+      }
+
       await repo.insertEvent(tx, {
         organizationId: auth.organizationId,
         workOrderId: id,

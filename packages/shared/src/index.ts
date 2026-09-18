@@ -47,3 +47,6 @@ export * from './schemas/purchases';
 export * from './schemas/vehicles';
 export * from './schemas/search';
 export * from './schemas/catalog';
+export * from './enums/finance';
+export * from './finance';
+export * from './schemas/finance';

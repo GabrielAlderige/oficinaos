@@ -19,6 +19,11 @@ export const recordPaymentSchema = z.object({
   /** quando o dinheiro entrou; nulo = agora */
   paidAt: isoDateTime.nullable().default(null),
   notes: optionalText(500).default(''),
+  /**
+   * Gerado pela tela (E13): clique duplo, ou rede que repete o POST, não
+   * registra o pagamento duas vezes. Nulo = sem proteção (chamadas antigas).
+   */
+  clientRequestId: z.uuid().nullable().default(null),
 });
 
 /** Cancelar exige motivo: o lançamento fica no histórico, marcado. */

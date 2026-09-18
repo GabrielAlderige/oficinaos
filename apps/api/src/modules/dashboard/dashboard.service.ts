@@ -146,6 +146,8 @@ export class DashboardService {
       const parados = await repo.prontoSemEntregar(tx, organizationId, doisDias);
       const devendo = await repo.entregueEmAberto(tx, organizationId);
       const estoque = await repo.estoqueEmFalta(tx, organizationId);
+      // quem não vê dinheiro não vê conta vencida (nem a consulta roda)
+      const contas = veDinheiro(auth) ? await repo.contasVencidas(tx, organizationId, dayKey(agora, timezone)) : [];
       const agendamentos = await repo.naoConfirmadosHoje(tx, organizationId, hoje);
 
       const dinheiro = veDinheiro(auth);
@@ -224,6 +226,15 @@ export class DashboardService {
           (l) => juntar(valor(l) && `falta ${valor(l)}`, `entregue ${tempoDesde(l.since, agora)}`),
           daOS,
           '/ordens?status=DELIVERED',
+        ),
+        grupo(
+          'BILLS_OVERDUE',
+          'Contas a pagar vencidas',
+          'danger',
+          contas,
+          (l) => juntar(valor(l) && `${valor(l)} em aberto`, `venceu em ${diaEMes(String(l.since).slice(0, 10))}`),
+          () => '/financeiro/pagar?situacao=overdue',
+          '/financeiro/pagar?situacao=overdue',
         ),
         grupo(
           'STOCK',

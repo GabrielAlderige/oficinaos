@@ -262,6 +262,28 @@ espera pela certa. Dono, admin e gerente compram; o financeiro consulta;
 atendente e mecânico não veem compras (é custo). Na cotação (E11), trocar uma
 escolha que já virou pedido vivo → 422 `SUPPLIER_QUOTE_ORDERED`.
 
+### Financeiro — `/finance` (MVP 2, E13)
+
+| Método | Rota | Permissão | Fase |
+|---|---|---|---|
+| GET | `/finance/entries?direction=RECEIVABLE\|PAYABLE&filter=open\|overdue\|due_soon\|paid\|canceled\|all&q=&categoryId=&customerId=&supplierId=&from=&to=&page=` → `{{ data, meta, summary }}`. `situation` já vem com **vencida** resolvida pelo dia de hoje na oficina; o resumo traz em aberto, vencido, vence em 7 dias e o recebido/pago no mês | `finance:read` | 2 |
+| POST | `/finance/entries` `{{ direction, categoryId, description, amountCents, dueDate, customerId?, supplierId?, notes?, installments? }}` → 201 `{{ data: [parcelas] }}`. Com `installments > 1` nasce o carnê inteiro: mensal, sem perder centavo (a sobra vai para a primeira) | `finance:write` | 2 |
+| GET | `/finance/entries/{{id}}` → lançamento + baixas | `finance:read` | 2 |
+| PATCH | `/finance/entries/{{id}}` — descrição, categoria, vencimento, observação e valor. Valor de conta de OS → 422 `FINANCE_ENTRY_MIRRORED` (ele vem da OS); abaixo do já baixado → 422 `FINANCE_EXCEEDS_BALANCE` | `finance:write` | 2 |
+| POST | `/finance/entries/{{id}}/settlements` `{{ clientRequestId, amountCents, method, paidAt?, notes? }}` → 201. **Conta de OS: a baixa é o pagamento do caixa** (vai para `payments`, a OS fica com o `payment_status` certo e as parcelas quitam da mais velha para a mais nova). Acima do saldo → 422; a mesma `clientRequestId` devolve o estado atual, sem baixar de novo | `finance:write` | 2 |
+| POST | `/finance/settlements/{{id}}/cancel` `{{ reason }}` — a baixa vira `CANCELED` e o saldo volta. Baixa que é pagamento de OS se estorna na ficha da OS | `finance:write` | 2 |
+| POST | `/finance/entries/{{id}}/installments` `{{ installments, firstDueDate? }}` → 201: o lançamento vira a parcela 1 e as outras nascem mensais. Numa conta de OS o que já foi pago é redistribuído | `finance:write` | 2 |
+| POST | `/finance/entries/{{id}}/cancel` `{{ reason }}` — com baixa confirmada → 422 `FINANCE_ENTRY_STATE` | `finance:write` | 2 |
+| GET | `/finance/cash-flow?period=&from=&to=&step=day\|week\|month` → baldes com entrou/saiu/acumulado no fuso da oficina, mais o **previsto** (o que ainda vence no período) | `finance:read` | 2 |
+| GET | `/finance/profit?period=&from=&to=` → faturado − custo das peças usadas − despesas pagas (a categoria "Peças" fica fora da despesa: já entrou pelo custo da peça), com a margem em basis points | `finance:read` | 2 |
+| GET/POST/PATCH/DELETE | `/finance/categories[/{{id}}]` — as nove do sistema nascem com a oficina; dá para renomear, não para apagar; categoria em uso não se apaga (422 `FINANCE_CATEGORY_IN_USE`) | `finance:read` / `finance:write` | 2 |
+
+**A conta a receber espelha a OS.** Ela nasce ao finalizar (valor = o que o
+cliente aprovou), acompanha qualquer mudança de total, morre com a OS cancelada
+e é baixada pelo caixa da E7 — "recebido" é um número só no sistema inteiro. A
+conta a pagar nasce de cada **nota recebida** (itens + frete) e encolhe na
+devolução ao fornecedor, pelo custo com que a peça entrou.
+
 ### Estoque — `/inventory`
 
 | Método | Rota | Permissão | Fase |
@@ -309,7 +331,7 @@ escolha que já virou pedido vivo → 422 `SUPPLIER_QUOTE_ORDERED`.
 | Cotação com fornecedores | `POST /supplier-quote-requests` (cria e gera links), `GET /supplier-quote-requests/{id}` (respostas lado a lado), `POST /supplier-quote-requests/{id}/award` (escolhe → gera pedido) |
 | Pesquisa de peças | `POST /parts-search` (`{ query, vehicleId?, providers? }` → ofertas por provider, com `isMock` e `fetchedAt`), `GET /parts-search/{queryId}/compare` (melhor preço, mais rápida, custo-benefício), `POST /parts-search/offers/{offerId}/add-to-work-order` (com margem) |
 | Compras ✅ E12 | Ver a seção **Compras** acima |
-| Financeiro | `GET/POST/PATCH /finance/entries`, `POST /finance/entries/{id}/settle`, `GET /finance/summary`, `GET /finance/cash-flow`, `GET/POST /finance/categories` |
+| Financeiro ✅ E13 | Ver a seção **Financeiro** acima |
 | Relatórios | `GET /reports/{revenue\|profit\|services\|parts\|customers\|vehicles\|mechanics\|avg-ticket\|approval\|inventory\|suppliers}?from=&to=` + exportação CSV |
 | Pós-venda | `GET /follow-ups?due=today` (fila do dia), `POST /follow-ups/{id}/done` · `/skip` |
 | Avaliações | `GET /reviews`, `GET /reviews/summary` |
