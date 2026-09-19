@@ -73,6 +73,12 @@ export const quotes = pgTable(
     lastViewedAt: timestamptz(),
     viewCount: integer().notNull().default(0),
     decidedAt: timestamptz(),
+    /**
+     * O orçamento morreu sem resposta porque a OS foi cancelada (E17). Não é
+     * decisão do cliente — por isso não usa `decidedAt`: ele nunca respondeu.
+     */
+    revokedAt: timestamptz(),
+    revokeReason: text(),
     supersededByQuoteId: uuid(),
     ...timestamps,
   },
@@ -94,6 +100,11 @@ export const quotes = pgTable(
     check('quotes_number_check', sql`${t.number} > 0`),
     check('quotes_money_check', sql`${t.totalCents} >= 0 and ${t.discountCents} >= 0`),
     check('quotes_view_count_check', sql`${t.viewCount} >= 0`),
+    // cancelado sem motivo não conta história: a mesma regra do pagamento (E7)
+    check(
+      'quotes_revoked_check',
+      sql`(${t.status} = 'REVOKED') = (${t.revokedAt} is not null) and (${t.revokedAt} is null or ${t.revokeReason} is not null)`,
+    ),
   ],
 );
 
@@ -106,7 +117,13 @@ export const quoteItems = pgTable(
       .notNull()
       .references(() => organizations.id),
     quoteId: uuid().notNull(),
-    workOrderItemId: uuid().notNull(),
+    /**
+     * Ponteiro para o item da OS, não a fonte da verdade: a linha abaixo já é
+     * a cópia congelada. Vira null se o item for removido da OS depois
+     * (`on delete set null (work_order_item_id)`, migration 0040) — o
+     * orçamento continua sendo prova do que o cliente viu.
+     */
+    workOrderItemId: uuid(),
     type: text({ enum: WORK_ORDER_ITEM_TYPES }).notNull(),
     description: text().notNull(),
     partCode: text(),

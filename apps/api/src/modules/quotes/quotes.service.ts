@@ -561,8 +561,12 @@ export class QuotesService {
     await repo.updateQuote(tx, quote.id, { status, decidedAt: new Date() });
 
     // 4) itens do orçamento → itens da OS
-    await repo.setItemsApprovalStatus(tx, organizationId, aprovados.map((item) => item.workOrderItemId), 'APPROVED');
-    await repo.setItemsApprovalStatus(tx, organizationId, recusados.map((item) => item.workOrderItemId), 'REJECTED');
+    // item que já saiu da OS não tem mais o que marcar: o orçamento guarda a
+    // cópia dele, mas a linha viva não existe (migration 0040)
+    const naOS = (linhas: repo.QuoteItemRow[]) =>
+      linhas.map((item) => item.workOrderItemId).filter((id): id is string => id !== null);
+    await repo.setItemsApprovalStatus(tx, organizationId, naOS(aprovados), 'APPROVED');
+    await repo.setItemsApprovalStatus(tx, organizationId, naOS(recusados), 'REJECTED');
 
     // 5) a OS: aprovada, ou de volta para revisar o orçamento
     const nextOrderStatus = decision.decision === 'REJECTED' ? 'AWAITING_QUOTE' : 'APPROVED';
@@ -575,9 +579,9 @@ export class QuotesService {
     // sido aprovado antes, e hoje nenhum fluxo re-orça item aprovado — o envio
     // congela só rascunho. Então a liberação abaixo é defesa, não caminho vivo:
     // teste de mutação não consegue exercê-la. Fica para quando houver re-orçamento.
-    const reserva = await reserveApprovedItems(tx, organizationId, aprovados.map((item) => item.workOrderItemId));
+    const reserva = await reserveApprovedItems(tx, organizationId, naOS(aprovados));
     if (recusados.length) {
-      await releaseReservations(tx, organizationId, recusados.map((item) => item.workOrderItemId));
+      await releaseReservations(tx, organizationId, naOS(recusados));
     }
 
     // 7) timeline, auditoria e aviso

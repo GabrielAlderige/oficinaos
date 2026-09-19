@@ -708,7 +708,9 @@ quotes (
 
 quote_items (                                  -- imutável
   id uuid PRIMARY KEY, organization_id uuid NOT NULL,
-  quote_id uuid NOT NULL, work_order_item_id uuid NOT NULL,
+  quote_id uuid NOT NULL,
+  work_order_item_id uuid,                     -- ponteiro, não a verdade: `on delete set null (work_order_item_id)`
+                                               -- quando o item sai da OS. A cópia congelada abaixo continua inteira
   type text NOT NULL, description text NOT NULL, part_code text, brand text,
   quantity numeric(12,3) NOT NULL, unit_price_cents bigint NOT NULL,
   discount_cents bigint NOT NULL, total_cents bigint NOT NULL,

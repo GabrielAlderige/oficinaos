@@ -85,7 +85,8 @@ export const publicQuestionSchema = z.object({
 
 export const quoteItemSchema = z.object({
   id: z.uuid(),
-  workOrderItemId: z.uuid(),
+  /** null quando o item saiu da OS depois: o orçamento é cópia congelada */
+  workOrderItemId: z.uuid().nullable(),
   type: z.enum(WORK_ORDER_ITEM_TYPES),
   description: z.string(),
   partCode: z.string().nullable(),

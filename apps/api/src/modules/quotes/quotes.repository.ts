@@ -93,6 +93,32 @@ export async function findOpenQuote(tx: Tx, organizationId: string, workOrderId:
   return row;
 }
 
+/**
+ * A OS foi cancelada: o orçamento que estava esperando resposta vira
+ * **Cancelado** (E17). Antes ele ficava para sempre em "Aguardando resposta"
+ * numa lista de OS que não existe mais — e o link continuava convidando o
+ * cliente a aprovar um serviço que ninguém vai fazer.
+ */
+export async function revokeOpenForWorkOrder(
+  tx: Tx,
+  organizationId: string,
+  workOrderId: string,
+  reason: string,
+): Promise<number> {
+  const revogados = await tx
+    .update(quotes)
+    .set({ status: 'REVOKED', revokedAt: new Date(), revokeReason: reason })
+    .where(
+      and(
+        eq(quotes.organizationId, organizationId),
+        eq(quotes.workOrderId, workOrderId),
+        eq(quotes.status, 'SENT'),
+      ),
+    )
+    .returning({ id: quotes.id });
+  return revogados.length;
+}
+
 export async function lastVersionOf(tx: Tx, organizationId: string, workOrderId: string) {
   const [row] = await tx
     .select({ version: sql<number>`coalesce(max(${quotes.version}), 0)::int` })

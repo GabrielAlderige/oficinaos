@@ -1,5 +1,5 @@
-import { and, asc, eq, inArray, isNotNull, ne } from 'drizzle-orm';
-import { milliToDecimal, parseQuantity } from '@oficinaos/shared';
+import { and, asc, eq, inArray, isNotNull, ne, sql } from 'drizzle-orm';
+import { milliToDecimal, parseQuantity, weightedAverageCost } from '@oficinaos/shared';
 import { inventoryMovements, parts, workOrderItems } from '../db/schema';
 import type { Tx } from '../db/tenant';
 
@@ -136,6 +136,81 @@ export interface ConsumptionSummary {
   consumed: number;
   /** peças que ficaram negativas: a oficina precisa acertar a contagem */
   negative: { partId: string; name: string; balanceMilli: number }[];
+}
+
+/**
+ * Devolução ao estoque de peça que JÁ foi baixada (E17, `CUSTOMER_RETURN`).
+ *
+ * Acontece quando a oficina reabre a OS e tira a peça (ou reduz a quantidade):
+ * a peça não foi para o carro, então volta para a prateleira. Antes isto era
+ * manual — o saldo ficava errado até alguém lembrar de ajustar, e ajuste sem
+ * origem é o que faz o estoque deixar de ser confiável.
+ *
+ * Ela volta **pelo custo com que saiu** (o do movimento de saída daquele
+ * item), ponderado no custo médio como qualquer entrada: devolver logo depois
+ * de baixar devolve o custo médio ao que era.
+ */
+export async function returnConsumedItem(
+  tx: Tx,
+  organizationId: string,
+  item: { id: string; partId: string | null; workOrderId: string; stockStatus: string; description: string },
+  quantidadeMilli: number,
+  userId: string | null,
+  motivo: string,
+): Promise<{ returned: boolean; quantityMilli: number }> {
+  if (item.stockStatus !== 'CONSUMED' || !item.partId || quantidadeMilli <= 0) {
+    return { returned: false, quantityMilli: 0 };
+  }
+
+  // o que ainda está fora: baixado menos o que já voltou
+  const { rows } = await tx.execute<{ saiu: string; voltou: string; custo: number | null }>(sql`
+    select coalesce(sum(-quantity) filter (where type = 'WORK_ORDER_OUT'), 0)::text as saiu,
+           coalesce(sum(quantity) filter (where type = 'CUSTOMER_RETURN'), 0)::text as voltou,
+           (array_agg(unit_cost_cents order by created_at desc) filter (where type = 'WORK_ORDER_OUT'))[1] as custo
+    from inventory_movements
+    where organization_id = ${organizationId} and work_order_item_id = ${item.id}
+  `);
+  const fora = milli(rows[0]?.saiu ?? '0') - milli(rows[0]?.voltou ?? '0');
+  const volta = Math.min(quantidadeMilli, fora);
+  if (volta <= 0) return { returned: false, quantityMilli: 0 };
+
+  const [part] = await tx
+    .select()
+    .from(parts)
+    .where(and(eq(parts.organizationId, organizationId), eq(parts.id, item.partId)))
+    .limit(1)
+    .for('update');
+  if (!part || !part.trackStock) return { returned: false, quantityMilli: 0 };
+
+  const custoDaSaida = rows[0]?.custo ?? part.averageCostCents ?? 0;
+  const onHand = milli(part.quantityOnHand);
+  const medio = weightedAverageCost({
+    onHandMilli: onHand,
+    averageCostCents: part.averageCostCents,
+    inMilli: volta,
+    unitCostCents: custoDaSaida,
+  });
+  const novoSaldo = onHand + volta;
+
+  await tx.insert(inventoryMovements).values({
+    organizationId,
+    partId: item.partId,
+    type: 'CUSTOMER_RETURN',
+    quantity: milliToDecimal(volta),
+    unitCostCents: custoDaSaida,
+    balanceAfter: milliToDecimal(novoSaldo),
+    averageCostAfterCents: medio,
+    workOrderId: item.workOrderId,
+    workOrderItemId: item.id,
+    reason: motivo,
+    createdBy: userId,
+  });
+  await tx
+    .update(parts)
+    .set({ quantityOnHand: milliToDecimal(novoSaldo), averageCostCents: medio })
+    .where(eq(parts.id, item.partId));
+
+  return { returned: true, quantityMilli: volta };
 }
 
 /**

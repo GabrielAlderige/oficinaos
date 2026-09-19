@@ -62,7 +62,7 @@ legível, para logs e desenvolvedores.
 | `POST /auth/forgot-password` | 3/hora por e-mail, 10/hora por IP |
 | `GET /public/quotes/{token}` | 60/min por IP |
 | `POST /public/quotes/{token}/*` | 10/min por IP |
-| Autenticadas | 300/min por usuário |
+| Autenticadas | 300/min por IP (só em produção: fora dela o teto é 5.000, porque dev e testes saem todos do mesmo IP) |
 
 ---
 
@@ -156,7 +156,7 @@ Ninguém rebaixa nem remove o último OWNER.
 | PATCH | `/work-orders/{id}` (km, relato, diagnóstico, observações, responsáveis, previsão, desconto geral; com `version`) | `work_orders:write` (+ `:discount`) | 1 |
 | POST | `/work-orders/{id}/items` | `work_orders:write` | 1 |
 | PATCH | `/work-orders/{id}/items/{itemId}` | `work_orders:write` (+ `:edit_approved` se aprovado) | 1 |
-| DELETE | `/work-orders/{id}/items/{itemId}` | `work_orders:write` | 1 |
+| DELETE | `/work-orders/{id}/items/{itemId}` (peça já baixada volta ao estoque como `CUSTOMER_RETURN`; 409 `ITEM_HAS_TIME_LOGGED` se o item tem tempo apontado) | `work_orders:write` | 1 |
 | PUT | `/work-orders/{id}/items/order` (reordenar) | `work_orders:write` | 1 |
 | POST | `/work-orders/{id}/inspections` (check-in/check-out) | `work_orders:write` | 1 |
 | POST | `/work-orders/{id}/start-diagnosis` · `/finish-diagnosis` · `/start` · `/wait-parts` · `/complete` | `work_orders:change_status` | 1 |

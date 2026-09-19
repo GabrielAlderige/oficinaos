@@ -394,6 +394,33 @@ describe('orçamento e aprovação', () => {
       expect(antigo.json().redirectToken).toBe(segundo.json().publicUrl.split('/').pop());
     });
 
+    it('cancelar a OS tira o orçamento de "aguardando resposta" e mata o link', async () => {
+      const { order, quote } = await sendQuote();
+      const token = tokenOf(quote);
+      expect((await publicGet(token)).json().status).toBe('SENT');
+
+      const cancelou = await post(`/api/v1/work-orders/${order.id}/cancel`, { reason: 'Cliente desistiu' });
+      expect(cancelou.statusCode, cancelou.body).toBe(200);
+
+      const depois = await get(`/api/v1/quotes/${quote.id}`);
+      expect(depois.statusCode, depois.body).toBe(200);
+      expect(depois.json().status, 'não fica mais eternamente aguardando').toBe('REVOKED');
+
+      // e o link continua abrindo, mas dizendo que foi cancelado — em vez de
+      // convidar o cliente a aprovar um serviço que não vai acontecer
+      const publica = await publicGet(token);
+      expect(publica.statusCode).toBe(200);
+      expect(publica.json().status).toBe('REVOKED');
+      const publica2 = publica.json();
+      const tentativa = await publicPost(token, 'approve', {
+        approvedItemIds: publica2.items.map((item: { id: string }) => item.id),
+        signerName: 'João Pereira',
+        accepted: true,
+        contentHash: publica2.contentHash,
+      });
+      expect(tentativa.statusCode, 'o link não aceita mais aprovação').toBe(409);
+    });
+
     it('o atendente registra a aprovação que o cliente deu por telefone', async () => {
       const attendant = await addMember(t.app, owner, 'ATTENDANT');
       const { order, quote } = await sendQuote();

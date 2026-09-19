@@ -135,6 +135,8 @@ export const WORK_ORDER_EVENT_TYPES = [
   'PURCHASE_ORDERED',
   /** peça desta OS chegou e foi reservada (E12) */
   'PURCHASE_RECEIVED',
+  /** peça já baixada voltou para a prateleira: item removido ou reduzido (E17) */
+  'PART_RETURNED',
 ] as const;
 export type WorkOrderEventType = (typeof WORK_ORDER_EVENT_TYPES)[number];
 export const WORK_ORDER_EVENT_TYPE_LABELS: Record<WorkOrderEventType, string> = {
@@ -158,6 +160,7 @@ export const WORK_ORDER_EVENT_TYPE_LABELS: Record<WorkOrderEventType, string> = 
   SUPPLIER_QUOTE_ANSWERED: 'Fornecedor respondeu a cotação',
   PURCHASE_ORDERED: 'Peça pedida ao fornecedor',
   PURCHASE_RECEIVED: 'Peça chegou',
+  PART_RETURNED: 'Peça devolvida ao estoque',
 };
 
 /** Quem gerou o evento: a equipe, o cliente na página pública (E6) ou o sistema. */

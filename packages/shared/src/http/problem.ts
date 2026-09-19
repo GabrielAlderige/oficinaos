@@ -46,6 +46,8 @@ export const ErrorCode = {
   ITEM_ALREADY_APPROVED: 'ITEM_ALREADY_APPROVED',
   /** o arquivo não terminou de subir para o storage */
   UPLOAD_INCOMPLETE: 'UPLOAD_INCOMPLETE',
+  /** o item tem tempo apontado: tirar ele apagaria trabalho que alguém fez */
+  ITEM_HAS_TIME_LOGGED: 'ITEM_HAS_TIME_LOGGED',
   // pagamento
   /** o valor passa do que falta receber: crédito a favor do cliente é MVP 2 */
   PAYMENT_EXCEEDS_BALANCE: 'PAYMENT_EXCEEDS_BALANCE',

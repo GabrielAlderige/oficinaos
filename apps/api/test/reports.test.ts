@@ -110,6 +110,21 @@ describe('relatórios', () => {
     expect(semNada.json().code).toBe('INVALID_TRANSITION');
   });
 
+  it('item com tempo apontado não some da OS: a API explica em vez de apagar o registro', async () => {
+    // o item já tem volta fechada dos testes acima
+    const tentou = await t.app.inject({
+      method: 'DELETE',
+      url: `/api/v1/work-orders/${osId}/items/${itemServico}`,
+      headers: bearer(dono.accessToken),
+    });
+    expect(tentou.statusCode, tentou.body).toBe(409);
+    expect(tentou.json().code).toBe('ITEM_HAS_TIME_LOGGED');
+
+    // e o item continua lá, com o tempo dele
+    const os = (await get(`/api/v1/work-orders/${osNumero}`)).json() as { items: { id: string; actualMinutes: number }[] };
+    expect(os.items.find((linha) => linha.id === itemServico)!.actualMinutes).toBeGreaterThanOrEqual(1);
+  });
+
   it('começar em outro serviço para o anterior: ninguém trabalha em dois carros ao mesmo tempo', async () => {
     const cliente = await createCustomer(t.app, dono, { name: 'Carlos Lima' });
     const carro = await createVehicle(t.app, dono, cliente.id, { plate: 'REL3C45', make: 'VW', model: 'Gol' });

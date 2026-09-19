@@ -32,7 +32,7 @@ import {
 import type { z } from 'zod';
 import { diffChanges, recordActivity } from '../../core/audit';
 import { cancelWorkOrderEntries, ensureWorkOrderReceivable } from '../finance/finance.sync';
-import { findRunningTimer, readItemTimes, startTimer, stopTimer } from './timers';
+import { findRunningTimer, listItemTimers, readItemTimes, startTimer, stopTimer } from './timers';
 import type { AuthContext, ClientInfo, ServiceDeps } from '../../core/auth-context';
 import { COUNTER_WORK_ORDER, nextNumber } from '../../core/counters';
 import { AppError, notFound, validationFailed } from '../../core/errors';
@@ -40,7 +40,8 @@ import { blankToNull, isoOrNull } from '../../core/normalize';
 import { assertOdometerNotDecreasing } from '../../core/odometer';
 import { readOrganizationSettings } from '../../core/org-settings';
 import { saldoCents, whatsappLink, whatsappVehicleReadyMessage } from '@oficinaos/shared';
-import { consumeApprovedItems, releaseReservations, type ConsumptionSummary } from '../../core/reservations';
+import { consumeApprovedItems, releaseReservations, returnConsumedItem, type ConsumptionSummary } from '../../core/reservations';
+import { revokeOpenForWorkOrder as revokeOpenQuotes } from '../quotes/quotes.repository';
 import { cancelOpenForWorkOrder as cancelOpenSupplierQuotes } from '../supplier-quotes/supplier-quotes.repository';
 import { applyWorkOrderChange, pricingLinesOf } from './totals';
 import type { workOrderItems, workOrders } from '../../db/schema';
@@ -318,6 +319,34 @@ export class WorkOrdersService {
       const changes = diffChanges(item, patch);
       if (Object.keys(changes).length) {
         await repo.updateItem(tx, itemId, patch);
+
+        // baixou 2, usou 1: a diferença volta para a prateleira (E17)
+        const antes = milli(item.quantity);
+        const depois = input.quantity === undefined ? antes : toMilli(input.quantity);
+        if (depois < antes) {
+          const devolucao = await returnConsumedItem(
+            tx,
+            auth.organizationId,
+            { ...item, workOrderId: id },
+            antes - depois,
+            auth.userId,
+            `Quantidade reduzida na OS nº ${order.number}`,
+          );
+          if (devolucao.returned) {
+            await repo.insertEvent(tx, {
+              organizationId: auth.organizationId,
+              workOrderId: id,
+              type: 'PART_RETURNED',
+              data: {
+                devolvido: item.description,
+                quantidade: milliToNumber(devolucao.quantityMilli),
+                motivo: 'quantidade reduzida',
+              },
+              actorUserId: auth.userId,
+            });
+          }
+        }
+
         await this.applyChange(tx, order);
         await this.itemsChanged(tx, auth, order, { changed: item.description }, client, changes);
       }
@@ -332,8 +361,51 @@ export class WorkOrdersService {
       if (!item) throw notFound('Item não encontrado.');
       this.assertItemEditable(auth, item.approvalStatus);
 
+      /**
+       * Tempo apontado é trabalho que alguém fez: some com o item e some com o
+       * registro (e com a produtividade do mecânico no relatório). Em vez de
+       * apagar, a API explica o caminho — zerar o valor mantém a história.
+       */
+      const apontamentos = await listItemTimers(tx, auth.organizationId, itemId);
+      if (apontamentos.length) {
+        throw new AppError(
+          409,
+          ErrorCode.ITEM_HAS_TIME_LOGGED,
+          'Item com tempo apontado',
+          'Este item tem tempo apontado por um mecânico. Para não apagar esse registro, zere o valor dele em vez de excluir.',
+        );
+      }
+
+      /**
+       * A peça já tinha saído do estoque (OS reaberta): tirar o item devolve
+       * ela para a prateleira, com movimento `CUSTOMER_RETURN` (E17). Sem
+       * isso, o saldo ficava errado até alguém lembrar de ajustar à mão — e
+       * ajuste sem origem é o que faz o estoque deixar de ser confiável.
+       */
+      const devolucao = await returnConsumedItem(
+        tx,
+        auth.organizationId,
+        { ...item, workOrderId: id },
+        milli(item.quantity),
+        auth.userId,
+        `Item removido da OS nº ${order.number}`,
+      );
+
       await repo.deleteItem(tx, itemId);
       await this.applyChange(tx, order);
+      if (devolucao.returned) {
+        await repo.insertEvent(tx, {
+          organizationId: auth.organizationId,
+          workOrderId: id,
+          type: 'PART_RETURNED',
+          data: {
+            devolvido: item.description,
+            quantidade: milliToNumber(devolucao.quantityMilli),
+            motivo: 'item removido da OS',
+          },
+          actorUserId: auth.userId,
+        });
+      }
       await this.itemsChanged(tx, auth, order, { removed: item.description }, client);
       return this.load(tx, auth, id);
     });
@@ -471,6 +543,10 @@ export class WorkOrdersService {
         // e a cotação aberta com fornecedores morre junto: ninguém vai comprar
         // peça para um carro que não vai ser feito (lição do conserto b9d1a36)
         await cancelOpenSupplierQuotes(tx, auth.organizationId, id);
+        // o orçamento que esperava resposta vira "Cancelado" (E17): antes ele
+        // ficava eternamente em "Aguardando resposta" e o link ainda convidava
+        // o cliente a aprovar um serviço que não vai acontecer
+        await revokeOpenQuotes(tx, auth.organizationId, id, input.reason?.trim() || 'OS cancelada');
       }
 
       const updated = await this.applyChange(tx, order, patch);

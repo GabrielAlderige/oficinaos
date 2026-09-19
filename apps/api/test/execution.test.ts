@@ -16,6 +16,7 @@ interface TestPart {
   quantityOnHand: number;
   quantityReserved: number;
   quantityAvailable: number;
+  averageCostCents: number;
   stockStatus: string;
 }
 
@@ -82,7 +83,7 @@ describe('execução e baixa de estoque', () => {
     const quote = (await post(`/api/v1/work-orders/${order.id}/quotes`, {})).json() as { id: string };
     const decisao = await post(`/api/v1/quotes/${quote.id}/manual-decision`, { decision: 'APPROVED', channel: 'PHONE' });
     expect(decisao.statusCode, decisao.body).toBe(200);
-    return { part, order };
+    return { part, order, quoteId: quote.id };
   }
 
   it('finalizar tira a peça do estoque e consome a reserva', async () => {
@@ -117,6 +118,91 @@ describe('execução e baixa de estoque', () => {
     expect(depois.quantityOnHand).toBe(-2);
     expect(depois.quantityReserved).toBe(0);
     expect(depois.stockStatus, 'a peça entra na lista de acerto de contagem').toBe('NEGATIVE');
+  });
+
+  it('tirar a peça da OS reaberta devolve ela ao estoque, com movimento próprio', async () => {
+    const { part, order, quoteId } = await osAprovada({ estoque: 4, quantidade: 2 });
+    await post(`/api/v1/work-orders/${order.id}/start`);
+    await post(`/api/v1/work-orders/${order.id}/complete`);
+    expect((await peca(part.id)).quantityOnHand, 'saiu na finalização').toBe(2);
+
+    expect((await post(`/api/v1/work-orders/${order.id}/reopen`)).statusCode).toBe(200);
+    const item = (await itemDePeca(order.number)) as { id: string } | undefined;
+    const removeu = await t.app.inject({
+      method: 'DELETE',
+      url: `/api/v1/work-orders/${order.id}/items/${item!.id}`,
+      headers: bearer(owner.accessToken),
+    });
+    expect(removeu.statusCode, removeu.body).toBe(200);
+
+    const depois = await peca(part.id);
+    expect(depois.quantityOnHand, 'a peça não foi para o carro: voltou para a prateleira').toBe(4);
+    // o custo médio volta ao que era: ela retorna pelo custo com que saiu
+    expect(depois.averageCostCents).toBe(10_000);
+
+    const movimentos = await get(`/api/v1/parts/${part.id}/movements`);
+    expect(movimentos.statusCode, movimentos.body).toBe(200);
+    const tipos = (movimentos.json() as { data: { type: string; quantity: number }[] }).data;
+    const devolucao = tipos.find((movimento) => movimento.type === 'CUSTOMER_RETURN');
+    expect(devolucao, 'a devolução tem movimento próprio, não é ajuste').toBeTruthy();
+    expect(devolucao!.quantity).toBe(2);
+
+    // e aparece na timeline, para a oficina saber por que o saldo mudou
+    const timeline = await get(`/api/v1/work-orders/${order.id}/timeline`);
+    expect((timeline.json() as { data: { type: string }[] }).data.some((e) => e.type === 'PART_RETURNED')).toBe(true);
+
+    // o orçamento aprovado é prova do que o cliente viu: continua com a peça
+    const orcamento = await get(`/api/v1/quotes/${quoteId}`);
+    expect(orcamento.statusCode, orcamento.body).toBe(200);
+    const itensDoOrcamento = (orcamento.json() as { items: { description: string }[] }).items;
+    expect(itensDoOrcamento.some((linha) => linha.description.includes('Pastilha'))).toBe(true);
+  });
+
+  it('reduzir a quantidade de uma peça já baixada devolve só a diferença', async () => {
+    const { part, order } = await osAprovada({ estoque: 5, quantidade: 3 });
+    await post(`/api/v1/work-orders/${order.id}/start`);
+    await post(`/api/v1/work-orders/${order.id}/complete`);
+    expect((await peca(part.id)).quantityOnHand).toBe(2);
+
+    await post(`/api/v1/work-orders/${order.id}/reopen`);
+    const item = (await itemDePeca(order.number)) as { id: string } | undefined;
+    const alterou = await t.app.inject({
+      method: 'PATCH',
+      url: `/api/v1/work-orders/${order.id}/items/${item!.id}`,
+      headers: bearer(owner.accessToken),
+      payload: { quantity: 1 },
+    });
+    expect(alterou.statusCode, alterou.body).toBe(200);
+
+    // usou 1 das 3 que tinham saído: duas voltam
+    expect((await peca(part.id)).quantityOnHand).toBe(4);
+
+    // e mexer em outra coisa depois não devolve nada de novo
+    await t.app.inject({
+      method: 'PATCH',
+      url: `/api/v1/work-orders/${order.id}/items/${item!.id}`,
+      headers: bearer(owner.accessToken),
+      payload: { unitPriceCents: 27_000 },
+    });
+    expect((await peca(part.id)).quantityOnHand).toBe(4);
+
+    // aumentar de novo não tira do estoque (a baixa é na finalização), então
+    // tirar o item devolve só a que ainda está fora: 1, não 4
+    await t.app.inject({
+      method: 'PATCH',
+      url: `/api/v1/work-orders/${order.id}/items/${item!.id}`,
+      headers: bearer(owner.accessToken),
+      payload: { quantity: 4 },
+    });
+    expect((await peca(part.id)).quantityOnHand, 'aumentar não mexe no saldo').toBe(4);
+
+    const removeu = await t.app.inject({
+      method: 'DELETE',
+      url: `/api/v1/work-orders/${order.id}/items/${item!.id}`,
+      headers: bearer(owner.accessToken),
+    });
+    expect(removeu.statusCode, removeu.body).toBe(200);
+    expect((await peca(part.id)).quantityOnHand, 'não inventa peça que nunca saiu').toBe(5);
   });
 
   it('reabrir e finalizar de novo não baixa a peça duas vezes', async () => {
