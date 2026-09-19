@@ -25,7 +25,7 @@ tela sem backend por trás.
 | **E5. Ordem de serviço** ✅ 11/09 | Assistente **+ Nova OS**; página da OS (itens com total ao vivo, desconto com limite por papel, diagnóstico, observações, responsáveis, previsão); máquina de status; timeline; check-in com checklist, combustível, km, avarias e **fotos** comprimidas no aparelho; página de impressão | Testes de cálculo (parcial, desconto, arredondamento) e de transições passam; OS criada em ≤ 6 interações a partir da placa |
 | **E6. Orçamento e aprovação (prioridade absoluta)** ✅ 12/09 | Snapshot versionado; link público; página mobile com necessários × recomendados, fotos por item, confirmação explícita, recusa e pergunta; visualização registrada; notificação na oficina; aprovação manual e presencial; orçamento complementar; link antigo leva à versão nova; **reserva de estoque na aprovação**; botão **Enviar pelo WhatsApp** com mensagem pronta; lista de orçamentos por situação; sino de avisos no painel | **E2E Playwright dos 11 passos** do briefing, com a aprovação num viewport de celular; testes de aprovação dupla, versão velha, expirada e parcial. **Cumprido**: os quatro casos estão na suíte da API, e os fluxos viraram Playwright TS em `e2e/` — a oficina enviando no desktop e o cliente aprovando num celular de 390 px, com `npm run e2e` |
 | **E7. Execução, entrega e pagamento** ✅ 12/09 | Iniciar, aguardar peça e finalizar (com **baixa de estoque**); **registro simples de pagamento** **[ajuste]**; entrega com aviso de saldo em aberto; "veículo pronto" pelo WhatsApp com registro na timeline; garantia impressa (já vinha da E5) | Teste de baixa (inclusive estoque insuficiente → negativo + alerta); `payment_status` correto em pagamento parcial. **Cumprido**, com uma ressalva: o saldo fica negativo e é registrado (no evento da baixa e na ficha da peça), mas o painel **"Atenção necessária"** que mostra isso para a oficina é da E9 |
-| **E8. Agenda** ✅ 13/09 | Dia, semana e mês; coluna por mecânico; arrastar e soltar; aviso de conflito com "confirmar mesmo assim"; status; **check-in a partir do agendamento cria a OS**; confirmação pelo WhatsApp | Conflito detectado em sobreposição parcial; o fuso da oficina é respeitado. **Cumprido**: a sobreposição é meio-aberta (encostar não é conflito) e sai como **aviso** com quem colide, não como impedimento; o fuso vem de `organizations` e há teste de API (oficina em Manaus) e de navegador (aparelho em Kiritimati). A grade virou componente próprio — **D28 revisa a D20** |
+| **E8. Agenda** ✅ 13/09 | Dia, semana e mês; coluna por mecânico; arrastar e soltar; aviso de conflito com "confirmar mesmo assim"; status; **check-in a partir do agendamento cria a OS**; confirmação pelo WhatsApp | Conflito detectado em sobreposição parcial; o fuso da oficina é respeitado. **Cumprido**: a sobreposição é meio-aberta (encostar não é conflito) e sai como **aviso** com quem colide, não como impedimento; o fuso vem de `organizations` e há teste de API (oficina em Manaus) e de navegador (aparelho em Kiritimati). A grade virou componente próprio — **D28 revisa a D20**. Em **19/09** fechou a lacuna que tinha ficado: dá para remarcar **pelo teclado** (espaço pega, setas andam de 15 min e entre colunas, Enter solta, Esc devolve), com o horário anunciado em voz alta a cada passo |
 | **E9. Dashboard e acabamento** ✅ 13/09 | Indicadores e gráficos do MVP (abaixo); **Atenção necessária**; checklist de configuração da oficina **[ajuste]**; seed de demonstração e conta demo; estados vazios, skeletons, responsividade revisada; README com instalação real | Conta demo navegável do login à aprovação; auditoria de acessibilidade básica; README executável do zero. **Cumprido**: `npm run db:seed:demo` cria a Oficina Demonstração (20 OS em todos os status, um usuário por papel) pela própria API; a auditoria com axe-core (WCAG 2.1 AA) roda no e2e sobre o painel **cheio**, sem regra desligada; o README ganhou a conta demo e teve dois comandos corrigidos. **Faturado e recebido são contas separadas**, e quem não tem `dashboard:view_financial` recebe `null` — nunca zero |
 
 ### Dashboard do MVP 1
@@ -97,6 +97,23 @@ pagar nasce da compra, e lucro precisa das duas pontas.
 | **Avaliações** ✅ E16 | Link de 1 a 5 estrelas depois da entrega; média e total no dashboard; convite para avaliar no Google **para todos os clientes**, não só os satisfeitos (as políticas do Google proíbem pedir avaliação só a quem gostou) |
 | **CRM** ✅ E16 | Pipeline (novo lead → contato → orçamento → aguardando → aprovado → concluído / perdido) com valor potencial e taxa de conversão |
 | **Plataforma** — parcial na E17 | ✅ **Landing** (Astro, `apps/landing`), ✅ **importação CSV** (clientes, veículos, peças, com conferência antes de gravar) e ✅ **"acompanhe seu veículo"** (link público com o passo do carro). **Continuam abertos, com motivo**: jobs com pg-boss (a fila do pós-venda já se resolve na abertura da tela, e sem deploy não há cron para configurar), SSE (o polling de 20 s resolve; LISTEN/NOTIFY entra com a segunda instância), PDF no servidor (a página de impressão já imprime; o Chromium headless pesa ~300 MB no deploy), vídeo no check-in (custo de storage antes da primeira venda), backoffice de suporte (precisa de conta de plataforma, que é V3) e e-mails de notificação (o driver real é decisão de deploy — hoje é `console`) |
+
+### Acabamento depois da E17 (19/09)
+
+Três pontas que ficaram soltas no MVP 2, todas pedidas depois de rodar o
+produto de verdade:
+
+| Ajuste | O que mudou |
+|---|---|
+| **OS cancelada não fica "aguardando resposta"** | Cancelar a OS revoga o orçamento aberto (`REVOKED`, com motivo e data): ele some da fila de espera em vez de ficar cobrando resposta de um serviço que não vai acontecer |
+| **Devolução automática ao estoque** | Tirar a peça da OS reaberta, ou reduzir a quantidade, devolve ao estoque com movimento `CUSTOMER_RETURN` pelo custo com que ela saiu — e aparece na timeline. Item que já tem **tempo apontado** não é excluído: a API explica (409 `ITEM_HAS_TIME_LOGGED`) em vez de apagar trabalho que alguém fez (**D36**) |
+| **Agenda pelo teclado** | Remarcar sem mouse, com aviso falado a cada passo (fecha a lacuna de acessibilidade da E8) |
+
+No caminho, dois bugs próprios apareceram e foram corrigidos: remover item já
+enviado em orçamento dava **500** (chave estrangeira do `quote_items`), e o
+limite de 300 requisições/min derrubava um cenário diferente do e2e a cada
+rodada — fora de produção o teto passou a ser 5.000, porque ali tudo sai do
+mesmo IP.
 
 ---
 

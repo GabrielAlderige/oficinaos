@@ -24,6 +24,8 @@ test('a oficina recebe pela tela do financeiro, lança a despesa do mês e vê o
   await test.step('a OS finalizada já está em "A receber", pelo valor aprovado', async () => {
     await page.getByRole('navigation', { name: 'Principal' }).getByRole('link', { name: 'A receber' }).click();
     await expect(page.getByRole('heading', { name: 'Contas a receber' })).toBeVisible();
+    // o cabeçalho aparece antes da lista: ler a tela agora pegaria "Carregando…"
+    await expect(page.getByRole('button', { name: new RegExp(`OS nº ${ordem.number}`) })).toBeVisible();
     const tela = await textoDe(page.locator('main'));
     expect(tela, 'a conta nasceu da OS').toContain(`OS nº ${ordem.number}`);
     expect(tela, 'R$ 180 do serviço + 2 × R$ 250 da peça aprovada').toContain('R$ 680,00');
@@ -54,6 +56,7 @@ test('a oficina recebe pela tela do financeiro, lança a despesa do mês e vê o
   await test.step('e a OS mostra o mesmo dinheiro, sem lançamento paralelo', async () => {
     await page.goto(`/ordens/${ordem.number}`);
     await expect(page.getByRole('heading', { name: new RegExp(`^OS ${ordem.number}`) })).toBeVisible();
+    await expect(page.getByText('R$ 300,00').first()).toBeVisible();
     const cartao = await textoDe(page.locator('main'));
     expect(cartao, 'recebido na OS').toContain('R$ 300,00');
     expect(cartao, 'falta na OS').toContain('R$ 380,00');
@@ -73,7 +76,7 @@ test('a oficina recebe pela tela do financeiro, lança a despesa do mês e vê o
     await dialogo.getByRole('button', { name: 'Lançar', exact: true }).click();
     await expect(page.getByRole('dialog')).toHaveCount(0);
 
-    await expect(page.getByText('Aluguel do galpão')).toBeVisible();
+    await expect(page.getByText('Aluguel do galpão').first()).toBeVisible();
     const lista = await textoDe(page.locator('main'));
     expect(lista).toContain('R$ 1.200,00');
 
@@ -90,6 +93,8 @@ test('a oficina recebe pela tela do financeiro, lança a despesa do mês e vê o
   await test.step('o fluxo de caixa mostra as duas pontas e o lucro estimado', async () => {
     await page.getByRole('link', { name: 'Fluxo de caixa' }).first().click();
     await expect(page.getByRole('heading', { name: 'Fluxo de caixa' })).toBeVisible();
+    // os números chegam depois do cabeçalho: ler a tela antes disso pega "Carregando…"
+    await expect(page.getByText('R$ 300,00').first()).toBeVisible();
     const tela = await textoDe(page.locator('main'));
     expect(tela, 'entrou o recebimento da OS').toContain('R$ 300,00');
     expect(tela, 'saiu o aluguel').toContain('R$ 1.200,00');

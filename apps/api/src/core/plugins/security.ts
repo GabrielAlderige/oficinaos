@@ -23,9 +23,16 @@ export async function registerSecurity(app: FastifyInstance, env: Env): Promise<
     exposedHeaders: ['x-request-id', 'retry-after'],
   });
 
+  /**
+   * 300 por minuto por IP em produção: é folgado para uma oficina e corta
+   * abuso. Fora de produção o teto é outro porque TUDO sai do mesmo IP — a
+   * suíte de ponta a ponta inteira vem de 127.0.0.1, estourava o limite no
+   * meio da fila e derrubava um cenário diferente a cada rodada (a tela
+   * abria e os dados vinham 429).
+   */
   await app.register(rateLimit, {
     global: true,
-    max: 300,
+    max: env.NODE_ENV === 'production' ? 300 : 5_000,
     timeWindow: '1 minute',
     // o handler central transforma o erro em problem+json 429
     errorResponseBuilder: (_request, context) => ({
