@@ -284,6 +284,29 @@ e é baixada pelo caixa da E7 — "recebido" é um número só no sistema inteir
 conta a pagar nasce de cada **nota recebida** (itens + frete) e encolhe na
 devolução ao fornecedor, pelo custo com que a peça entrou.
 
+### Pesquisa de peças — `/parts-search` (MVP 2, E14)
+
+| Método | Rota | Permissão | Fase |
+|---|---|---|---|
+| POST | `/parts-search` `{{ q, vehicleId?, providers? }}` → `{{ queryId, markupBps, offers, providers }}`. É POST porque **grava**: a busca e as ofertas ficam com `fetchedAt`, e é isso que explica o custo de uma peça meses depois. Cada oferta já vem com o total (peça + frete), o preço sugerido pela margem da oficina, a diferença para a mais barata e os selos | `parts:view_cost` | 2 |
+| GET | `/parts-search/{{id}}` → a mesma busca, como foi gravada | `parts:view_cost` | 2 |
+| POST | `/parts-search/offers/{{id}}/add-to-work-order` `{{ workOrderId, quantity, unitPriceCents?, isOptional? }}` → 201 com a OS. Sem preço, vale o sugerido (custo + margem); oferta do estoque entra como "do estoque", as outras como "comprar". Oferta sem estoque → 422 | `work_orders:write` | 2 |
+| GET | `/suppliers/{{id}}/price-list?q=&page=` | `parts:view_cost` | 2 |
+| POST | `/suppliers/{{id}}/price-list` `{{ csv, replace? }}` → 201 `{{ imported, updated, removed, skipped, problems }}`. Aceita `;` ou `,`, com ou sem BOM, e acha as colunas pelo nome sem acento (código, descrição, marca, preço, unidade). Linha ruim **não derruba o arquivo**: volta em `problems` com o número da linha e o motivo. `replace` troca a lista inteira | `suppliers:write` | 2 |
+
+**Os providers** (ARCHITECTURE §12) são três: `internal` (estoque da oficina,
+pelo custo médio, prazo zero), `price_list` (a planilha importada do
+fornecedor) e `rfq` (o que os fornecedores responderam nas cotações da E11).
+Um provider que falha vira "indisponível" em `providers[]` e não derruba a
+busca. O provider `mock` existe para desenvolver a tela e vem **desligado**
+(`PARTS_SEARCH_MOCK=true` liga); tudo dele vem com `isMock`, que a interface
+mostra como "dados de demonstração". Marketplace entra quando houver API
+oficial e termos que permitam — scraping, nunca.
+
+**Os selos**: 🏆 menor preço + frete (empate vai para quem entrega antes), ⚡
+menor prazo (o estoque tem prazo zero) e ⭐ custo-benefício, que soma ao total
+**2% do preço por dia de espera** — a regra aparece escrita na tela.
+
 ### Estoque — `/inventory`
 
 | Método | Rota | Permissão | Fase |
@@ -329,7 +352,7 @@ devolução ao fornecedor, pelo custo com que a peça entrou.
 | Grupo | Rotas principais |
 |---|---|
 | Cotação com fornecedores | `POST /supplier-quote-requests` (cria e gera links), `GET /supplier-quote-requests/{id}` (respostas lado a lado), `POST /supplier-quote-requests/{id}/award` (escolhe → gera pedido) |
-| Pesquisa de peças | `POST /parts-search` (`{ query, vehicleId?, providers? }` → ofertas por provider, com `isMock` e `fetchedAt`), `GET /parts-search/{queryId}/compare` (melhor preço, mais rápida, custo-benefício), `POST /parts-search/offers/{offerId}/add-to-work-order` (com margem) |
+| Pesquisa de peças ✅ E14 | Ver a seção **Pesquisa de peças** acima |
 | Compras ✅ E12 | Ver a seção **Compras** acima |
 | Financeiro ✅ E13 | Ver a seção **Financeiro** acima |
 | Relatórios | `GET /reports/{revenue\|profit\|services\|parts\|customers\|vehicles\|mechanics\|avg-ticket\|approval\|inventory\|suppliers}?from=&to=` + exportação CSV |

@@ -923,9 +923,14 @@ supplier_quote_awards         ✅ E11: id, request_item_id (UNIQUE: uma escolha 
 part_price_history            ✅ E11, append-only: id, part_id, supplier_id, price_cents (> 0), source
                               (PURCHASE|RFQ|PRICE_LIST|PROVIDER), supplier_quote_request_id, purchase_order_id (E12),
                               captured_at. CHECK: PURCHASE aponta a compra e RFQ a cotação
-part_search_queries           id, query, vehicle_id, providers text[], requested_by, created_at
-part_offers                   id, query_id, provider, is_mock, supplier_id, title, brand, code, price_cents,
-                              shipping_cents, availability, lead_time_days, offer_url, fetched_at, raw jsonb
+supplier_price_list_items     ✅ E14 (migrations 0030/0031): id, supplier_id, code, name, brand, price_cents, unit,
+                              import_batch. UNIQUE (org, supplier, lower(code)) entre as que têm código: é por ele que
+                              a importação seguinte atualiza o preço. GIN trigram no nome
+part_search_queries           ✅ E14: id, query, vehicle_id, providers text[], requested_by, created_at
+part_offers                   ✅ E14, append-only: id, query_id, provider (internal|price_list|rfq|mock), is_mock,
+                              supplier_id, part_id, title, brand, code, price_cents, shipping_cents, availability,
+                              lead_time_days, available_quantity, offer_url, raw jsonb, fetched_at, position.
+                              A oferta é o que o provider respondeu NAQUELE instante: mudou o preço, é outra busca
 financial_categories          ✅ E13 (migrations 0027/0028): id, direction, name, system_key (SERVICES, OTHER_INCOME,
                               PARTS, PAYROLL, RENT, UTILITIES, TAXES, TOOLS, OTHER_EXPENSE). As nove nascem com a
                               oficina; renomear pode, apagar não. UNIQUE (org, direction, lower(name))

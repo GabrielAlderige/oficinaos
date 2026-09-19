@@ -13,6 +13,7 @@ import { errorMessage } from '../../lib/errors';
 import { formatDate } from '../../lib/format';
 import { useCan } from '../../lib/session';
 import { useParts } from '../catalog/api';
+import { PriceListCard } from '../parts-search/PriceListCard';
 import { SupplierHistoryCard } from '../purchases/HistoryCards';
 import { useDeleteSupplier, useSupplier } from './api';
 import { SupplierFormDialog } from './SupplierFormDialog';
@@ -162,6 +163,8 @@ function Ficha({ fornecedor }: { fornecedor: Supplier }) {
               )}
             </Card>
           )}
+
+          <PriceListCard supplierId={fornecedor.id} supplierName={fornecedor.name} />
 
           <SupplierHistoryCard supplierId={fornecedor.id} />
         </div>

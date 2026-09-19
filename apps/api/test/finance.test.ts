@@ -60,8 +60,19 @@ describe('financeiro', () => {
     t.app.inject({ method: 'DELETE', url, headers: bearer(s.accessToken) });
   const get = (url: string, s: TestSession = dono) => t.app.inject({ method: 'GET', url, headers: bearer(s.accessToken) });
 
-  const hoje = () => new Date().toISOString().slice(0, 10);
-  const emDias = (dias: number) => new Date(Date.now() + dias * 86_400_000).toISOString().slice(0, 10);
+  /**
+   * As datas contam no relógio da OFICINA, não em UTC: rodando a suíte às 21h
+   * no Brasil, `toISOString()` já devolve o dia seguinte e "vence daqui a 3
+   * dias" virava 2 (a API compara com o dia da oficina, como manda a D31).
+   */
+  const NO_FUSO_DA_OFICINA = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const emDias = (dias: number) => NO_FUSO_DA_OFICINA.format(new Date(Date.now() + dias * 86_400_000));
+  const hoje = () => emDias(0);
 
   async function criarLancamento(payload: Record<string, unknown>, s: TestSession = dono): Promise<Lancamento[]> {
     const res = await post('/api/v1/finance/entries', payload, s);

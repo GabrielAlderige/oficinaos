@@ -100,6 +100,11 @@ export const router = createBrowserRouter([
             handle: { crumb: 'Peças' },
             children: [
               { index: true, lazy: page(() => import('../features/catalog/PartsPage'), 'PartsPage') },
+              {
+                path: 'pesquisa',
+                lazy: page(() => import('../features/parts-search/PartsSearchPage'), 'PartsSearchPage'),
+                handle: { crumb: 'Pesquisar peças' },
+              },
               { path: ':id', lazy: page(() => import('../features/catalog/PartPage'), 'PartPage'), handle: { crumb: 'Peça' } },
             ],
           },

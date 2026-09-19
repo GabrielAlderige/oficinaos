@@ -37,6 +37,15 @@ const envSchema = z.object({
   /** Pasta do driver disk, relativa à raiz do repositório. Fica fora do git. */
   STORAGE_DIR: z.string().default('storage'),
   /** Teto por arquivo. O painel comprime a foto no aparelho antes de enviar (~300 KB). */
+  /**
+   * Liga o provider FALSO de pesquisa de peças (E14). Desligado por padrão, de
+   * propósito: preço inventado ao lado de preço real confunde, mesmo com selo.
+   * Serve para desenvolver a tela sem lista de preço importada.
+   */
+  PARTS_SEARCH_MOCK: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((valor) => valor === 'true'),
   UPLOAD_MAX_BYTES: z.coerce
     .number()
     .int()

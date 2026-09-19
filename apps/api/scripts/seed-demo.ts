@@ -116,6 +116,30 @@ const FORNECEDORES = [
   { name: 'Atacado de Suspensão Modelo', contactName: 'Jair', categories: ['Suspensão', 'Direção'], leadTimeDays: 5, rating: 3 },
 ];
 
+/**
+ * Listas de preço fictícias (E14): duas planilhas como as que chegam por
+ * WhatsApp, para a pesquisa de peças ter o que comparar com o estoque. O
+ * preço é inventado, mas a oficina inteira é de demonstração — e cada oferta
+ * mostra de qual fornecedor veio.
+ */
+const LISTAS_DE_PRECO: Record<number, string> = {
+  0: [
+    'Código;Descrição;Marca;Preço;Unidade',
+    'CA-PAST-D;Pastilha de freio dianteira;Fras-le;138,90;PC',
+    'CA-PAST-T;Pastilha de freio traseira;Fras-le;121,50;PC',
+    'CA-DISC;Disco de freio ventilado;Bosch;196,00;PC',
+    'CA-FLUI;Fluido de freio DOT 4;Bosch;21,90;PC',
+    'CA-AMOR;Amortecedor dianteiro;Cofap;172,00;PC',
+  ].join('\n'),
+  3: [
+    'Código;Descrição;Marca;Preço;Unidade',
+    'PR-PAST-D;Pastilha de freio dianteira;TRW;129,90;PC',
+    'PR-FL-OLEO;Filtro de óleo;Tecfil;26,50;PC',
+    'PR-FL-AR;Filtro de ar;Tecfil;38,90;PC',
+    'PR-VELA;Vela de ignição;NGK;27,90;PC',
+  ].join('\n'),
+};
+
 /** A peça de índice N compra do fornecedor de índice X (as sem entrada ficam sem preferido). */
 const PREFERIDO_POR_PECA: Record<number, number> = { 0: 1, 1: 1, 2: 1, 3: 0, 4: 0, 5: 1, 6: 2, 7: 4, 9: 3 };
 
@@ -346,6 +370,8 @@ async function main(): Promise<void> {
       dono,
     )) as { id: string };
     fornecedores.push(criado.id);
+    const lista = LISTAS_DE_PRECO[indice];
+    if (lista) await chamar('POST', `/suppliers/${criado.id}/price-list`, { csv: lista }, dono);
   }
 
   const pecas: string[] = [];
