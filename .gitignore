@@ -1,5 +1,7 @@
 node_modules/
 dist/
+# tipos gerados pelo Astro na landing
+apps/landing/.astro/
 coverage/
 *.tsbuildinfo
 
