@@ -10,7 +10,7 @@ import {
   type WorkOrderAction,
   type WorkOrderStatus,
 } from '@oficinaos/shared';
-import { MessageCircle, Star } from 'lucide-react';
+import { Link2, MessageCircle, Star } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '../../components/ui/button';
@@ -21,7 +21,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader } from '../../compone
 import { errorMessage } from '../../lib/errors';
 import { useMe } from '../../lib/session';
 import { useInviteReview } from '../aftersales/api';
-import { useRunAction, useVehicleReady } from './api';
+import { useRunAction, useTrackingLink, useVehicleReady } from './api';
 
 export function StatusBadge({ status }: { status: WorkOrderStatus }) {
   return <Badge tone={WORK_ORDER_STATUS_TONES[status]}>{WORK_ORDER_STATUS_LABELS[status]}</Badge>;
@@ -44,6 +44,7 @@ export function StatusActions({ order }: { order: WorkOrder }) {
   const run = useRunAction(order.id);
   const vehicleReady = useVehicleReady(order.id);
   const pedirAvaliacao = useInviteReview(order.id);
+  const linkDeAcompanhamento = useTrackingLink(order.id);
   const [cancelling, setCancelling] = useState(false);
   const [delivering, setDelivering] = useState(false);
   const actions = availableActions(order.status, (permission) => me.permissions.includes(permission));
@@ -82,6 +83,22 @@ ${publicUrl}`);
     }
   }
 
+  /** O link de acompanhamento vai pelo WhatsApp; sem WhatsApp, é copiado. */
+  async function mandarAcompanhamento() {
+    try {
+      const { message, whatsappUrl, publicUrl } = await linkDeAcompanhamento.mutateAsync();
+      if (whatsappUrl) {
+        window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+        return;
+      }
+      await navigator.clipboard.writeText(`${message}
+${publicUrl}`);
+      toast.success('O cliente não tem WhatsApp cadastrado. O link foi copiado.');
+    } catch (err) {
+      toast.error(errorMessage(err));
+    }
+  }
+
   async function avisarPronto() {
     try {
       const { message, whatsappUrl } = await vehicleReady.mutateAsync();
@@ -114,6 +131,18 @@ ${publicUrl}`);
             {label}
           </Button>
         ))}
+        {/* o cliente pergunta "e o meu carro?" o dia inteiro: o link responde (E17) */}
+        {order.status !== 'CANCELED' && (
+          <Button
+            size="sm"
+            variant="ghost"
+            loading={linkDeAcompanhamento.isPending}
+            onClick={() => void mandarAcompanhamento()}
+          >
+            <Link2 />
+            Link de acompanhamento
+          </Button>
+        )}
         {order.status === 'COMPLETED' && (
           <Button size="sm" variant="secondary" loading={vehicleReady.isPending} onClick={() => void avisarPronto()}>
             <MessageCircle />

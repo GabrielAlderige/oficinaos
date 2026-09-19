@@ -6,7 +6,9 @@ import tseslint from 'typescript-eslint';
 
 export default defineConfig(
   {
-    ignores: ['**/dist/**', '**/node_modules/**', '**/src/db/migrations/**', '.secrets/**'],
+    // a landing é Astro: quem confere os `.astro` é o `astro check`, no
+    // typecheck do próprio workspace
+    ignores: ['**/dist/**', '**/node_modules/**', '**/src/db/migrations/**', '.secrets/**', 'apps/landing/**'],
   },
   js.configs.recommended,
   tseslint.configs.recommended,

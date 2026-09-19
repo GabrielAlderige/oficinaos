@@ -11,7 +11,7 @@
   },
   "scripts": {
     "dev": "concurrently -k -n api,web -c blue,magenta \"npm run dev -w @oficinaos/api\" \"npm run dev -w @oficinaos/web\"",
-    "build": "npm run build -w @oficinaos/api && npm run build -w @oficinaos/web",
+    "build": "npm run build -w @oficinaos/api && npm run build -w @oficinaos/web && npm run build -w @oficinaos/landing",
     "typecheck": "npm run typecheck --workspaces --if-present && tsc -p e2e/tsconfig.json",
     "lint": "eslint .",
     "test": "vitest run",
@@ -22,7 +22,8 @@
     "db:setup": "npm run db:setup -w @oficinaos/api",
     "db:generate": "npm run db:generate -w @oficinaos/api --",
     "db:migrate": "npm run db:migrate -w @oficinaos/api --",
-    "db:seed:demo": "npm run db:seed:demo -w @oficinaos/api --"
+    "db:seed:demo": "npm run db:seed:demo -w @oficinaos/api --",
+    "dev:landing": "npm run dev -w @oficinaos/landing"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

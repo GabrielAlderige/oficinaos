@@ -20,6 +20,7 @@ import {
   WORK_ORDER_TRANSITIONS,
   type WorkOrderAction,
 } from '@oficinaos/shared';
+import { trackingLinkResultSchema } from '@oficinaos/shared';
 import { clientInfo, getAuth } from '../../core/auth-context';
 
 const numberParam = z.object({ number: z.coerce.number().int().min(1).max(99_999_999) });
@@ -175,6 +176,19 @@ export const workOrderRoutes: FastifyPluginAsyncZod = async (app) => {
     },
     async (request) =>
       service.stopItemTimer(getAuth(request), request.params.id, request.params.itemId, clientInfo(request)),
+  );
+
+  /** O link "acompanhe seu veículo" (E17), com a mensagem pronta. */
+  app.post(
+    '/:id/tracking-link',
+    {
+      config: { auth: 'quotes:send' },
+      schema: { params: idParamSchema, response: { 201: trackingLinkResultSchema } },
+    },
+    async (request, reply) => {
+      reply.code(201);
+      return app.services.tracking.link(getAuth(request), request.params.id, clientInfo(request));
+    },
   );
 
   app.post(

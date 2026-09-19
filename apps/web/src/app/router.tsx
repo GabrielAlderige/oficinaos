@@ -196,6 +196,11 @@ export const router = createBrowserRouter([
                 handle: { crumb: 'Preços e estoque' },
               },
               { path: 'equipe', lazy: page(() => import('../features/settings/TeamPage'), 'TeamPage'), handle: { crumb: 'Equipe' } },
+              {
+                path: 'importar',
+                lazy: page(() => import('../features/settings/ImportPage'), 'ImportPage'),
+                handle: { crumb: 'Importar' },
+              },
               { path: 'sessoes', lazy: page(() => import('../features/settings/SessionsPage'), 'SessionsPage'), handle: { crumb: 'Sessões' } },
             ],
           },

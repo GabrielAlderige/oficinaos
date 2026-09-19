@@ -350,6 +350,15 @@ entregue, não só para quem parece satisfeito: filtrar é contra as políticas 
 Google e não é honesto. A taxa de conversão do funil é sobre o que já foi
 DECIDIDO (ganhos ÷ (ganhos + perdidos)) — lead novo não conta como perda.
 
+### Plataforma — importação e acompanhamento (MVP 2, E17)
+
+| Método | Rota | Permissão | Fase |
+|---|---|---|---|
+| GET | `/imports` → o que cada importação aceita (colunas obrigatórias e opcionais) | `customers:read` | 2 |
+| POST | `/imports/customers` · `/imports/vehicles` · `/imports/parts` `{{ csv, dryRun }}` → `{{ total, created, updated, skipped, problems, preview }}`. **`dryRun` é o padrão**: a conferência roda a importação inteira numa transação e a desfaz — não grava nem auditoria. Linha ruim volta com o número da linha e o motivo; o arquivo inteiro não é recusado. Cliente com o mesmo CPF/CNPJ e peça com o mesmo SKU são ATUALIZADOS, não duplicados; o veículo acha o dono pelo documento, pelo telefone ou pelo nome exato. Teto de 5.000 linhas por vez | `customers:write` (peças: `catalog:write`) | 2 |
+| POST | `/work-orders/{{id}}/tracking-link` → `{{ publicUrl, message, whatsappUrl }}`. O token nasce na primeira vez e não muda: o cliente guarda o link | `quotes:send` | 2 |
+| GET | `/public/tracking/{{token}}` → em que passo o carro está, previsão, o que foi aprovado e quanto falta pagar. Sem login, sem custo de peça e sem observação interna | pública (limite por IP) | 2 |
+
 ### Estoque — `/inventory`
 
 | Método | Rota | Permissão | Fase |

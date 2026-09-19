@@ -69,6 +69,12 @@ export const workOrders = pgTable(
       .notNull()
       .references(() => organizations.id),
     number: integer().notNull(),
+    /**
+     * "Acompanhe seu veículo" (E17): o link que o cliente abre para ver em que
+     * pé está o carro. Nasce só quando a oficina manda o link — OS que ninguém
+     * acompanhou não tem token à toa.
+     */
+    trackingToken: text().unique(),
     customerId: uuid().notNull(),
     vehicleId: uuid().notNull(),
     /**

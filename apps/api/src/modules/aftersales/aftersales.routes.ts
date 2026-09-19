@@ -11,6 +11,7 @@ import {
   moveLeadSchema,
   pipelineSchema,
   publicReviewSchema,
+  publicTrackingSchema,
   reviewInviteResultSchema,
   reviewSummarySchema,
   submitReviewSchema,
@@ -109,6 +110,21 @@ export const publicReviewRoutes: FastifyPluginAsyncZod = async (app) => {
       schema: { params: tokenParam, body: submitReviewSchema, response: { 200: publicReviewSchema } },
     },
     async (request) => service.submit(request.params.token, request.body, clientInfo(request)),
+  );
+};
+
+/** "Acompanhe seu veículo" (E17): a página do cliente, sem login. */
+export const publicTrackingRoutes: FastifyPluginAsyncZod = async (app) => {
+  app.get(
+    '/tracking/:token',
+    {
+      config: { auth: 'public', rateLimit: { max: 120, timeWindow: '1 minute' } },
+      schema: {
+        params: z.object({ token: z.string().min(16).max(200) }),
+        response: { 200: publicTrackingSchema },
+      },
+    },
+    async (request) => app.services.tracking.publicGet(request.params.token),
   );
 };
 

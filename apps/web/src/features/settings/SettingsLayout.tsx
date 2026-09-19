@@ -6,6 +6,7 @@ const TABS = [
   { to: 'oficina', label: 'Oficina' },
   { to: 'precos', label: 'Preços e estoque' },
   { to: 'equipe', label: 'Equipe' },
+  { to: 'importar', label: 'Importar' },
   { to: 'sessoes', label: 'Sessões' },
 ];
 

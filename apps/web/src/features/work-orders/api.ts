@@ -1,5 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
+  TrackingLinkResult,
   Attachment,
   CreateUploadInput,
   Inspection,
@@ -140,6 +141,13 @@ export const useReorderItems = (id: string) =>
   useWorkOrderMutation((itemIds: string[]) =>
     api<WorkOrder>(`/work-orders/${id}/items/order`, { method: 'PUT', json: { itemIds } }),
   );
+
+/** O link "acompanhe seu veículo" (E17): a OS não muda, só o token nasce. */
+export function useTrackingLink(id: string) {
+  return useMutation({
+    mutationFn: () => api<TrackingLinkResult>(`/work-orders/${id}/tracking-link`, { method: 'POST' }),
+  });
+}
 
 /** Cronômetro do item de serviço (E15): a OS volta inteira, com o tempo somado. */
 export const useStartItemTimer = (id: string, _number: number) =>

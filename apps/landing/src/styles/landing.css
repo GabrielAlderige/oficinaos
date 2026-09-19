@@ -1,0 +1,45 @@
+@import 'tailwindcss';
+
+/*
+ * Os mesmos tokens do painel (ARCHITECTURE §13.2): a landing e o produto têm
+ * de parecer a mesma empresa. Só o modo claro — a página é institucional.
+ */
+:root {
+  --background: #f6f6f4;
+  --surface: #ffffff;
+  --surface-muted: #efefec;
+  --border: #e2e2de;
+  --foreground: #1c1c1a;
+  --muted: #66665f;
+  --accent: #c2410c;
+  --accent-hover: #9a3412;
+  --accent-foreground: #ffffff;
+  --accent-bright: #f26b1d;
+  --accent-soft: #fff1e8;
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-border: var(--border);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-bright: var(--accent-bright);
+  --color-accent-soft: var(--accent-soft);
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent-bright);
+    outline-offset: 2px;
+  }
+}

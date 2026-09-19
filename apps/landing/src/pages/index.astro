@@ -1,0 +1,266 @@
+---
+import '../styles/landing.css';
+
+/**
+ * A landing do OficinaOS (MVP 2, E17).
+ *
+ * Regras que valem aqui tanto quanto no produto: **nada de dado fictício
+ * apresentado como real**. Não há depoimento inventado, logo de cliente que
+ * não existe, número de oficinas atendidas nem preço que ainda não foi
+ * decidido. O que a página promete é exatamente o que o sistema faz hoje.
+ */
+const APP_URL = import.meta.env.PUBLIC_APP_URL ?? 'https://app.oficinaos.com.br';
+
+const passos = [
+  {
+    numero: '1',
+    titulo: 'O carro chega',
+    texto: 'Busque pela placa, abra a OS e faça o check-in com fotos do estado do veículo. Seis toques, do balcão.',
+  },
+  {
+    numero: '2',
+    titulo: 'Você monta o orçamento',
+    texto:
+      'Serviços e peças do seu catálogo, com o total ao vivo. Marque o que é necessário e o que é recomendado — o cliente decide item a item.',
+  },
+  {
+    numero: '3',
+    titulo: 'O cliente aprova pelo celular',
+    texto:
+      'Um link pelo WhatsApp. Ele vê as fotos, aprova o que quiser e assina. A OS muda para aprovada sozinha e a peça já fica reservada.',
+  },
+  {
+    numero: '4',
+    titulo: 'Você executa e entrega',
+    texto:
+      'Baixa de estoque na finalização, aviso de "veículo pronto", pagamento registrado e o link para o cliente acompanhar tudo.',
+  },
+];
+
+const modulos = [
+  { titulo: 'Ordem de serviço', texto: 'Check-in com fotos, itens com total ao vivo, timeline e impressão.' },
+  { titulo: 'Orçamento por link', texto: 'Aprovação parcial, prova imutável com IP e aparelho, orçamento complementar.' },
+  { titulo: 'Agenda', texto: 'Dia, semana e mês, coluna por mecânico, aviso de conflito e check-in que abre a OS.' },
+  { titulo: 'Estoque', texto: 'Custo médio, reserva na aprovação, baixa na finalização e alerta de mínimo.' },
+  { titulo: 'Cotação com fornecedores', texto: 'Peça preço a vários por WhatsApp; cada um responde no próprio link.' },
+  { titulo: 'Compras', texto: 'Pedido, recebimento com frete no custo, devolução e sugestão do que comprar.' },
+  { titulo: 'Financeiro', texto: 'Contas a receber e a pagar, fluxo de caixa e lucro estimado do mês.' },
+  { titulo: 'Relatórios', texto: 'Faturamento, lucro, peças, mecânicos e estoque — com exportação para planilha.' },
+  { titulo: 'Pós-venda', texto: 'A fila de quem chamar hoje, com a mensagem pronta. Avaliação por link depois da entrega.' },
+];
+
+const perguntas = [
+  {
+    q: 'Precisa instalar alguma coisa?',
+    a: 'Não. Funciona no navegador do computador, do tablet e do celular. O mecânico usa no celular dele, sem instalar app.',
+  },
+  {
+    q: 'E o WhatsApp, é automático?',
+    a: 'O sistema escreve a mensagem e abre a conversa; quem aperta enviar é você. Não usamos biblioteca não oficial — é o que mantém o número da oficina seguro.',
+  },
+  {
+    q: 'Meus dados ficam com quem?',
+    a: 'Com a sua oficina. Cada oficina só enxerga os próprios dados, com isolamento garantido no banco. Você exporta seus relatórios em CSV quando quiser.',
+  },
+  {
+    q: 'Dá para trazer meus clientes do sistema antigo?',
+    a: 'Dá. Clientes, veículos e peças entram por planilha CSV, com uma conferência antes de gravar.',
+  },
+  {
+    q: 'Emite nota fiscal?',
+    a: 'Ainda não. A emissão de NFS-e e NF-e está no plano para logo depois desta versão, por emissor terceirizado.',
+  },
+];
+---
+
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f6f6f4" />
+    <title>OficinaOS — o orçamento aprovado pelo celular, não perdido no WhatsApp</title>
+    <meta
+      name="description"
+      content="Sistema de gestão para oficinas mecânicas: ordem de serviço, orçamento aprovado pelo celular do cliente, agenda, estoque, compras e financeiro."
+    />
+    <link rel="canonical" href="https://oficinaos.com.br/" />
+    <meta property="og:title" content="OficinaOS — gestão para oficinas mecânicas" />
+    <meta
+      property="og:description"
+      content="O orçamento vai por link, o cliente aprova pelo celular e a ordem de serviço anda sozinha."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="pt_BR" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231c1c1a'/%3E%3Cpath d='M9 16a7 7 0 1 0 14 0a7 7 0 1 0 -14 0' fill='none' stroke='%23f26b1d' stroke-width='3.5'/%3E%3C/svg%3E"
+    />
+  </head>
+
+  <body>
+    <header class="mx-auto flex max-w-5xl items-center justify-between px-5 py-5">
+      <span class="flex items-center gap-2 text-lg font-semibold tracking-tight">
+        <svg viewBox="0 0 32 32" class="size-7" aria-hidden="true">
+          <rect width="32" height="32" rx="8" fill="#1c1c1a"></rect>
+          <circle cx="16" cy="16" r="7" fill="none" stroke="#f26b1d" stroke-width="3.5"></circle>
+        </svg>
+        <!-- num flex, cada trecho de texto vira item e o `gap` entra no meio
+             da palavra: por isso a marca fica num span só -->
+        <span>Oficina<span class="text-accent">OS</span></span>
+      </span>
+      <a class="text-sm font-medium hover:underline" href={`${APP_URL}/entrar`}>Entrar</a>
+    </header>
+
+    <main>
+      <!-- herói -->
+      <section class="mx-auto max-w-5xl px-5 pt-10 pb-16 sm:pt-16">
+        <h1 class="max-w-3xl text-4xl leading-tight font-semibold tracking-tight sm:text-5xl">
+          O orçamento aprovado pelo celular, em vez de perdido no WhatsApp.
+        </h1>
+        <p class="mt-5 max-w-2xl text-lg text-muted">
+          O OficinaOS é o sistema da oficina mecânica de bairro: abre a ordem de serviço em segundos, manda o orçamento
+          por link, e o cliente aprova item a item do celular dele — a OS muda sozinha e a peça já fica reservada.
+        </p>
+        <div class="mt-8 flex flex-wrap gap-3">
+          <a
+            class="rounded-md bg-accent px-5 py-3 text-sm font-medium text-accent-foreground hover:bg-accent-hover"
+            href={`${APP_URL}/criar-conta`}
+          >
+            Criar a conta da minha oficina
+          </a>
+          <a class="rounded-md border border-border px-5 py-3 text-sm font-medium hover:bg-surface-muted" href="#como-funciona">
+            Ver como funciona
+          </a>
+        </div>
+        <p class="mt-3 text-sm text-muted">Sem instalar nada. Funciona no celular do mecânico e no computador do balcão.</p>
+      </section>
+
+      <!-- o problema -->
+      <section class="border-y border-border bg-surface">
+        <div class="mx-auto grid max-w-5xl gap-8 px-5 py-14 sm:grid-cols-3">
+          <div>
+            <h2 class="font-semibold">O orçamento some na conversa</h2>
+            <p class="mt-1.5 text-sm text-muted">
+              Foto, áudio e preço no meio de cem mensagens. Três dias depois ninguém sabe o que foi combinado — nem se o
+              cliente chegou a ver.
+            </p>
+          </div>
+          <div>
+            <h2 class="font-semibold">O caderno não fecha o mês</h2>
+            <p class="mt-1.5 text-sm text-muted">
+              Peça que saiu e não foi cobrada, fiado que ninguém lembra, e no fim do mês a conta do faturamento é um
+              chute.
+            </p>
+          </div>
+          <div>
+            <h2 class="font-semibold">O cliente liga para saber do carro</h2>
+            <p class="mt-1.5 text-sm text-muted">
+              E alguém para o serviço para atender. Cinco vezes por dia, todo dia.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- como funciona -->
+      <section id="como-funciona" class="mx-auto max-w-5xl px-5 py-16">
+        <h2 class="text-2xl font-semibold tracking-tight">Como funciona, do portão à entrega</h2>
+        <ol class="mt-8 grid gap-6 sm:grid-cols-2">
+          {
+            passos.map((passo) => (
+              <li class="rounded-xl border border-border bg-surface p-5">
+                <span class="grid size-8 place-items-center rounded-full bg-accent-soft text-sm font-semibold text-accent">
+                  {passo.numero}
+                </span>
+                <h3 class="mt-3 font-semibold">{passo.titulo}</h3>
+                <p class="mt-1 text-sm text-muted">{passo.texto}</p>
+              </li>
+            ))
+          }
+        </ol>
+      </section>
+
+      <!-- módulos -->
+      <section class="border-y border-border bg-surface">
+        <div class="mx-auto max-w-5xl px-5 py-16">
+          <h2 class="text-2xl font-semibold tracking-tight">O que já está pronto</h2>
+          <p class="mt-2 max-w-2xl text-sm text-muted">
+            Tudo aqui existe e funciona hoje — esta lista não é promessa de roteiro.
+          </p>
+          <div class="mt-8 grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-3">
+            {
+              modulos.map((modulo) => (
+                <div>
+                  <h3 class="font-medium">{modulo.titulo}</h3>
+                  <p class="mt-1 text-sm text-muted">{modulo.texto}</p>
+                </div>
+              ))
+            }
+          </div>
+        </div>
+      </section>
+
+      <!-- para quem é -->
+      <section class="mx-auto max-w-5xl px-5 py-16">
+        <h2 class="text-2xl font-semibold tracking-tight">Para quem é</h2>
+        <div class="mt-6 grid gap-6 sm:grid-cols-2">
+          <div class="rounded-xl border border-border bg-surface p-5">
+            <h3 class="font-semibold">Serve bem</h3>
+            <ul class="mt-2 space-y-1.5 text-sm text-muted">
+              <li>· Oficina de 1 a 10 pessoas, mecânica geral.</li>
+              <li>· Quem já faz orçamento por WhatsApp e quer parar de perder resposta.</li>
+              <li>· Quem controla peça no caderno e quer saber o custo de verdade.</li>
+            </ul>
+          </div>
+          <div class="rounded-xl border border-border bg-surface p-5">
+            <h3 class="font-semibold">Ainda não serve</h3>
+            <ul class="mt-2 space-y-1.5 text-sm text-muted">
+              <li>· Quem precisa emitir nota fiscal por aqui (está no plano, ainda não existe).</li>
+              <li>· Concessionária com várias filiais e estoque por local.</li>
+              <li>· Quem quer cobrar cartão dentro do sistema — hoje o pagamento é registrado, não processado.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- perguntas -->
+      <section class="border-y border-border bg-surface">
+        <div class="mx-auto max-w-3xl px-5 py-16">
+          <h2 class="text-2xl font-semibold tracking-tight">Perguntas que a gente sempre ouve</h2>
+          <dl class="mt-8 space-y-6">
+            {
+              perguntas.map((pergunta) => (
+                <div>
+                  <dt class="font-medium">{pergunta.q}</dt>
+                  <dd class="mt-1 text-sm text-muted">{pergunta.a}</dd>
+                </div>
+              ))
+            }
+          </dl>
+        </div>
+      </section>
+
+      <!-- chamada final -->
+      <section class="mx-auto max-w-5xl px-5 py-16 text-center">
+        <h2 class="text-2xl font-semibold tracking-tight">Teste com uma OS de verdade</h2>
+        <p class="mx-auto mt-2 max-w-xl text-muted">
+          Crie a conta da oficina, abra uma ordem de serviço e mande o orçamento para o seu próprio WhatsApp. Dá para
+          ver o fluxo inteiro em dez minutos.
+        </p>
+        <a
+          class="mt-6 inline-block rounded-md bg-accent px-5 py-3 text-sm font-medium text-accent-foreground hover:bg-accent-hover"
+          href={`${APP_URL}/criar-conta`}
+        >
+          Criar a conta da minha oficina
+        </a>
+      </section>
+    </main>
+
+    <footer class="border-t border-border">
+      <div class="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-5 py-8 text-sm text-muted">
+        <span>OficinaOS · sistema de gestão para oficinas mecânicas</span>
+        <a class="hover:underline" href={`${APP_URL}/entrar`}>Entrar no sistema</a>
+      </div>
+    </footer>
+  </body>
+</html>

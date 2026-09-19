@@ -291,11 +291,12 @@ ficam em `e2e/screenshots/`, fora do git.
 | Comando | O que faz |
 |---|---|
 | `npm run dev` | API (tsx watch) e painel (Vite) juntos |
-| `npm run build` | Build de produção: `apps/api/dist` (tsup) e `apps/web/dist` (Vite) |
+| `npm run build` | Build de produção: `apps/api/dist` (tsup), `apps/web/dist` (Vite) e `apps/landing/dist` (Astro) |
 | `npm run typecheck` | TypeScript em todos os pacotes |
 | `npm run lint` | ESLint no monorepo |
 | `npm run test` | Vitest: `packages/shared` + `apps/api` (com banco de teste) |
 | `npm run check` | Tudo acima, em sequência |
+| `npm run dev:landing` | Só a landing (Astro), em http://localhost:4321 |
 | `npm run e2e` | Playwright: fluxo do painel e fluxo do cliente, ponta a ponta (fora do `check`) |
 | `npm run db:setup` | Prepara o Postgres local (idempotente; roda de novo para trocar senhas) |
 | `npm run db:generate` | Gera a migration SQL a partir de mudanças no schema Drizzle |
@@ -313,6 +314,7 @@ ficam em `e2e/screenshots/`, fora do git.
 | `APP_URL` | Endereço público do painel: base dos links de redefinição de senha e de convite |
 | `JWT_SECRET` | Assina o token de acesso (HS256). Pelo menos 32 caracteres. Nunca vai para o front |
 | `EMAIL_DRIVER` | `console` (dev: imprime no terminal da API) ou `memory` (testes) |
+| `PARTS_SEARCH_MOCK` | Liga o provider FALSO da pesquisa de peças (`false` por padrão). Toda oferta dele vem marcada como demonstração |
 | `STORAGE_DRIVER` | Anexos e fotos: `disk` (dev: grava em `storage/`, servido pela própria API com URL assinada) ou `memory` (testes) |
 | `STORAGE_DIR` | Pasta do driver `disk`, relativa à raiz. Fora do git |
 | `UPLOAD_MAX_BYTES` | Teto por arquivo (padrão 10 MB). O painel comprime a foto no aparelho antes de enviar |
@@ -329,6 +331,8 @@ diz qual é. O `.env` nunca vai para o git.
 ```text
 apps/api        API REST (Fastify + Drizzle): src/modules/<domínio>, scripts/, test/
 apps/web        Painel (React + Vite): src/features/<domínio>, src/lib, src/styles
+                + as páginas públicas (orçamento, cotação, avaliação, acompanhamento) em src/public
+apps/landing    Landing institucional (Astro, HTML estático)
 packages/shared Contratos e regras compartilhadas (Zod, enums, cálculos)
 e2e/            Fluxos de ponta a ponta (Playwright): painel e página do cliente
 docs/           Arquitetura, banco, API, roadmap

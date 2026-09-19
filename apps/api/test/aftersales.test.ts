@@ -278,6 +278,44 @@ describe('pós-venda, avaliações e funil', () => {
     expect((await post(`/api/v1/leads/${lead.id}/convert`, { customerId: null })).statusCode).toBe(409);
   });
 
+  // =========================== acompanhe seu veículo ==========================
+
+  it('o link de acompanhamento abre sem sessão e mostra só o que é do cliente', async () => {
+    const os = await osEntregue('PVE6F78');
+    const link = await post(`/api/v1/work-orders/${os.id}/tracking-link`);
+    expect(link.statusCode, link.body).toBe(201);
+    const { publicUrl, message } = link.json() as { publicUrl: string; message: string };
+    expect(message).toContain(publicUrl);
+
+    const token = publicUrl.slice(publicUrl.lastIndexOf('/') + 1);
+    const pagina = await publico(`/api/v1/public/tracking/${token}`);
+    expect(pagina.statusCode, pagina.body).toBe(200);
+    const corpo = pagina.json() as {
+      number: number;
+      status: string;
+      headline: string;
+      steps: { key: string; done: boolean; current: boolean }[];
+      approvedTotalCents: number | null;
+      vehicleLabel: string;
+    };
+    expect(corpo.number).toBe(os.number);
+    expect(corpo.status).toBe('DELIVERED');
+    expect(corpo.headline).toContain('entregue');
+    expect(corpo.steps.find((passo) => passo.key === 'entregue')!.current).toBe(true);
+    expect(corpo.approvedTotalCents).toBe(16_000);
+    expect(corpo.vehicleLabel, 'placa Mercosul sai sem hífen').toContain('PVE6F78');
+    // nada de custo, margem ou observação interna na página pública
+    expect(JSON.stringify(corpo)).not.toContain('unitCost');
+
+    // pedir de novo devolve o MESMO link: o cliente já salvou o que tem
+    const denovo = await post(`/api/v1/work-orders/${os.id}/tracking-link`);
+    expect((denovo.json() as { publicUrl: string }).publicUrl).toBe(publicUrl);
+  });
+
+  it('token de acompanhamento inventado não abre nada', async () => {
+    expect((await publico('/api/v1/public/tracking/naoexisteesselinkaqui00000')).statusCode).toBe(404);
+  });
+
   it('o funil de outra oficina não aparece neste', async () => {
     const outra = await signup(t.app, { organizationName: 'Oficina Vizinha' });
     await post('/api/v1/leads', { name: 'Lead da vizinha' }, outra);

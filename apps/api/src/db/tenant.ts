@@ -15,7 +15,8 @@ type ContextKey =
   | 'app.invite_token_hash'
   | 'app.quote_token'
   | 'app.supplier_token_hash'
-  | 'app.review_token_hash';
+  | 'app.review_token_hash'
+  | 'app.tracking_token';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -93,6 +94,14 @@ export function withSupplierToken<T>(db: Database, tokenHash: string, fn: (tx: T
 export function withReviewToken<T>(db: Database, tokenHash: string, fn: (tx: Tx) => Promise<T>): Promise<T> {
   if (!/^[0-9a-f]{64}$/.test(tokenHash)) throw new Error('withReviewToken: esperado o hash sha256 do token');
   return withDbContext(db, { 'app.review_token_hash': tokenHash }, fn);
+}
+
+/**
+ * Capacidade do link "acompanhe seu veículo" (E17): o token lê só aquela OS,
+ * para a API descobrir a oficina. Mesmo desenho do orçamento.
+ */
+export function withTrackingToken<T>(db: Database, token: string, fn: (tx: Tx) => Promise<T>): Promise<T> {
+  return withDbContext(db, { 'app.tracking_token': token }, fn);
 }
 
 /** Tabelas globais (users, sessions, plans, password_reset_tokens): sem contexto de tenant. */
