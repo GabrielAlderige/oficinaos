@@ -191,6 +191,12 @@ const NA_ORDEM = [
   'financial_settlements', 'payments', 'financial_entries', 'work_order_item_timers',
   // pós-venda e CRM (E16)
   'follow_ups', 'reviews', 'leads',
+  // cotação (E11) e compras (E12): as escolhas apontam para o item da OS e
+  // para a peça, então saem antes de ambos
+  'purchase_return_items', 'purchase_returns', 'purchase_receipt_items', 'purchase_receipts',
+  'supplier_quote_awards', 'purchase_order_items', 'purchase_orders',
+  'supplier_quote_response_items', 'supplier_quote_responses', 'supplier_quote_invites',
+  'supplier_quote_request_items', 'supplier_quote_requests', 'part_price_history',
   'work_order_events', 'vehicle_inspections', 'attachments',
   'work_order_items', 'inventory_movements', 'appointments', 'work_orders',
   // a peça aponta para o fornecedor preferido: fornecedor sai depois dela
@@ -544,6 +550,13 @@ async function main(): Promise<void> {
     if (indice % 3 === 0) await chamar('POST', `/appointments/${agendamento.id}/confirm`, {}, dono);
   }
 
+  /** Um dia deste mês, como "AAAA-MM-DD" (nunca depois do 28, por fevereiro). */
+  const diaDoMes = (dia: number) => {
+    const data = new Date();
+    data.setDate(Math.min(dia, 28));
+    return data.toISOString().slice(0, 10);
+  };
+
   /**
    * 6.1 despesas do mês (E13). As contas a RECEBER a própria API criou ao
    * finalizar cada OS; a oficina também paga aluguel, luz e salário, e sem
@@ -553,11 +566,6 @@ async function main(): Promise<void> {
     data: { id: string; systemKey: string | null }[];
   };
   const categoriaPor = (chave: string) => categorias.data.find((c) => c.systemKey === chave)!.id;
-  const diaDoMes = (dia: number) => {
-    const data = new Date();
-    data.setDate(Math.min(dia, 28));
-    return data.toISOString().slice(0, 10);
-  };
   const DESPESAS = [
     // os valores acompanham o tamanho da oficina fictícia (ela fatura ~R$ 4 mil
     // no mês): despesa de oficina grande num movimento pequeno faria a demo
@@ -590,6 +598,100 @@ async function main(): Promise<void> {
         { clientRequestId: uuidv7(), amountCents: despesa.valor, method: 'BANK_TRANSFER' },
         dono,
       );
+    }
+  }
+
+  /**
+   * 6.1.1 uma cotação respondida (E11) que vira compra recebida (E12).
+   *
+   * Sem isso, três telas abrem vazias na demonstração: o quadro de cotação, a
+   * lista de pedidos e o provider "cotações respondidas" da pesquisa de peças.
+   * O caminho é o de verdade — pedido de preço por link, dois fornecedores
+   * respondendo pela página pública, escolha, pedido e recebimento.
+   */
+  const paraCotar = criadas.find((ordem) => ordem.roteiro === 'AWAITING_APPROVAL');
+  if (paraCotar) {
+    const ficha = (await chamar('GET', `/work-orders/${paraCotar.number}`, undefined, dono)) as {
+      items: { id: string; type: string; description: string }[];
+    };
+    const pecaDaOs = ficha.items.find((item) => item.type === 'PART');
+    if (pecaDaOs) {
+      const cotacao = (await chamar(
+        'POST',
+        '/supplier-quotes',
+        {
+          workOrderId: paraCotar.id,
+          workOrderItemIds: [pecaDaOs.id],
+          supplierIds: [fornecedores[0], fornecedores[3]],
+          message: 'Preciso para amanhã, se possível.',
+        },
+        dono,
+      )) as { quote: { id: string }; links: { supplierId: string; link: string }[] };
+
+      // cada fornecedor responde no próprio link, com preço e prazo diferentes
+      const precos = [13_900, 12_490];
+      const prazos = [1, 3];
+      for (const [indice, elo] of cotacao.links.entries()) {
+        const token = elo.link.slice(elo.link.lastIndexOf('/') + 1);
+        const publica = (await chamar('GET', `/public/supplier-quotes/${token}`)) as {
+          contentHash: string;
+          items: { id: string }[];
+        };
+        await chamar('POST', `/public/supplier-quotes/${token}/responses`, {
+          contentHash: publica.contentHash,
+          responderName: indice === 0 ? 'Roberto' : 'Mônica',
+          shippingCents: indice === 0 ? 0 : 2_500,
+          items: publica.items.map((item) => ({
+            requestItemId: item.id,
+            availability: 'AVAILABLE',
+            unitPriceCents: precos[indice],
+            brand: indice === 0 ? 'Fras-le' : 'TRW',
+            leadTimeDays: prazos[indice],
+          })),
+        });
+      }
+
+      // a oficina escolhe a mais barata e gera o pedido
+      // o quadro já diz qual é a mais barata de cada peça
+      const quadro = (await chamar('GET', `/supplier-quotes/${cotacao.quote.id}`, undefined, dono)) as {
+        items: { id: string; cheapestResponseItemId: string | null }[];
+      };
+      const linha = quadro.items[0]!;
+      const melhor = linha.cheapestResponseItemId;
+      if (melhor) {
+        await chamar(
+          'POST',
+          `/supplier-quotes/${cotacao.quote.id}/award`,
+          { awards: [{ requestItemId: linha.id, responseItemId: melhor }] },
+          dono,
+        );
+        const pedidos = (await chamar(
+          'POST',
+          '/purchase-orders/from-quote',
+          { supplierQuoteRequestId: cotacao.quote.id },
+          dono,
+        )) as { orders: { id: string; version: number; items: { id: string; quantity: number; unitCostCents: number }[] }[] };
+
+        for (const pedido of pedidos.orders) {
+          await chamar('POST', `/purchase-orders/${pedido.id}/order`, { version: pedido.version }, dono);
+          await chamar(
+            'POST',
+            `/purchase-orders/${pedido.id}/receipts`,
+            {
+              clientRequestId: uuidv7(),
+              invoiceNumber: '4512',
+              shippingCents: 2_500,
+              payableDueDate: diaDoMes(28),
+              items: pedido.items.map((item) => ({
+                purchaseOrderItemId: item.id,
+                quantity: item.quantity,
+                unitCostCents: item.unitCostCents,
+              })),
+            },
+            dono,
+          );
+        }
+      }
     }
   }
 
