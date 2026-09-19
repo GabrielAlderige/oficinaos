@@ -166,7 +166,7 @@ export function AgendaPage() {
     <>
       <PageHeader
         title="Agenda"
-        description="Dia, semana e mês. Arraste um compromisso para remarcar."
+        description="Dia, semana e mês. Arraste um compromisso para remarcar — ou aperte espaço nele e use as setas."
         actions={
           podeEditar && (
             <Button onClick={() => setRascunho({ startsAt: null })}>

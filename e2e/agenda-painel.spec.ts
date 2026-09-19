@@ -116,6 +116,39 @@ test('a agenda mostra o compromisso, avisa do conflito e faz o check-in', async 
 });
 
 /**
+ * Remarcar sem mouse. Arrastar com o ponteiro é o caminho comum, mas quem usa
+ * a agenda o dia todo trabalha no teclado — e leitor de tela não arrasta.
+ */
+test('dá para remarcar pelo teclado: espaço pega, setas andam, Esc devolve', async ({ page }) => {
+  const oficina = await criarOficina('teclado', 'TEC1A23');
+  const userId = await donoDaOficina(oficina);
+  await marcar(oficina, userId);
+
+  await entrarNoPainel(page, oficina.email);
+  await page.goto(`/agenda?visao=dia&dia=${DIA}`);
+  const bloco = page.getByRole('button', { name: /Revisão dos 20.000 km/ }).first();
+  await expect(bloco).toBeVisible();
+
+  // Esc devolve o bloco para o lugar: nada é salvo
+  await bloco.focus();
+  await page.keyboard.press(' ');
+  await expect(page.getByText(/Setas para cima e para baixo/)).toBeAttached();
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Escape');
+  await expect(page.getByText('Agendamento remarcado.')).toBeHidden();
+
+  // espaço pega, quatro setas descem uma hora (15 min cada), Enter solta
+  await page.keyboard.press(' ');
+  for (let i = 0; i < 4; i += 1) await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Enter');
+  await expect(page.getByText('Agendamento remarcado.')).toBeVisible();
+  await captura(page, 'agenda-teclado');
+
+  await page.getByRole('button', { name: /Revisão dos 20.000 km/ }).first().click();
+  await expect(page.getByRole('dialog').getByText('segunda, 14/09, das 10:00 às 11:00')).toBeVisible();
+});
+
+/**
  * O critério da etapa: **o fuso da oficina é respeitado**. Aqui o navegador
  * está do outro lado da linha de data — se a grade usasse o relógio do
  * aparelho, o compromisso apareceria no dia seguinte, em outro horário.
