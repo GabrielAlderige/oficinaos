@@ -307,6 +307,28 @@ oficial e termos que permitam — scraping, nunca.
 menor prazo (o estoque tem prazo zero) e ⭐ custo-benefício, que soma ao total
 **2% do preço por dia de espera** — a regra aparece escrita na tela.
 
+### Relatórios — `/reports` (MVP 2, E15)
+
+| Método | Rota | Permissão | Fase |
+|---|---|---|---|
+| GET | `/reports` → a lista dos dez relatórios, cada um com a pergunta que responde | `reports:read` | 2 |
+| GET | `/reports/{{key}}?period=&from=&to=&limit=&format=json\|csv` — `key` é `revenue`, `profit`, `services`, `parts`, `customers`, `vehicles`, `mechanics`, `approval`, `inventory` ou `suppliers`. A resposta traz **colunas + linhas + totais + uma frase de leitura**: a tela desenha qualquer relatório com o mesmo componente. Com `format=csv` vem o arquivo pronto para o Excel em português (BOM, `;`, dinheiro como número com vírgula) | `reports:read` | 2 |
+
+O `profit` é o mesmo lucro do financeiro (E13), com a mesma regra — dois
+números diferentes para "lucro" seria o pior resultado possível. O `inventory`
+é a posição de **agora**, não do período.
+
+### Produtividade — cronômetro do item de serviço (MVP 2, E15)
+
+| Método | Rota | Permissão | Fase |
+|---|---|---|---|
+| POST | `/work-orders/{{id}}/items/{{itemId}}/timer/start` → a OS. Só em item de SERVIÇO e em OS que não foi entregue nem cancelada. **Uma volta aberta por pessoa em toda a oficina**: começar em outro item para o anterior sozinho | `work_orders:change_status` | 2 |
+| POST | `/work-orders/{{id}}/items/{{itemId}}/timer/stop` → a OS, com os minutos somados ao item. Minuto arredondado para cima, mínimo de 1 | `work_orders:change_status` | 2 |
+
+Cada volta é uma linha (`work_order_item_timers`): o almoço, a peça que não
+chegou, o dia seguinte. O tempo do item é a SOMA das voltas, e o item da OS
+devolve `actualMinutes`, `timerStartedAt` e `timerMechanicName`.
+
 ### Estoque — `/inventory`
 
 | Método | Rota | Permissão | Fase |
@@ -355,7 +377,7 @@ menor prazo (o estoque tem prazo zero) e ⭐ custo-benefício, que soma ao total
 | Pesquisa de peças ✅ E14 | Ver a seção **Pesquisa de peças** acima |
 | Compras ✅ E12 | Ver a seção **Compras** acima |
 | Financeiro ✅ E13 | Ver a seção **Financeiro** acima |
-| Relatórios | `GET /reports/{revenue\|profit\|services\|parts\|customers\|vehicles\|mechanics\|avg-ticket\|approval\|inventory\|suppliers}?from=&to=` + exportação CSV |
+| Relatórios ✅ E15 | Ver a seção **Relatórios** acima |
 | Pós-venda | `GET /follow-ups?due=today` (fila do dia), `POST /follow-ups/{id}/done` · `/skip` |
 | Avaliações | `GET /reviews`, `GET /reviews/summary` |
 | CRM | `GET /crm/pipeline`, `GET/POST/PATCH /leads[/{id}]` |

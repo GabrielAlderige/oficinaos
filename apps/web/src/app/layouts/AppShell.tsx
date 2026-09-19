@@ -3,6 +3,7 @@ import {
   CalendarDays,
   Car,
   ClipboardList,
+  FileBarChart,
   FileText,
   House,
   Menu,
@@ -54,6 +55,7 @@ const NAV: NavItem[] = [
   { to: '/compras', label: 'Compras', icon: ShoppingCart, permission: 'purchases:read' },
   { to: '/financeiro/receber', label: 'A receber', icon: Landmark, permission: 'finance:read' },
   { to: '/financeiro/pagar', label: 'A pagar', icon: Receipt, permission: 'finance:read' },
+  { to: '/relatorios', label: 'Relatórios', icon: FileBarChart, permission: 'reports:read' },
   { to: '/configuracoes', label: 'Configurações', icon: Settings },
 ];
 

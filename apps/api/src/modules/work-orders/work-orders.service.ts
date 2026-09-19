@@ -32,6 +32,7 @@ import {
 import type { z } from 'zod';
 import { diffChanges, recordActivity } from '../../core/audit';
 import { cancelWorkOrderEntries, ensureWorkOrderReceivable } from '../finance/finance.sync';
+import { findRunningTimer, readItemTimes, startTimer, stopTimer } from './timers';
 import type { AuthContext, ClientInfo, ServiceDeps } from '../../core/auth-context';
 import { COUNTER_WORK_ORDER, nextNumber } from '../../core/counters';
 import { AppError, notFound, validationFailed } from '../../core/errors';
@@ -510,6 +511,93 @@ export class WorkOrdersService {
     });
   }
 
+  /**
+   * Cronômetro do item de serviço (E15): o mecânico aperta "iniciar" quando põe
+   * a mão no carro. Só UMA volta aberta por pessoa em toda a oficina — ninguém
+   * trabalha em dois carros ao mesmo tempo, e sem isso o tempo real viraria
+   * ficção. Começar em outro item para o anterior sozinho, que é o que a pessoa
+   * quis dizer.
+   */
+  async startItemTimer(auth: AuthContext, id: string, itemId: string, client: ClientInfo): Promise<WorkOrder> {
+    return withTenant(this.deps.db, auth, async (tx) => {
+      const order = await repo.lockWorkOrder(tx, auth.organizationId, id);
+      if (!order) throw notFound('OS não encontrada.');
+      if (order.status === 'CANCELED' || order.status === 'DELIVERED') {
+        throw new AppError(
+          422,
+          ErrorCode.INVALID_TRANSITION,
+          'OS encerrada',
+          'Não dá para cronometrar uma OS entregue ou cancelada.',
+        );
+      }
+      const item = await repo.findItem(tx, auth.organizationId, id, itemId);
+      if (!item) throw notFound('Item não encontrado.');
+      if (item.type !== 'SERVICE') {
+        throw new AppError(422, ErrorCode.VALIDATION_FAILED, 'Item não é serviço', 'O cronômetro é do serviço, não da peça.');
+      }
+
+      const agora = new Date();
+      const aberta = await findRunningTimer(tx, auth.organizationId, auth.userId);
+      if (aberta) {
+        if (aberta.workOrderItemId === itemId) return this.load(tx, auth, id);
+        await stopTimer(tx, aberta.id, agora);
+      }
+
+      await startTimer(tx, {
+        organizationId: auth.organizationId,
+        workOrderId: id,
+        workOrderItemId: itemId,
+        mechanicUserId: auth.userId,
+        startedAt: agora,
+      });
+      await repo.insertEvent(tx, {
+        organizationId: auth.organizationId,
+        workOrderId: id,
+        type: 'NOTE',
+        data: { cronometro: 'iniciado', item: item.description },
+        actorUserId: auth.userId,
+      });
+      await recordActivity(tx, {
+        organizationId: auth.organizationId,
+        actorUserId: auth.userId,
+        action: 'work_order.timer_started',
+        entityType: 'work_order_item',
+        entityId: itemId,
+        metadata: { number: order.number, item: item.description },
+        ...client,
+      });
+      return this.load(tx, auth, id);
+    });
+  }
+
+  /** Para a volta em andamento e soma os minutos ao item. */
+  async stopItemTimer(auth: AuthContext, id: string, itemId: string, client: ClientInfo): Promise<WorkOrder> {
+    return withTenant(this.deps.db, auth, async (tx) => {
+      const order = await repo.lockWorkOrder(tx, auth.organizationId, id);
+      if (!order) throw notFound('OS não encontrada.');
+      const aberta = await findRunningTimer(tx, auth.organizationId, auth.userId);
+      if (!aberta || aberta.workOrderItemId !== itemId) {
+        throw new AppError(
+          422,
+          ErrorCode.INVALID_TRANSITION,
+          'Cronômetro parado',
+          'Este serviço não está sendo cronometrado por você agora.',
+        );
+      }
+      const fechada = await stopTimer(tx, aberta.id, new Date());
+      await recordActivity(tx, {
+        organizationId: auth.organizationId,
+        actorUserId: auth.userId,
+        action: 'work_order.timer_stopped',
+        entityType: 'work_order_item',
+        entityId: itemId,
+        metadata: { number: order.number, minutes: fechada.minutes },
+        ...client,
+      });
+      return this.load(tx, auth, id);
+    });
+  }
+
   async addNote(auth: AuthContext, id: string, text: string, client: ClientInfo): Promise<WorkOrderEvent> {
     return withTenant(this.deps.db, auth, async (tx) => {
       const order = await this.mustExist(tx, auth, id);
@@ -818,6 +906,8 @@ export class WorkOrdersService {
     const quote = await repo.findCurrentQuote(tx, auth.organizationId, order.id);
     const rows = await repo.listItems(tx, auth.organizationId, order.id);
     const showCost = canSeeCost(auth);
+    // tempo real do cronômetro (E15): uma consulta para todos os itens da OS
+    const tempos = await readItemTimes(tx, auth.organizationId, rows.map(({ item }) => item.id));
     const items: WorkOrderItem[] = rows.map(({ item, mechanicName, partOnHand, partReserved }) => ({
       id: item.id,
       type: item.type,
@@ -840,6 +930,9 @@ export class WorkOrdersService {
         partOnHand === null || partReserved === null ? null : milliToNumber(milli(partOnHand) - milli(partReserved)),
       mechanic: item.mechanicUserId && mechanicName ? { id: item.mechanicUserId, name: mechanicName } : null,
       estimatedMinutes: item.estimatedMinutes,
+      actualMinutes: tempos.get(item.id)?.minutes ?? 0,
+      timerStartedAt: tempos.get(item.id)?.runningSince ?? null,
+      timerMechanicName: tempos.get(item.id)?.runningMechanicName ?? null,
       position: item.position,
     }));
 

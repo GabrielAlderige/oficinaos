@@ -79,19 +79,21 @@ const VEICULOS = [
   { make: 'Citroën', model: 'C3', plate: 'DEM1A15', yearManufacture: 2015 },
 ];
 
+// `estimatedMinutes` é o tempo de catálogo: é contra ele que o relatório de
+// mecânicos compara o cronômetro (E15)
 const SERVICOS = [
-  { name: 'Troca de óleo e filtro', priceCents: 16000, maintenanceKm: 10000 },
-  { name: 'Alinhamento e balanceamento', priceCents: 12000 },
-  { name: 'Troca de pastilhas de freio', priceCents: 18000 },
-  { name: 'Troca de discos de freio', priceCents: 26000 },
-  { name: 'Revisão de suspensão', priceCents: 24000 },
-  { name: 'Troca de correia dentada', priceCents: 48000 },
-  { name: 'Troca de embreagem', priceCents: 95000 },
-  { name: 'Higienização do ar-condicionado', priceCents: 14000 },
-  { name: 'Troca de bateria', priceCents: 9000 },
-  { name: 'Diagnóstico eletrônico', priceCents: 15000 },
-  { name: 'Troca de amortecedores', priceCents: 42000 },
-  { name: 'Revisão completa', priceCents: 38000, maintenanceKm: 20000 },
+  { name: 'Troca de óleo e filtro', priceCents: 16000, maintenanceKm: 10000, estimatedMinutes: 30 },
+  { name: 'Alinhamento e balanceamento', priceCents: 12000, estimatedMinutes: 45 },
+  { name: 'Troca de pastilhas de freio', priceCents: 18000, estimatedMinutes: 60 },
+  { name: 'Troca de discos de freio', priceCents: 26000, estimatedMinutes: 90 },
+  { name: 'Revisão de suspensão', priceCents: 24000, estimatedMinutes: 90 },
+  { name: 'Troca de correia dentada', priceCents: 48000, estimatedMinutes: 240 },
+  { name: 'Troca de embreagem', priceCents: 95000, estimatedMinutes: 360 },
+  { name: 'Higienização do ar-condicionado', priceCents: 14000, estimatedMinutes: 60 },
+  { name: 'Troca de bateria', priceCents: 9000, estimatedMinutes: 20 },
+  { name: 'Diagnóstico eletrônico', priceCents: 15000, estimatedMinutes: 45 },
+  { name: 'Troca de amortecedores', priceCents: 42000, estimatedMinutes: 180 },
+  { name: 'Revisão completa', priceCents: 38000, maintenanceKm: 20000, estimatedMinutes: 120 },
 ];
 
 const PECAS = [
@@ -186,10 +188,12 @@ const RECLAMACOES = [
 const NA_ORDEM = [
   'quote_approvals', 'quote_attachments', 'quote_items', 'quotes',
   // financeiro (E13): a baixa aponta para o lançamento, o pagamento também
-  'financial_settlements', 'payments', 'financial_entries',
+  'financial_settlements', 'payments', 'financial_entries', 'work_order_item_timers',
   'work_order_events', 'vehicle_inspections', 'attachments',
   'work_order_items', 'inventory_movements', 'appointments', 'work_orders',
   // a peça aponta para o fornecedor preferido: fornecedor sai depois dela
+  // pesquisa de peças (E14): a oferta aponta para a peça e para o fornecedor
+  'part_offers', 'part_search_queries', 'supplier_price_list_items',
   'part_applications', 'parts', 'suppliers', 'part_categories', 'services', 'financial_categories',
   'odometer_readings', 'vehicles', 'customers',
   'messages', 'notifications', 'activity_logs',
@@ -641,6 +645,33 @@ async function main(): Promise<void> {
                                      created_at = w.completed_at
       from work_orders w
       where w.id = e.work_order_id and e.organization_id = ${organizationId} and w.completed_at is not null
+    `);
+    /**
+     * Cronômetro (E15): as OS já executadas ganham o tempo real dos serviços,
+     * perto do estimado do catálogo (umas mais rápidas, outras mais lentas).
+     * Pela API isso exigiria esperar minutos de relógio; aqui a volta já nasce
+     * fechada, na data em que o serviço foi feito.
+     */
+    await tx.execute(sql`
+      insert into work_order_item_timers
+        (id, organization_id, work_order_item_id, work_order_id, mechanic_user_id, started_at, stopped_at, minutes, created_at)
+      select gen_random_uuid(), i.organization_id, i.id, w.id,
+             coalesce(i.mechanic_user_id, w.mechanic_user_id),
+             w.started_at,
+             w.started_at + make_interval(mins => minutos.valor),
+             minutos.valor,
+             w.started_at
+      from work_order_items i
+      join work_orders w on w.organization_id = i.organization_id and w.id = i.work_order_id
+      cross join lateral (
+        select greatest(15, round(coalesce(i.estimated_minutes, 60) * (0.7 + ((w.number * 7) % 8) / 10.0))::int) as valor
+      ) minutos
+      where i.organization_id = ${organizationId}
+        and i.type = 'SERVICE'
+        and i.approval_status <> 'REJECTED'
+        and w.started_at is not null
+        and w.completed_at is not null
+        and coalesce(i.mechanic_user_id, w.mechanic_user_id) is not null
     `);
     // clientes novos ao longo do mês, para o gráfico ter o que mostrar
     await tx.execute(sql`

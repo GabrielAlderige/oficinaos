@@ -138,6 +138,11 @@ export const router = createBrowserRouter([
             ],
           },
           {
+            path: 'relatorios',
+            lazy: page(() => import('../features/reports/ReportsPage'), 'ReportsPage'),
+            handle: { crumb: 'Relatórios' },
+          },
+          {
             path: 'financeiro',
             handle: { crumb: 'Financeiro' },
             children: [

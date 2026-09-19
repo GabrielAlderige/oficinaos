@@ -943,6 +943,9 @@ financial_entries             ✅ E13: id, direction, status (OPEN|PARTIAL|PAID|
 financial_settlements         ✅ E13: id, entry_id, client_request_id (UNIQUE por oficina), amount_cents, method,
                               paid_at, status (CONFIRMED|CANCELED), payment_id, canceled_at/by + reason. A baixa de
                               uma conta de OS NÃO mora aqui: é o `payments` da E7 (D30)
+work_order_item_timers        ✅ E15 (migrations 0032/0033): id, work_order_id, work_order_item_id, mechanic_user_id,
+                              started_at, stopped_at, minutes, notes. Índice único parcial (org, mecânico) entre as
+                              voltas ABERTAS: uma por pessoa. Cada volta é uma linha; o tempo do item é a soma
 reviews                       id, work_order_id, customer_id, public_token, rating 1..5, comment, submitted_at
 follow_ups                    id, customer_id, vehicle_id, type (POST_SALE_7D|MAINTENANCE_DUE|NO_RETURN_6M),
                               due_at, status (PENDING|DONE|SKIPPED), done_by, message_id

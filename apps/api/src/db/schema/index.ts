@@ -13,4 +13,5 @@ export * from './supplier-quotes';
 export * from './purchases';
 export * from './finance';
 export * from './parts-search';
+export * from './productivity';
 export * from './audit';

@@ -153,6 +153,30 @@ export const workOrderRoutes: FastifyPluginAsyncZod = async (app) => {
     async (request) => service.vehicleReady(getAuth(request), request.params.id, clientInfo(request)),
   );
 
+  /**
+   * Cronômetro do item de serviço (E15). É `work_orders:change_status` de
+   * propósito: quem executa é quem cronometra, e o mecânico tem essa permissão.
+   */
+  app.post(
+    '/:id/items/:itemId/timer/start',
+    {
+      config: { auth: 'work_orders:change_status' },
+      schema: { params: itemParams, response: { 200: workOrderSchema } },
+    },
+    async (request) =>
+      service.startItemTimer(getAuth(request), request.params.id, request.params.itemId, clientInfo(request)),
+  );
+
+  app.post(
+    '/:id/items/:itemId/timer/stop',
+    {
+      config: { auth: 'work_orders:change_status' },
+      schema: { params: itemParams, response: { 200: workOrderSchema } },
+    },
+    async (request) =>
+      service.stopItemTimer(getAuth(request), request.params.id, request.params.itemId, clientInfo(request)),
+  );
+
   app.post(
     '/:id/notes',
     {

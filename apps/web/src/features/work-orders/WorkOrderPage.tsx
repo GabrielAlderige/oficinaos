@@ -43,6 +43,7 @@ import {
 import { PaymentCard } from '../payments/PaymentCard';
 import { QuoteCard } from '../quotes/QuoteCard';
 import { WorkOrderPurchasesCard } from '../purchases/WorkOrderPurchasesCard';
+import { ItemTimer } from './ItemTimer';
 import { SupplierQuotesCard } from '../supplier-quotes/SupplierQuotesCard';
 import { CheckInDialog } from './CheckInDialog';
 import { ItemPicker, parseTypedQuantity } from './ItemPicker';
@@ -167,6 +168,8 @@ function WorkOrderDetail({ order }: { order: WorkOrder }) {
                           .filter(Boolean)
                           .join(' · ')}
                       </span>
+                      {/* cronômetro do serviço (E15): quem executa aperta aqui */}
+                      <ItemTimer order={order} item={item} />
                     </span>
                     <span className="text-sm text-muted tabular">
                       {formatQuantity(Math.round(item.quantity * 1000))} × {formatBRL(item.unitPriceCents)}

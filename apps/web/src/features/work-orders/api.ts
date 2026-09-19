@@ -141,6 +141,17 @@ export const useReorderItems = (id: string) =>
     api<WorkOrder>(`/work-orders/${id}/items/order`, { method: 'PUT', json: { itemIds } }),
   );
 
+/** Cronômetro do item de serviço (E15): a OS volta inteira, com o tempo somado. */
+export const useStartItemTimer = (id: string, _number: number) =>
+  useWorkOrderMutation((itemId: string) =>
+    api<WorkOrder>(`/work-orders/${id}/items/${itemId}/timer/start`, { method: 'POST' }),
+  );
+
+export const useStopItemTimer = (id: string, _number: number) =>
+  useWorkOrderMutation((itemId: string) =>
+    api<WorkOrder>(`/work-orders/${id}/items/${itemId}/timer/stop`, { method: 'POST' }),
+  );
+
 /** Ações de status: cada uma é uma rota própria (docs/API.md §1). */
 export const useRunAction = (id: string) =>
   useWorkOrderMutation(({ action, reason }: { action: WorkOrderAction; reason?: string }) =>

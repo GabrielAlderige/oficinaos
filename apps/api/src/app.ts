@@ -38,6 +38,8 @@ import {
 import { PurchasesService } from './modules/purchases/purchases.service';
 import { financeRoutes } from './modules/finance/finance.routes';
 import { partsSearchRoutes, supplierPriceListRoutes } from './modules/parts-search/parts-search.routes';
+import { reportRoutes } from './modules/reports/reports.routes';
+import { ReportsService } from './modules/reports/reports.service';
 import { PartsSearchService } from './modules/parts-search/parts-search.service';
 import { FinanceService } from './modules/finance/finance.service';
 import { supplierRoutes } from './modules/suppliers/suppliers.routes';
@@ -85,6 +87,7 @@ export interface Services {
   purchases: PurchasesService;
   finance: FinanceService;
   partsSearch: PartsSearchService;
+  reports: ReportsService;
 }
 
 declare module 'fastify' {
@@ -165,6 +168,7 @@ export async function buildApp({
     finance: new FinanceService(deps, payments),
     // a oferta escolhida vira item da OS pelo service da OS, não por aqui
     partsSearch: new PartsSearchService(deps, workOrders),
+    reports: new ReportsService(deps),
   };
 
   app.decorate('db', db);
@@ -217,6 +221,7 @@ export async function buildApp({
   await app.register(partPriceHistoryRoutes, { prefix: '/api/v1/parts' });
   await app.register(financeRoutes, { prefix: '/api/v1/finance' });
   await app.register(partsSearchRoutes, { prefix: '/api/v1/parts-search' });
+  await app.register(reportRoutes, { prefix: '/api/v1/reports' });
   await app.register(supplierPriceListRoutes, { prefix: '/api/v1/suppliers' });
   // sem login: o token do link é a credencial (limite por IP em cada rota)
   await app.register(publicQuoteRoutes, { prefix: '/api/v1/public' });

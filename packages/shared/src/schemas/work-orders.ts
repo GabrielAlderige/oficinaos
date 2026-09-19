@@ -192,6 +192,11 @@ export const workOrderItemSchema = z.object({
   availableQuantity: z.number().nullable(),
   mechanic: person.nullable(),
   estimatedMinutes: z.number().int().nullable(),
+  /** soma das voltas fechadas do cronômetro (E15) */
+  actualMinutes: z.number().int(),
+  /** quando a volta em andamento começou; null = cronômetro parado */
+  timerStartedAt: z.string().nullable(),
+  timerMechanicName: z.string().nullable(),
   position: z.number().int(),
 });
 
