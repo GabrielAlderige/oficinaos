@@ -122,7 +122,7 @@ pagar nasce da compra, e lucro precisa das duas pontas.
 |---|---|---|---|---|
 | E-mail transacional | Redefinir senha, convites, avisos | Amazon SES, Resend, Postmark | 1 | Em dev: Mailpit ou console |
 | Object storage | Fotos, logos, documentos | Cloudflare R2, AWS S3 (região São Paulo) | 1 | Em dev: MinIO ou disco local |
-| CEP e CNPJ | Preencher endereço e dados da oficina | ViaCEP, BrasilAPI | 1 | Dados públicos; sempre com preenchimento manual como alternativa |
+| CEP ✅ (19/09) | Preencher endereço da oficina e do cliente | **BrasilAPI**, com **ViaCEP** de reserva | 1 | Consulta do NAVEGADOR: é dado público, a API não precisa ser intermediária, e uma fonte fora do ar nunca derruba o cadastro. Todo campo continua editável. CNPJ ainda não |
 | WhatsApp (link) | Enviar orçamento e avisos | `wa.me` | 1 | Sem custo; depende de a pessoa tocar "enviar" |
 | Monitoramento | Erros e desempenho | Sentry | 1 | A partir do primeiro deploy |
 | Preço de peças: fornecedores | Cotação e listas de preço | Cotação por link (própria), CSV/planilha, integração B2B com distribuidores sob parceria | 2 | A fonte mais realista e 100% legítima |

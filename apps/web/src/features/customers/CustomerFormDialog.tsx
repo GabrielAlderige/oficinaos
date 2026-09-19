@@ -16,6 +16,7 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { Button } from '../../components/ui/button';
 import { Alert } from '../../components/ui/display';
+import { CepInput } from '../../components/ui/cep-input';
 import { Field, fieldA11y, Select } from '../../components/ui/field';
 import { Input, Textarea } from '../../components/ui/input';
 import { Dialog, DialogContent, DialogFooter, DialogHeader } from '../../components/ui/overlays';
@@ -56,6 +57,7 @@ export function CustomerFormDialog({ open, onOpenChange, customer, onSaved }: {
     reset,
     watch,
     setError,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm({ resolver: zodResolver(customerFormSchema), defaultValues: toFormValues(customer) });
 
@@ -133,7 +135,7 @@ export function CustomerFormDialog({ open, onOpenChange, customer, onSaved }: {
               </summary>
               <div className="grid gap-4 border-t border-border p-3 sm:grid-cols-6">
                 <Field label="CEP" htmlFor="c-zip" error={e.address?.zip?.message} className="sm:col-span-2">
-                  <Input {...fieldA11y('c-zip', e.address?.zip?.message)} inputMode="numeric" placeholder="00000-000" {...register('address.zip')} />
+                  <CepInput id="c-zip" registro={register('address.zip')} setValue={setValue} onErro={(aviso) => toast.info(aviso)} />
                 </Field>
                 <Field label="Rua" htmlFor="c-street" className="sm:col-span-4">
                   <Input id="c-street" {...register('address.street')} />

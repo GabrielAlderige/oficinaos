@@ -14,6 +14,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { Button } from '../../components/ui/button';
 import { Alert, Card, Skeleton } from '../../components/ui/display';
+import { CepInput } from '../../components/ui/cep-input';
 import { Field, fieldA11y, Select } from '../../components/ui/field';
 import { Input } from '../../components/ui/input';
 import { applyFieldErrors, errorMessage } from '../../lib/errors';
@@ -84,6 +85,7 @@ function OrganizationFormCard({ organization }: { organization: Organization }) 
     handleSubmit,
     reset,
     setError,
+    setValue,
     formState: { errors, isDirty, isSubmitting },
   } = useForm({ resolver: zodResolver(organizationFormSchema), defaultValues: toFormValues(organization) });
 
@@ -132,8 +134,8 @@ function OrganizationFormCard({ organization }: { organization: Organization }) 
           </Section>
 
           <Section title="Endereço">
-            <Field label="CEP" htmlFor="zip" error={e.address?.zip?.message}>
-              <Input {...fieldA11y('zip', e.address?.zip?.message)} inputMode="numeric" placeholder="00000-000" {...register('address.zip')} />
+            <Field label="CEP" htmlFor="zip" error={e.address?.zip?.message} hint="Preenche o resto do endereço sozinho.">
+              <CepInput id="zip" registro={register('address.zip')} setValue={setValue} onErro={(aviso) => toast.info(aviso)} />
             </Field>
             <Field label="Número" htmlFor="number" error={e.address?.number?.message}>
               <Input {...fieldA11y('number', e.address?.number?.message)} {...register('address.number')} />

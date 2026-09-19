@@ -592,6 +592,8 @@ interface MessagingProvider {
 interface StorageProvider  { presignPut(...): Promise<PresignedUrl>; presignGet(...): Promise<string>; head(key: string): Promise<ObjectInfo> }
 interface EmailProvider    { send(msg: EmailMessage): Promise<void> }
 interface VehicleDataProvider { lookupByPlate(plate: string): Promise<VehicleInfo | null> }   // V3, só fonte licenciada
+// CEP (E17): não tem interface no back — a consulta é do navegador (apps/web/src/lib/cep.ts),
+// com BrasilAPI e ViaCEP de reserva. Dado público, sem chave, e o formulário não trava se cair
 interface FiscalProvider   { issueServiceInvoice(...): Promise<FiscalDocument>; issueProductInvoice(...): Promise<FiscalDocument> }   // V3
 ```
 
