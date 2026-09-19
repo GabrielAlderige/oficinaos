@@ -329,6 +329,27 @@ Cada volta é uma linha (`work_order_item_timers`): o almoço, a peça que não
 chegou, o dia seguinte. O tempo do item é a SOMA das voltas, e o item da OS
 devolve `actualMinutes`, `timerStartedAt` e `timerMechanicName`.
 
+### Pós-venda, avaliações e funil — `/follow-ups`, `/reviews`, `/leads` (MVP 2, E16)
+
+| Método | Rota | Permissão | Fase |
+|---|---|---|---|
+| GET | `/follow-ups?filter=today\|week\|done\|all&type=` → a fila do dia, **recalculada na hora**: OS entregue há 7 dias, revisão vencendo (pelo km ou pelos meses do serviço, o que vier primeiro) e cliente sem voltar há 6 meses. Cada item já traz a mensagem escrita e o link `wa.me` | `customers:view_contact` | 2 |
+| POST | `/follow-ups/{{id}}/done` `{{ outcome? }}` · `/follow-ups/{{id}}/skip` — sai da fila e fica no histórico | `customers:write` | 2 |
+| POST | `/work-orders/{{id}}/review-invite` → `{{ publicUrl, message, whatsappUrl }}`. Só com o carro **entregue** (422 antes disso); reenviar gera um link novo e mata o anterior | `quotes:send` | 2 |
+| GET | `/public/reviews/{{token}}` · POST com `{{ rating, comment? }}` — a página do cliente, sem login. Responder duas vezes → 409 | pública (limite por IP) | 2 |
+| GET | `/reviews/summary` → média, total, distribuição por nota, convites sem resposta e as últimas com comentário | `dashboard:view` | 2 |
+| GET | `/leads?q=` → o funil inteiro, por etapa, com valor em aberto e taxa de conversão | `customers:view_contact` | 2 |
+| POST | `/leads` · PATCH `/leads/{{id}}` — nome, telefone, origem, carro, o que precisa e valor estimado | `customers:write` | 2 |
+| POST | `/leads/{{id}}/stage` `{{ stage, lostReason? }}` — **perder exige motivo** (422 sem ele) | `customers:write` | 2 |
+| POST | `/leads/{{id}}/convert` `{{ customerId? }}` — fecha e vira cliente; sem `customerId`, cria o cadastro com o nome e o telefone do lead. Duas vezes → 409 | `customers:write` | 2 |
+
+**Nada é enviado sozinho.** A fila escreve a mensagem e abre o WhatsApp; quem
+aperta enviar é uma pessoa — é o que o briefing pede e o que dá para fazer sem
+API oficial. **O convite de avaliação vai para todos** os clientes com OS
+entregue, não só para quem parece satisfeito: filtrar é contra as políticas do
+Google e não é honesto. A taxa de conversão do funil é sobre o que já foi
+DECIDIDO (ganhos ÷ (ganhos + perdidos)) — lead novo não conta como perda.
+
 ### Estoque — `/inventory`
 
 | Método | Rota | Permissão | Fase |
@@ -378,9 +399,9 @@ devolve `actualMinutes`, `timerStartedAt` e `timerMechanicName`.
 | Compras ✅ E12 | Ver a seção **Compras** acima |
 | Financeiro ✅ E13 | Ver a seção **Financeiro** acima |
 | Relatórios ✅ E15 | Ver a seção **Relatórios** acima |
-| Pós-venda | `GET /follow-ups?due=today` (fila do dia), `POST /follow-ups/{id}/done` · `/skip` |
-| Avaliações | `GET /reviews`, `GET /reviews/summary` |
-| CRM | `GET /crm/pipeline`, `GET/POST/PATCH /leads[/{id}]` |
+| Pós-venda ✅ E16 | Ver a seção **Pós-venda, avaliações e funil** acima |
+| Avaliações ✅ E16 | Idem |
+| CRM ✅ E16 | Idem |
 | Backoffice | `/platform/organizations`, `/platform/organizations/{id}/impersonate` (auditado) |
 
 ### V3

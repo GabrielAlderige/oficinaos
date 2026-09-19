@@ -9,7 +9,13 @@ export interface TenantContext {
 }
 
 /** Únicas variáveis de sessão que as policies de RLS leem (migrations 0001 e 0003). */
-type ContextKey = 'app.org_id' | 'app.user_id' | 'app.invite_token_hash' | 'app.quote_token' | 'app.supplier_token_hash';
+type ContextKey =
+  | 'app.org_id'
+  | 'app.user_id'
+  | 'app.invite_token_hash'
+  | 'app.quote_token'
+  | 'app.supplier_token_hash'
+  | 'app.review_token_hash';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -78,6 +84,15 @@ export function withQuoteToken<T>(db: Database, token: string, fn: (tx: Tx) => P
 export function withSupplierToken<T>(db: Database, tokenHash: string, fn: (tx: Tx) => Promise<T>): Promise<T> {
   if (!/^[0-9a-f]{64}$/.test(tokenHash)) throw new Error('withSupplierToken: esperado o hash sha256 do token');
   return withDbContext(db, { 'app.supplier_token_hash': tokenHash }, fn);
+}
+
+/**
+ * Capacidade do link da avaliação (E16): quem apresenta o HASH do token lê só
+ * aquela avaliação, para a API descobrir a oficina. Mesmo desenho do orçamento.
+ */
+export function withReviewToken<T>(db: Database, tokenHash: string, fn: (tx: Tx) => Promise<T>): Promise<T> {
+  if (!/^[0-9a-f]{64}$/.test(tokenHash)) throw new Error('withReviewToken: esperado o hash sha256 do token');
+  return withDbContext(db, { 'app.review_token_hash': tokenHash }, fn);
 }
 
 /** Tabelas globais (users, sessions, plans, password_reset_tokens): sem contexto de tenant. */

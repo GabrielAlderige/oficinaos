@@ -117,13 +117,17 @@ function WorkOrderDetail({ order }: { order: WorkOrder }) {
         }
       />
 
-      {canWrite && editable && (
+      {/* a OS entregue não é mais editável, mas ainda tem uma ação: pedir a
+          avaliação (E16). Por isso a barra aparece também aqui */}
+      {canWrite && (editable || order.status === 'DELIVERED') && (
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <StatusActions order={order} />
-          <Button size="sm" variant="secondary" onClick={() => setCheckingIn(true)}>
-            <ClipboardCheck />
-            Check-in
-          </Button>
+          {editable && (
+            <Button size="sm" variant="secondary" onClick={() => setCheckingIn(true)}>
+              <ClipboardCheck />
+              Check-in
+            </Button>
+          )}
         </div>
       )}
 

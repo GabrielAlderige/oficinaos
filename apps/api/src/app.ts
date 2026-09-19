@@ -38,6 +38,16 @@ import {
 import { PurchasesService } from './modules/purchases/purchases.service';
 import { financeRoutes } from './modules/finance/finance.routes';
 import { partsSearchRoutes, supplierPriceListRoutes } from './modules/parts-search/parts-search.routes';
+import {
+  followUpRoutes,
+  leadRoutes,
+  publicReviewRoutes,
+  reviewRoutes,
+  workOrderReviewRoutes,
+} from './modules/aftersales/aftersales.routes';
+import { FollowUpsService } from './modules/aftersales/follow-ups.service';
+import { LeadsService } from './modules/aftersales/leads.service';
+import { ReviewsService } from './modules/aftersales/reviews.service';
 import { reportRoutes } from './modules/reports/reports.routes';
 import { ReportsService } from './modules/reports/reports.service';
 import { PartsSearchService } from './modules/parts-search/parts-search.service';
@@ -88,6 +98,9 @@ export interface Services {
   finance: FinanceService;
   partsSearch: PartsSearchService;
   reports: ReportsService;
+  followUps: FollowUpsService;
+  reviews: ReviewsService;
+  leads: LeadsService;
 }
 
 declare module 'fastify' {
@@ -169,6 +182,9 @@ export async function buildApp({
     // a oferta escolhida vira item da OS pelo service da OS, não por aqui
     partsSearch: new PartsSearchService(deps, workOrders),
     reports: new ReportsService(deps),
+    followUps: new FollowUpsService(deps),
+    reviews: new ReviewsService(deps),
+    leads: new LeadsService(deps),
   };
 
   app.decorate('db', db);
@@ -222,10 +238,15 @@ export async function buildApp({
   await app.register(financeRoutes, { prefix: '/api/v1/finance' });
   await app.register(partsSearchRoutes, { prefix: '/api/v1/parts-search' });
   await app.register(reportRoutes, { prefix: '/api/v1/reports' });
+  await app.register(followUpRoutes, { prefix: '/api/v1/follow-ups' });
+  await app.register(reviewRoutes, { prefix: '/api/v1/reviews' });
+  await app.register(workOrderReviewRoutes, { prefix: '/api/v1/work-orders' });
+  await app.register(leadRoutes, { prefix: '/api/v1/leads' });
   await app.register(supplierPriceListRoutes, { prefix: '/api/v1/suppliers' });
   // sem login: o token do link é a credencial (limite por IP em cada rota)
   await app.register(publicQuoteRoutes, { prefix: '/api/v1/public' });
   await app.register(publicSupplierQuoteRoutes, { prefix: '/api/v1/public' });
+  await app.register(publicReviewRoutes, { prefix: '/api/v1/public' });
 
   return app;
 }

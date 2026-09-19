@@ -118,7 +118,7 @@ CREATE POLICY tenant_isolation ON customers
 | Fornecedores e compras | `suppliers`, `purchase_orders`, `purchase_order_items`, `supplier_quote_requests`, `supplier_quote_request_items`, `supplier_quote_invites`, `supplier_quote_responses`, `supplier_quote_response_items`, `supplier_quote_awards`, `purchase_receipts`, `purchase_receipt_items`, `purchase_returns`, `purchase_return_items`, `part_price_history` | MVP 2 |
 | Pesquisa de peças | `part_search_queries`, `part_offers` | MVP 2 |
 | Financeiro ✅ E13 | `financial_categories`, `financial_entries`, `financial_settlements` | MVP 2 |
-| Pós-venda e CRM | `reviews`, `follow_ups`, `leads` | MVP 2 |
+| Pós-venda e CRM ✅ E16 | `reviews`, `follow_ups`, `leads` | MVP 2 |
 | Integrações | `integration_connections`, `webhook_events`, `fiscal_documents`, `payment_intents` | V3 |
 | Marketplace | `supplier_directory` (global), `marketplace_orders` | V3+ |
 
@@ -946,10 +946,17 @@ financial_settlements         ✅ E13: id, entry_id, client_request_id (UNIQUE p
 work_order_item_timers        ✅ E15 (migrations 0032/0033): id, work_order_id, work_order_item_id, mechanic_user_id,
                               started_at, stopped_at, minutes, notes. Índice único parcial (org, mecânico) entre as
                               voltas ABERTAS: uma por pessoa. Cada volta é uma linha; o tempo do item é a soma
-reviews                       id, work_order_id, customer_id, public_token, rating 1..5, comment, submitted_at
-follow_ups                    id, customer_id, vehicle_id, type (POST_SALE_7D|MAINTENANCE_DUE|NO_RETURN_6M),
-                              due_at, status (PENDING|DONE|SKIPPED), done_by, message_id
-leads                         id, name, phone, vehicle_desc, stage, source, estimated_value_cents, lost_reason
+reviews                       ✅ E16 (migrations 0034/0035): id, work_order_id (UNIQUE: uma nota por OS), customer_id,
+                              token_hash (sha256; o token em texto não é guardado), rating 1..5, comment,
+                              submitted_at, invited_at, first_viewed_at, ip, user_agent, google_invited.
+                              Policy `review_by_token`: sem oficina no contexto, o hash lê só a própria linha
+follow_ups                    ✅ E16: id, type (POST_SALE_7D|MAINTENANCE_DUE|NO_RETURN_6M), status
+                              (PENDING|DONE|SKIPPED), customer_id, vehicle_id, work_order_id, due_on date, reason,
+                              dedupe_key (UNIQUE por oficina), done_at/by, outcome. A fila é recalculada a cada
+                              abertura da tela; a dedupe_key é o que impede a mesma conversa de nascer duas vezes
+leads                         ✅ E16: id, name, phone, stage (NEW|CONTACTED|QUOTED|WAITING|WON|LOST), source,
+                              vehicle_desc, need, estimated_value_cents, notes, lost_reason, customer_id,
+                              work_order_id, closed_at. CHECK: perdido sempre tem motivo
 ```
 
 `part_offers.is_mock` é coluna **e** aparece na interface. Oferta de provider de

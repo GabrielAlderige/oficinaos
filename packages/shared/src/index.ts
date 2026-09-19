@@ -57,3 +57,6 @@ export * from './schemas/parts-search';
 export * from './enums/reports';
 export * from './reports';
 export * from './schemas/reports';
+export * from './enums/aftersales';
+export * from './aftersales';
+export * from './schemas/aftersales';

@@ -138,6 +138,21 @@ export const router = createBrowserRouter([
             ],
           },
           {
+            path: 'pos-venda',
+            lazy: page(() => import('../features/aftersales/FollowUpsPage'), 'FollowUpsPage'),
+            handle: { crumb: 'Pós-venda' },
+          },
+          {
+            path: 'avaliacoes',
+            lazy: page(() => import('../features/aftersales/ReviewsPage'), 'ReviewsPage'),
+            handle: { crumb: 'Avaliações' },
+          },
+          {
+            path: 'funil',
+            lazy: page(() => import('../features/aftersales/LeadsPage'), 'LeadsPage'),
+            handle: { crumb: 'Funil' },
+          },
+          {
             path: 'relatorios',
             lazy: page(() => import('../features/reports/ReportsPage'), 'ReportsPage'),
             handle: { crumb: 'Relatórios' },

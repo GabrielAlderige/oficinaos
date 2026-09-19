@@ -239,6 +239,20 @@
       "when": 1789779766886,
       "tag": "0033_item_timers_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1789781763706,
+      "tag": "0034_aftersales",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1789781823706,
+      "tag": "0035_aftersales_rls",
+      "breakpoints": true
     }
   ]
 }

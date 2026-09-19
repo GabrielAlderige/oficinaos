@@ -189,6 +189,8 @@ const NA_ORDEM = [
   'quote_approvals', 'quote_attachments', 'quote_items', 'quotes',
   // financeiro (E13): a baixa aponta para o lançamento, o pagamento também
   'financial_settlements', 'payments', 'financial_entries', 'work_order_item_timers',
+  // pós-venda e CRM (E16)
+  'follow_ups', 'reviews', 'leads',
   'work_order_events', 'vehicle_inspections', 'attachments',
   'work_order_items', 'inventory_movements', 'appointments', 'work_orders',
   // a peça aponta para o fornecedor preferido: fornecedor sai depois dela
@@ -588,6 +590,44 @@ async function main(): Promise<void> {
         { clientRequestId: uuidv7(), amountCents: despesa.valor, method: 'BANK_TRANSFER' },
         dono,
       );
+    }
+  }
+
+  /**
+   * 6.2 pós-venda, avaliações e funil (E16). As avaliações passam pelo caminho
+   * de verdade: a oficina pede o link e o "cliente" responde pela página
+   * pública. A fila de pós-venda não é semeada — ela se monta sozinha quando a
+   * tela abre, a partir das OS entregues.
+   */
+  const NOTAS: { nota: number; comentario: string | null }[] = [
+    { nota: 5, comentario: 'Atendimento rápido e o carro ficou ótimo.' },
+    { nota: 5, comentario: null },
+    { nota: 4, comentario: 'Serviço bom, só demorou um pouco mais que o combinado.' },
+    { nota: 3, comentario: 'Resolveu, mas achei o preço da peça salgado.' },
+  ];
+  const entregues = criadas.filter((ordem) => ordem.roteiro.startsWith('DELIVERED'));
+  for (const [indice, ordem] of entregues.entries()) {
+    const nota = NOTAS[indice];
+    const convite = (await chamar('POST', `/work-orders/${ordem.id}/review-invite`, {}, dono)) as {
+      publicUrl: string;
+    };
+    if (!nota) continue;
+    const token = convite.publicUrl.slice(convite.publicUrl.lastIndexOf('/') + 1);
+    await chamar('POST', `/public/reviews/${token}`, { rating: nota.nota, comment: nota.comentario ?? '' });
+  }
+
+  const LEADS = [
+    { name: 'Rafael Moura', phone: '(11) 90000-0101', source: 'WHATSAPP', vehicleDesc: 'Honda Fit 2015', need: 'Barulho na suspensão dianteira', estimatedValueCents: 98000, stage: 'NEW' },
+    { name: 'Tatiane Alves', phone: '(11) 90000-0102', source: 'REFERRAL', vehicleDesc: 'Hyundai HB20 2019', need: 'Revisão dos 60 mil km', estimatedValueCents: 145000, stage: 'CONTACTED' },
+    { name: 'Wagner Pinto', phone: '(11) 90000-0103', source: 'PHONE', vehicleDesc: 'Fiat Toro 2021', need: 'Troca de embreagem', estimatedValueCents: 310000, stage: 'QUOTED' },
+    { name: 'Simone Braga', phone: '(11) 90000-0104', source: 'WALK_IN', vehicleDesc: 'Renault Kwid 2020', need: 'Ar-condicionado não gela', estimatedValueCents: 76000, stage: 'WAITING' },
+    { name: 'Otávio Ramos', phone: '(11) 90000-0105', source: 'SOCIAL', vehicleDesc: 'VW Saveiro 2016', need: 'Alinhamento e pneus', estimatedValueCents: 52000, stage: 'LOST', lostReason: 'Achou mais barato na concorrência' },
+  ] as const;
+  for (const lead of LEADS) {
+    const { stage, lostReason, ...dados } = lead as { stage: string; lostReason?: string } & Record<string, unknown>;
+    const criado = (await chamar('POST', '/leads', dados, dono)) as { id: string };
+    if (stage !== 'NEW') {
+      await chamar('POST', `/leads/${criado.id}/stage`, { stage, lostReason: lostReason ?? '' }, dono);
     }
   }
 

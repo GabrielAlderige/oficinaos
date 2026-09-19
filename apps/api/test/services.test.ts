@@ -33,6 +33,9 @@ describe('catálogo de serviços e configurações de preço', () => {
         defaultMarkupBps: 3000,
         allowNegativeStock: true,
         discountLimitBps: 1000,
+        // o link de avaliação do Google (E16) nasce vazio: sem ele, a página
+        // de avaliação simplesmente não convida para o Google
+        googleReviewUrl: '',
       });
     });
 

@@ -83,6 +83,7 @@ export class OrganizationsService {
       const next: OrganizationSettings = {
         laborRateCents: input.laborRateCents === undefined ? before.laborRateCents : input.laborRateCents,
         defaultMarkupBps: input.defaultMarkupBps ?? before.defaultMarkupBps,
+        googleReviewUrl: input.googleReviewUrl ?? before.googleReviewUrl,
         allowNegativeStock: input.allowNegativeStock ?? before.allowNegativeStock,
         discountLimitBps: input.discountLimitBps ?? before.discountLimitBps,
       };

@@ -103,6 +103,13 @@ export const organizationSettingsSchema = z.object({
   /** valor da hora de mão de obra; null = ainda não configurado (serviço por hora fica sem preço) */
   laborRateCents: z.number().int().min(0).max(10_000_000).nullable(),
   defaultMarkupBps: z.number().int().min(0).max(100_000),
+  /**
+   * O link de avaliação do Perfil da Empresa no Google (E16). Vazio = a página
+   * de avaliação não convida para o Google. O convite vai para TODOS os
+   * clientes, não só para quem deu nota alta — é o que as políticas do Google
+   * exigem, e é o honesto.
+   */
+  googleReviewUrl: z.string().trim().max(300).refine((v) => v === '' || /^https?:\/\//.test(v), 'Cole o link completo'),
   /** a baixa na finalização da OS pode deixar o estoque negativo (padrão: sim, com alerta) */
   allowNegativeStock: z.boolean(),
   /**
@@ -115,6 +122,7 @@ export const organizationSettingsSchema = z.object({
 export const DEFAULT_ORGANIZATION_SETTINGS: z.infer<typeof organizationSettingsSchema> = {
   laborRateCents: null,
   defaultMarkupBps: 3000,
+  googleReviewUrl: '',
   allowNegativeStock: true,
   discountLimitBps: 1000,
 };

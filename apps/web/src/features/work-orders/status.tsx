@@ -10,7 +10,7 @@ import {
   type WorkOrderAction,
   type WorkOrderStatus,
 } from '@oficinaos/shared';
-import { MessageCircle } from 'lucide-react';
+import { MessageCircle, Star } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '../../components/ui/button';
@@ -20,6 +20,7 @@ import { Input } from '../../components/ui/input';
 import { Dialog, DialogContent, DialogFooter, DialogHeader } from '../../components/ui/overlays';
 import { errorMessage } from '../../lib/errors';
 import { useMe } from '../../lib/session';
+import { useInviteReview } from '../aftersales/api';
 import { useRunAction, useVehicleReady } from './api';
 
 export function StatusBadge({ status }: { status: WorkOrderStatus }) {
@@ -42,6 +43,7 @@ export function StatusActions({ order }: { order: WorkOrder }) {
   const me = useMe();
   const run = useRunAction(order.id);
   const vehicleReady = useVehicleReady(order.id);
+  const pedirAvaliacao = useInviteReview(order.id);
   const [cancelling, setCancelling] = useState(false);
   const [delivering, setDelivering] = useState(false);
   const actions = availableActions(order.status, (permission) => me.permissions.includes(permission));
@@ -50,7 +52,7 @@ export function StatusActions({ order }: { order: WorkOrder }) {
   // por distração: quando falta receber, pede confirmação (ARCHITECTURE §8.3)
   const emAberto = order.paymentStatus !== 'PAID';
 
-  if (!actions.length && order.status !== 'COMPLETED') return null;
+  if (!actions.length && order.status !== 'COMPLETED' && order.status !== 'DELIVERED') return null;
 
   async function fire(action: WorkOrderAction, reason?: string) {
     try {
@@ -58,6 +60,23 @@ export function StatusActions({ order }: { order: WorkOrder }) {
       toast.success(`OS ${updated.number}: ${WORK_ORDER_STATUS_LABELS[updated.status].toLowerCase()}.`);
       setCancelling(false);
       setDelivering(false);
+    } catch (err) {
+      toast.error(errorMessage(err));
+    }
+  }
+
+  /** O link da avaliação vai pelo WhatsApp; sem WhatsApp, fica na área de transferência. */
+  async function convidarParaAvaliar() {
+    try {
+      const { message, whatsappUrl, publicUrl } = await pedirAvaliacao.mutateAsync();
+      if (whatsappUrl) {
+        window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+        toast.success('Convite pronto para enviar.');
+        return;
+      }
+      await navigator.clipboard.writeText(`${message}
+${publicUrl}`);
+      toast.success('O cliente não tem WhatsApp cadastrado. O convite foi copiado.');
     } catch (err) {
       toast.error(errorMessage(err));
     }
@@ -99,6 +118,13 @@ export function StatusActions({ order }: { order: WorkOrder }) {
           <Button size="sm" variant="secondary" loading={vehicleReady.isPending} onClick={() => void avisarPronto()}>
             <MessageCircle />
             Avisar que está pronto
+          </Button>
+        )}
+        {/* a avaliação é do serviço pronto: só depois de entregar o carro (E16) */}
+        {order.status === 'DELIVERED' && (
+          <Button size="sm" variant="secondary" loading={pedirAvaliacao.isPending} onClick={() => void convidarParaAvaliar()}>
+            <Star />
+            Pedir avaliação
           </Button>
         )}
       </div>
