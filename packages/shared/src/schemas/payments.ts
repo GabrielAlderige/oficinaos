@@ -39,6 +39,8 @@ export const paymentSchema = z.object({
   status: z.enum(PAYMENT_ENTRY_STATUSES),
   paidAt: z.string(),
   notes: z.string().nullable(),
+  /** o gateway, quando o dinheiro veio de cobrança online (E19) */
+  provider: z.string().nullable(),
   recordedByName: z.string().nullable(),
   canceledAt: z.string().nullable(),
   canceledByName: z.string().nullable(),

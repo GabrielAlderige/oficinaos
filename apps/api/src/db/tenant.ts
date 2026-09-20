@@ -16,7 +16,8 @@ type ContextKey =
   | 'app.quote_token'
   | 'app.supplier_token_hash'
   | 'app.review_token_hash'
-  | 'app.tracking_token';
+  | 'app.tracking_token'
+  | 'app.charge_provider_ref';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -102,6 +103,16 @@ export function withReviewToken<T>(db: Database, tokenHash: string, fn: (tx: Tx)
  */
 export function withTrackingToken<T>(db: Database, token: string, fn: (tx: Tx) => Promise<T>): Promise<T> {
   return withDbContext(db, { 'app.tracking_token': token }, fn);
+}
+
+/**
+ * Capacidade do aviso do gateway (E19). O webhook chega SEM oficina: quem diz
+ * de quem é o dinheiro é o id da cobrança no gateway. Com esta capacidade, a
+ * API lê exatamente aquela cobrança, descobre a oficina e segue o resto do
+ * trabalho com contexto normal — o mesmo desenho do link do orçamento.
+ */
+export function withChargeRef<T>(db: Database, providerChargeId: string, fn: (tx: Tx) => Promise<T>): Promise<T> {
+  return withDbContext(db, { 'app.charge_provider_ref': providerChargeId }, fn);
 }
 
 /** Tabelas globais (users, sessions, plans, password_reset_tokens): sem contexto de tenant. */

@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { bigint, check, foreignKey, index, pgTable, smallint, text, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { bigint, check, foreignKey, index, pgTable, smallint, text, unique, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { PAYMENT_ENTRY_STATUSES, PAYMENT_METHODS } from '@oficinaos/shared';
 import { id, timestamps, timestamptz } from './_columns';
 import { customers } from './customers';
@@ -58,6 +58,8 @@ export const payments = pgTable(
     ...timestamps,
   },
   (t) => [
+    // a cobrança online (E19) aponta para o pagamento por (oficina, id)
+    unique('payments_org_id_unique').on(t.organizationId, t.id),
     foreignKey({
       name: 'payments_work_order_fk',
       columns: [t.organizationId, t.workOrderId],

@@ -14,6 +14,9 @@ import { registerSecurity } from './core/plugins/security';
 import type { Database } from './db/client';
 import { createEmailProvider, type EmailProvider } from './integrations/email/email';
 import { createNfseProvider, type NfseProvider } from './integrations/fiscal/nfse';
+import { createPaymentGateway, type PaymentGateway } from './integrations/payments';
+import { ChargesService } from './modules/charges/charges.service';
+import { chargeRoutes, paymentWebhookRoutes, workOrderChargeRoutes } from './modules/charges/charges.routes';
 import { InvoicesService } from './modules/invoices/invoices.service';
 import { fiscalSettingsRoutes, invoiceRoutes, workOrderInvoiceRoutes } from './modules/invoices/invoices.routes';
 import { createStorageProvider, type StorageProvider } from './integrations/storage/storage';
@@ -111,6 +114,7 @@ export interface Services {
   imports: ImportsService;
   tracking: TrackingService;
   invoices: InvoicesService;
+  charges: ChargesService;
 }
 
 declare module 'fastify' {
@@ -133,6 +137,8 @@ export interface AppDeps {
   storage?: StorageProvider;
   /** emissor de nota fiscal; hoje só o simulador (E18) */
   nfse?: NfseProvider;
+  /** gateway de cobrança; o padrão é o simulador (E19) */
+  gateway?: PaymentGateway;
 }
 
 /** Monta a API sem abrir porta: o server.ts escuta; os testes usam `app.inject()`. */
@@ -142,6 +148,7 @@ export async function buildApp({
   email = createEmailProvider(env),
   storage = createStorageProvider(env),
   nfse = createNfseProvider(env),
+  gateway = createPaymentGateway(env),
 }: AppDeps) {
   const app = Fastify({
     // nos testes o nível padrão é 'silent' (TEST_LOG_LEVEL=error mostra os erros)
@@ -169,7 +176,7 @@ export async function buildApp({
 
   const tokens = new AccessTokens(env.JWT_SECRET);
   const caches = createAuthCaches(AUTH_CACHE_TTL_MS);
-  const deps: ServiceDeps = { db, env, email, storage, nfse, tokens, caches, log: app.log };
+  const deps: ServiceDeps = { db, env, email, storage, nfse, gateway, tokens, caches, log: app.log };
   const workOrders = new WorkOrdersService(deps);
   const payments = new PaymentsService(deps);
   const services: Services = {
@@ -201,6 +208,7 @@ export async function buildApp({
     imports: new ImportsService(deps),
     tracking: new TrackingService(deps),
     invoices: new InvoicesService(deps),
+    charges: new ChargesService(deps),
   };
 
   app.decorate('db', db);
@@ -262,6 +270,10 @@ export async function buildApp({
   await app.register(invoiceRoutes, { prefix: '/api/v1/invoices' });
   await app.register(workOrderInvoiceRoutes, { prefix: '/api/v1/work-orders' });
   await app.register(fiscalSettingsRoutes, { prefix: '/api/v1/fiscal-settings' });
+  await app.register(chargeRoutes, { prefix: '/api/v1/charges' });
+  await app.register(workOrderChargeRoutes, { prefix: '/api/v1/work-orders' });
+  // sem login: quem prova a origem é o token que o gateway repete no aviso
+  await app.register(paymentWebhookRoutes, { prefix: '/api/v1/webhooks' });
   await app.register(supplierPriceListRoutes, { prefix: '/api/v1/suppliers' });
   // sem login: o token do link é a credencial (limite por IP em cada rota)
   await app.register(publicQuoteRoutes, { prefix: '/api/v1/public' });

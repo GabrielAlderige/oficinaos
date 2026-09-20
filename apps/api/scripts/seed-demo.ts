@@ -188,6 +188,8 @@ const RECLAMACOES = [
 const NA_ORDEM = [
   'quote_approvals', 'quote_attachments', 'quote_items', 'quotes',
   // financeiro (E13): a baixa aponta para o lançamento, o pagamento também
+  // cobrança online (E19): ela aponta para o pagamento, então sai antes dele
+  'payment_webhook_events', 'charges',
   'financial_settlements', 'payments', 'financial_entries', 'work_order_item_timers',
   // pós-venda e CRM (E16)
   'follow_ups', 'reviews', 'leads',
@@ -760,6 +762,26 @@ async function main(): Promise<void> {
   );
   for (const ordem of entregues.slice(0, 3)) {
     await chamar('POST', `/work-orders/${ordem.id}/invoices`, { clientRequestId: uuidv7() }, dono);
+  }
+
+  /**
+   * Uma cobrança em aberto (E19). O gateway é o SIMULADOR: nada é cobrado de
+   * ninguém, e a tela diz isso. Sem ela o cartão "Cobrança online" não
+   * apareceria em OS nenhuma da demonstração.
+   */
+  const paraCobrar = criadas.find((ordem) => ordem.roteiro.startsWith('COMPLETED'));
+  if (paraCobrar) {
+    const resumo = (await chamar('GET', `/work-orders/${paraCobrar.id}/charges`, undefined, dono)) as {
+      availableCents: number;
+    };
+    if (resumo.availableCents > 0) {
+      await chamar(
+        'POST',
+        `/work-orders/${paraCobrar.id}/charges`,
+        { clientRequestId: uuidv7(), method: 'PIX', amountCents: resumo.availableCents },
+        dono,
+      );
+    }
   }
 
   const LEADS = [

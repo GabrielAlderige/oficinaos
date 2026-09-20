@@ -34,6 +34,7 @@ const toDto = (
   status: row.status,
   paidAt: row.paidAt.toISOString(),
   notes: row.notes,
+  provider: row.provider,
   recordedByName,
   canceledByName,
   canceledAt: isoOrNull(row.canceledAt),

@@ -152,7 +152,7 @@ function QuoteDetail({ order, quote }: { order: WorkOrder; quote: Quote }) {
           </>
         )}
 
-        <dl className="space-y-1.5 text-sm">
+        <div className="space-y-1.5 text-sm">
           <div className="flex items-center gap-2 text-muted">
             <Eye className="size-3.5" aria-hidden="true" />
             {quote.viewCount === 0 ? (
@@ -186,7 +186,7 @@ function QuoteDetail({ order, quote }: { order: WorkOrder; quote: Quote }) {
               )}
             </div>
           )}
-        </dl>
+        </div>
 
         {!aguardando && canSend && order.items.some((item) => item.approvalStatus === 'DRAFT') && (
           <Button variant="secondary" onClick={() => setSending(true)}>

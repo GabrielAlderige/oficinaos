@@ -52,6 +52,12 @@ export const PERMISSIONS = [
   'inventory:adjust',
   'payments:record',
   'payments:cancel',
+  /**
+   * cobrança online (V3, E19): mandar o Pix/boleto é trabalho de balcão, mas
+   * ESTORNAR é devolver dinheiro — fica com quem já cancela pagamento
+   */
+  'charges:create',
+  'charges:refund',
   'finance:read',
   'finance:write',
   'reports:read',
@@ -116,6 +122,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'invoices:read',
     'invoices:issue',
     'invoices:cancel',
+    'charges:create',
+    'charges:refund',
   ],
   ATTENDANT: [
     'dashboard:view',
@@ -143,6 +151,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     // é ele que entrega o carro e ouve "me dá a nota"; cancelar, não
     'invoices:read',
     'invoices:issue',
+    // manda o Pix na hora de fechar a conta; estornar é de outro nível
+    'charges:create',
   ],
   MECHANIC: [
     'dashboard:view',
@@ -175,6 +185,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'invoices:read',
     'invoices:issue',
     'invoices:cancel',
+    'charges:create',
+    'charges:refund',
   ],
 };
 

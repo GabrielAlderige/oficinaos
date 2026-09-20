@@ -376,6 +376,23 @@ nenhuma, a resposta vem com `environment: 'SIMULATOR'` e sem XML nem PDF, e a
 tela carimba "simulação". A nota nasce `QUEUED` e a chamada ao emissor roda
 fora da transação, que é como um emissor real se comporta.
 
+### Cobrança online — `/work-orders/{id}/charges`, `/charges`, `/webhooks` (V3, E19)
+
+| Método | Rota | Permissão | Fase |
+|---|---|---|---|
+| GET | `/work-orders/{{id}}/charges` → cobranças da OS, saldo, o que já está pendurado em cobrança aberta, o teto de uma nova, e a mensagem + link de WhatsApp da cobrança aberta | `payments:record` | 3 |
+| POST | `/work-orders/{{id}}/charges` `{{ clientRequestId, method: PIX\|BOLETO\|CREDIT_CARD\|LINK, amountCents, dueDate?, description? }}` → 201 com o resumo. Valor acima do teto volta 422 `PAYMENT_EXCEEDS_BALANCE`; OS cancelada, 422; o mesmo `clientRequestId` devolve a mesma cobrança (D32) | `charges:create` | 3 |
+| POST | `/charges/{{id}}/cancel` `{{ reason }}` — só antes de pagar; cobrança paga volta 422 (o caminho é estornar) | `charges:create` | 3 |
+| POST | `/charges/{{id}}/refund` — só cobrança paga. Estorna no gateway, cancela o pagamento no caixa e a OS volta a dever | `charges:refund` | 3 |
+| POST | `/webhooks/payments/{{provider}}` — o aviso do gateway. **Sem login**: a origem é provada pelo token que o gateway repete no aviso (sem ele, 401), e o `provider_charge_id` diz de qual oficina é o dinheiro. Responde 200 mesmo quando ignora o aviso, com `{{ handled, reason }}` | pública (limite por IP) | 3 |
+
+O dinheiro só é dado como recebido pelo **aviso do gateway**, nunca pela tela:
+ele cria um `payment` normal na OS (D40), com `provider` preenchido. Aviso
+repetido é barrado pelo id do evento, e cobrança já paga é barrada pela
+própria situação (D42). Hoje o gateway padrão é o **simulador**, que não cobra
+ninguém; o driver do **Asaas** existe e tem testes de contrato, mas ainda não
+foi exercitado contra a API real.
+
 ### Estoque — `/inventory`
 
 | Método | Rota | Permissão | Fase |
@@ -435,7 +452,7 @@ fora da transação, que é como um emissor real se comporta.
 | Grupo | Rotas principais |
 |---|---|
 | Assinatura | `GET /billing/subscription`, `POST /billing/checkout`, `POST /billing/change-plan`, `POST /billing/cancel` |
-| Pagamentos | `POST /work-orders/{id}/charges` (Pix, cartão, boleto via gateway), `POST /webhooks/payments/{provider}` |
+| Pagamentos | ✅ E19 (acima): Pix, boleto e cartão pelo gateway, com conciliação por webhook |
 | WhatsApp oficial | `POST /webhooks/whatsapp`, `POST /messages/send` |
 | Fiscal | ✅ NFS-e na E18 (acima). Falta a nota de PEÇA: `POST /work-orders/{id}/invoices?kind=NFE` e os dados fiscais do catálogo (NCM, CFOP, CST) |
 | Integrações | `GET/POST/DELETE /integrations[/{provider}]` |

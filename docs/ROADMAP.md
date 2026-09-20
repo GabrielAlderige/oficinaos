@@ -127,7 +127,7 @@ nota fiscal e pagamentos primeiro.
 | Etapa | Entrega | Pronto quando |
 |---|---|---|
 | **E18. Nota fiscal de serviço** ✅ 20/09 | Dados fiscais da oficina; prévia com os números e o que falta; emissão a partir da OS finalizada; cancelamento com motivo; lista das notas com o ISS | O que falta preencher aparece com o caminho para resolver, não com código de rejeição; a nota cobre só SERVIÇO e diz isso na tela; o ISS sai de dentro do preço; o mesmo POST não emite duas notas; cancelar tem permissão própria. **Cumprido**: 26 testes novos (15 de regra pura + 11 de API), 1 cenário e2e com auditoria de acessibilidade, e três mutações provadas. **O emissor é o simulador** (D37): nada é enviado a prefeitura nenhuma, não se gera XML nem PDF, e toda tela carimba "simulação" |
-| **E19. Pagamentos online** | Pix (QR e copia e cola), cartão e boleto pelo Asaas; link de pagamento dentro do orçamento aprovado; webhook conciliando e baixando a conta a receber; estorno | (a definir na etapa) |
+| **E19. Pagamentos online** ✅ 20/09 | Cobrança por Pix, boleto, cartão ou link a partir da OS; código e link para mandar no WhatsApp; conciliação automática pelo aviso do gateway; cancelamento e estorno | Não dá para cobrar duas vezes o mesmo saldo; o aviso do gateway é a única fonte do "pago" e cria pagamento no MESMO caixa do dinheiro da mão; aviso repetido não dobra a baixa; estorno desfaz a baixa e a OS volta a dever. **Cumprido**: 23 testes novos (5 de regra pura, 9 de contrato do driver Asaas, 9 de API), 1 cenário e2e com auditoria de acessibilidade, três mutações provadas. **O gateway padrão é o simulador**: não cobra ninguém. O driver do **Asaas** está escrito e testado em contrato, mas ainda não foi exercitado contra a API real — falta a conta |
 | **E20. Assinatura do SaaS** | Cobrança recorrente sobre `plans`/`subscriptions`, trial → pago, upgrade/downgrade, inadimplência e bloqueio | (a definir na etapa) |
 | **E21. Jobs e automações** | pg-boss; lembrete por tempo e km, confirmação de agendamento, orçamento sem resposta, aniversário de revisão; e-mail real | (a definir na etapa) |
 | **E22. WhatsApp oficial** | Business Platform por provedor: template aprovado, envio automático, entrega e leitura, resposta voltando | (a definir na etapa) |
@@ -138,7 +138,7 @@ nota fiscal e pagamentos primeiro.
 | Bloco | Entrega |
 |---|---|
 | **Nota fiscal** — parcial na E18 | ✅ **NFS-e (serviço)** com emissor atrás de driver. **Falta a nota de PEÇA** (NF-e/NFC-e): exige NCM, CFOP, CST/CSOSN e origem em todo o catálogo, e nem toda oficina precisa — vira etapa quando houver oficina que precise. Emitir de verdade depende de contratar emissor e cadastrar o certificado A1 lá |
-| **Pagamentos** | Pix (QR Code e copia e cola), cartão e boleto por gateway; **link de pagamento dentro do orçamento aprovado**; conciliação por webhook |
+| **Pagamentos** — parcial na E19 | ✅ Cobrança por Pix, boleto, cartão e link, com conciliação por webhook e estorno. **Falta**: ligar o Asaas de verdade (conta + chave de sandbox) e o link de pagamento dentro da página pública do orçamento aprovado |
 | **Assinatura do SaaS** | Cobrança recorrente, trial, upgrade, downgrade, cancelamento e bloqueio por inadimplência, usando a estrutura de planos que já existe |
 | **WhatsApp oficial** | WhatsApp Business Platform (direto ou por provedor autorizado): envio automático, confirmação de entrega e leitura, respostas voltando para o sistema |
 | **Automações** | Lembretes por tempo e km, confirmação de agendamento, orçamento sem resposta, aniversário de revisão |

@@ -65,3 +65,6 @@ export * from './schemas/tracking';
 export * from './enums/fiscal';
 export * from './fiscal';
 export * from './schemas/fiscal';
+export * from './enums/charges';
+export * from './charges';
+export * from './schemas/charges';

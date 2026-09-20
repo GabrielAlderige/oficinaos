@@ -963,6 +963,30 @@ leads                         ✅ E16: id, name, phone, stage (NEW|CONTACTED|QUO
                               work_order_id, closed_at. CHECK: perdido sempre tem motivo
 ```
 
+### Cobrança online (V3, E19, migrations 0043/0044)
+
+```
+charges                       id, work_order_id, customer_id, method (PIX|BOLETO|CREDIT_CARD|LINK), status
+                              (PENDING|PAID|CANCELED|EXPIRED|REFUNDED|FAILED), environment
+                              (SIMULATOR|SANDBOX|PRODUCTION), provider, client_request_id (UNIQUE por oficina),
+                              amount_cents, due_date, description, provider_charge_id (UNIQUE **global**: é por
+                              ele que o aviso do gateway acha a dona do dinheiro), provider_customer_id,
+                              payment_url, pix_payload, pix_qr_image, boleto_url, barcode, payment_id (o
+                              pagamento que a conciliação criou), paid_at, paid_amount_cents, canceled_at/by/
+                              reason, refunded_at, failure_reason, provider_response jsonb.
+                              CHECK: cancelada tem data E motivo; PAID sempre tem paid_at E payment_id.
+                              Policy extra `charge_by_provider_ref`: com `app.charge_provider_ref` no contexto,
+                              lê EXATAMENTE aquela linha — é assim que o webhook, que chega sem oficina,
+                              descobre de quem é o dinheiro
+payment_webhook_events        provider + external_id (UNIQUE): o id do EVENTO no gateway. Gateway reenvia o
+                              aviso até receber 200, e sem esta trava o reenvio daria baixa duas vezes no
+                              mesmo dinheiro. Guarda também organization_id, charge_id e o payload inteiro
+```
+
+`payments` ganhou `UNIQUE (organization_id, id)` para a cobrança poder apontar
+para ele, e passou a expor `provider` na API: é assim que a tela mostra que
+aquele dinheiro veio de cobrança online, não do balcão.
+
 ### Nota fiscal de serviço (V3, E18, migrations 0041/0042)
 
 ```

@@ -102,6 +102,9 @@ uma refatoração, não uma reescrita.
 | D37 | Nota fiscal atrás de driver (E18) | `NfseProvider` com um driver só hoje, o **simulador**, que não emite nada e devolve `environment: 'SIMULATOR'`; a chamada ao emissor roda FORA da transação, com a nota nascendo `QUEUED` | Integrar direto com um emissor, ou com a prefeitura | Emissor exige conta, contrato e certificado em nome do CNPJ da oficina — nada disso existe antes da primeira venda. Com o driver, o domínio inteiro (dados fiscais, prévia, ISS, emissão, cancelamento, auditoria) fica pronto e testado, e o dia da credencial é só configuração. O simulador NÃO gera XML nem PDF, e a tela carimba "simulação" em tudo: documento fiscal falso é exatamente o que não se inventa |
 | D38 | Segredo fiscal fora do nosso banco (E18) | Guardamos só `provider_company_id`; certificado A1 e senha vão direto para o emissor | Guardar o .pfx cifrado no nosso storage | Certificado é a assinatura da empresa: se não passa pelo nosso banco, não vaza dele. Emissor sério recebe o certificado pelo painel dele e assume a guarda |
 | D39 | O que entra na nota (E18) | Só **serviços**, e só o que o cliente paga: aprovado quando houve aprovação, OS inteira quando não houve (a mesma regra do `devidoCents`). O desconto da OS entra rateado pela fração de serviços | Emitir a OS inteira numa nota só | Peça é nota de mercadoria (NF-e/NFC-e), outro imposto e outro órgão. Misturar produziria nota errada, e nota errada custa multa. A tela mostra o valor das peças ao lado, dizendo que ficam de fora |
+| D40 | Cobrança × pagamento (E19) | São tabelas diferentes: `charges` é a conta ENVIADA, `payments` é o dinheiro que ENTROU. O aviso do gateway cria o pagamento pelo mesmo caminho do dinheiro da mão (`payments.sync`) | Marcar a cobrança como paga e somar as duas coisas na tela | Somar cobrança paga + pagamento manual daria dois "recebidos" que divergem no primeiro fiado. Com uma fonte só, o saldo da OS, a conta a receber (D30) e o fluxo de caixa continuam saindo do mesmo lugar |
+| D41 | Teto da cobrança (E19) | O que já está pendurado em cobrança ABERTA sai do valor que ainda dá para cobrar | Deixar cobrar o saldo inteiro quantas vezes quiser | Dois Pix do valor cheio terminam com o cliente pagando os dois — e a conversa seguinte é sobre devolver dinheiro, a pior que existe. Cancelar a cobrança devolve o valor ao teto |
+| D42 | Aviso do gateway (E19) | Rota pública com o token que o gateway repete em todo aviso, capacidade de RLS por `provider_charge_id` para achar a oficina, e `payment_webhook_events` com UNIQUE no id do evento. Responde 200 até quando ignora | Buscar o status no gateway de tempos em tempos | Gateway reenvia o aviso até receber 200; erro nosso vira fila de reenvio e dinheiro atrasado na tela da oficina. A trava do id do evento e a situação da própria cobrança são duas barreiras contra baixa dobrada |
 | D29 | Gráficos do dashboard (E9) | **Componentes próprios** (colunas em HTML/CSS, uma série por vez) | Recharts | As cinco séries do MVP são um total por dia — barra e rótulo, nada que exija biblioteca. O Recharts custaria ~35 kB gzip (ele puxa vários módulos do d3) **no pedaço que carrega logo depois do login**, já que o dashboard é a tela de Início. O gráfico inteiro custou ~1 kB. Vale reavaliar quando chegarem os relatórios do MVP 2, com muitas séries |
 
 ---
@@ -602,6 +605,18 @@ interface NfseProvider {
   readonly environment: 'SIMULATOR' | 'HOMOLOGATION' | 'PRODUCTION';
   emitir(pedido: PedidoDeNfse): Promise<RespostaDoEmissor>;   // AUTHORIZED | QUEUED | REJECTED
   cancelar(input: { providerRef: string | null; invoiceId: string; reason: string }): Promise<RespostaDeCancelamento>;
+}
+
+// cobrança online (V3, E19). Dois drivers: `simulador` (padrão; não cobra
+// ninguém) e `asaas` (Pix, boleto e cartão). Quem confirma o dinheiro é o
+// aviso do gateway, nunca a tela (D40, D42).
+interface PaymentGateway {
+  readonly driver: string;
+  readonly environment: 'SIMULATOR' | 'SANDBOX' | 'PRODUCTION';
+  criar(pedido: PedidoDeCobranca): Promise<RespostaDaCobranca>;
+  cancelar(providerChargeId: string): Promise<{ raw: Record<string, unknown> }>;
+  estornar(providerChargeId: string, amountCents: number): Promise<{ raw: Record<string, unknown> }>;
+  lerAviso(headers, rawBody: string): AvisoDeCobranca | null;   // lança se o token não confere
 }
 
 interface StorageProvider  { presignPut(...): Promise<PresignedUrl>; presignGet(...): Promise<string>; head(key: string): Promise<ObjectInfo> }

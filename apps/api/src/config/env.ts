@@ -42,6 +42,17 @@ const envSchema = z.object({
    * contratar o emissor. Driver real entra aqui quando houver credencial.
    */
   FISCAL_DRIVER: z.enum(['simulador']).default('simulador'),
+  /**
+   * Cobrança online (E19). `simulador` NÃO cria cobrança em lugar nenhum: o
+   * padrão é ele, para ninguém cobrar cliente por acidente sem configurar.
+   */
+  PAYMENT_GATEWAY: z.enum(['simulador', 'asaas']).default('simulador'),
+  /** Chave da API do Asaas. NUNCA vai para o front nem para o log. */
+  ASAAS_API_KEY: z.string().optional(),
+  /** Sandbox por padrão: produção é escolha explícita de quem faz o deploy. */
+  ASAAS_BASE_URL: z.url().default('https://api-sandbox.asaas.com/v3'),
+  /** Token que o Asaas repete em todo aviso; sem ele, o aviso é recusado. */
+  ASAAS_WEBHOOK_TOKEN: z.string().optional(),
   /** Teto por arquivo. O painel comprime a foto no aparelho antes de enviar (~300 KB). */
   /**
    * Liga o provider FALSO de pesquisa de peças (E14). Desligado por padrão, de
