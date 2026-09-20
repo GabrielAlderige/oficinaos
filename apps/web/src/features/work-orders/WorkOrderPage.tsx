@@ -40,6 +40,7 @@ import {
   useUpdateWorkOrder,
   useWorkOrder,
 } from './api';
+import { InvoiceCard } from '../invoices/InvoiceCard';
 import { PaymentCard } from '../payments/PaymentCard';
 import { QuoteCard } from '../quotes/QuoteCard';
 import { WorkOrderPurchasesCard } from '../purchases/WorkOrderPurchasesCard';
@@ -208,6 +209,7 @@ function WorkOrderDetail({ order }: { order: WorkOrder }) {
           {/* o orçamento é o que o produto inteiro existe para servir: vem primeiro */}
           <QuoteCard order={order} quoteId={order.currentQuote?.id ?? null} />
           <PaymentCard order={order} />
+          <InvoiceCard order={order} />
           <Card>
             <CardHeader title="Cliente e veículo" />
             <dl className="px-5 py-3">

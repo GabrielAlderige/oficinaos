@@ -4,6 +4,8 @@ import type { Tx } from '../db/tenant';
 /** Chaves de numeração humana por oficina. O orçamento entra na E6. */
 export const COUNTER_WORK_ORDER = 'work_order';
 export const COUNTER_QUOTE = 'quote';
+/** RPS da nota de serviço (E18): a numeração é da oficina, não da prefeitura */
+export const COUNTER_INVOICE_RPS = 'invoice_rps';
 
 /**
  * Próximo número humano da oficina ("OS 182"), tirado de

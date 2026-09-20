@@ -36,6 +36,12 @@ const envSchema = z.object({
   STORAGE_DRIVER: z.enum(['disk', 'memory']).default('disk'),
   /** Pasta do driver disk, relativa à raiz do repositório. Fica fora do git. */
   STORAGE_DIR: z.string().default('storage'),
+  /**
+   * Emissor de nota fiscal (E18). `simulador` NÃO emite nota: devolve uma
+   * resposta marcada como simulação, para a oficina conferir o fluxo antes de
+   * contratar o emissor. Driver real entra aqui quando houver credencial.
+   */
+  FISCAL_DRIVER: z.enum(['simulador']).default('simulador'),
   /** Teto por arquivo. O painel comprime a foto no aparelho antes de enviar (~300 KB). */
   /**
    * Liga o provider FALSO de pesquisa de peças (E14). Desligado por padrão, de

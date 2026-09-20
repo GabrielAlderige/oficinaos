@@ -288,6 +288,20 @@
       "when": 1789855261665,
       "tag": "0040_work_order_item_unlink",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1789873176420,
+      "tag": "0041_fiscal_nfse",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1789873198708,
+      "tag": "0042_fiscal_rls",
+      "breakpoints": true
     }
   ]
 }

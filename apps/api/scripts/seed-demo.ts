@@ -193,18 +193,27 @@ const NA_ORDEM = [
   'follow_ups', 'reviews', 'leads',
   // cotação (E11) e compras (E12): as escolhas apontam para o item da OS e
   // para a peça, então saem antes de ambos
+  // o histórico de preço aponta para a compra e para a cotação que o geraram
+  'part_price_history',
   'purchase_return_items', 'purchase_returns', 'purchase_receipt_items', 'purchase_receipts',
-  'supplier_quote_awards', 'purchase_order_items', 'purchase_orders',
+  // o movimento aponta para a compra que o gerou (e o recebimento aponta para
+  // o movimento): entra depois dos recebimentos e antes dos pedidos
+  'inventory_movements',
+  // o item do pedido aponta para a escolha da cotação: ele sai ANTES dela
+  'purchase_order_items', 'supplier_quote_awards', 'purchase_orders',
   'supplier_quote_response_items', 'supplier_quote_responses', 'supplier_quote_invites',
-  'supplier_quote_request_items', 'supplier_quote_requests', 'part_price_history',
+  'supplier_quote_request_items', 'supplier_quote_requests',
+  // nota fiscal (E18): o item aponta para a nota e para o item da OS
+  'invoice_items', 'invoices',
   'work_order_events', 'vehicle_inspections', 'attachments',
-  'work_order_items', 'inventory_movements', 'appointments', 'work_orders',
+  'work_order_items', 'appointments', 'work_orders',
   // a peça aponta para o fornecedor preferido: fornecedor sai depois dela
   // pesquisa de peças (E14): a oferta aponta para a peça e para o fornecedor
   'part_offers', 'part_search_queries', 'supplier_price_list_items',
   'part_applications', 'parts', 'suppliers', 'part_categories', 'services', 'financial_categories',
   'odometer_readings', 'vehicles', 'customers',
   'messages', 'notifications', 'activity_logs',
+  'organization_fiscal_settings',
   'organization_counters', 'usage_counters', 'subscriptions', 'invitations', 'memberships',
 ];
 
@@ -279,7 +288,7 @@ async function main(): Promise<void> {
 
   let ip = 0;
   const chamar = async (
-    method: 'GET' | 'POST' | 'PATCH',
+    method: 'GET' | 'POST' | 'PATCH' | 'PUT',
     url: string,
     payload?: unknown,
     token?: string,
@@ -328,6 +337,7 @@ async function main(): Promise<void> {
     '/organization',
     {
       document: CNPJ_FICTICIO,
+      legalName: `${ORG} LTDA`,
       phone: telefoneFicticio(1),
       whatsapp: telefoneFicticio(1),
       address: { zip: '01310-100', street: 'Avenida Paulista', number: '1000', district: 'Bela Vista', city: 'São Paulo', state: 'SP', complement: '' },
@@ -409,6 +419,17 @@ async function main(): Promise<void> {
         document: cpfFicticio(indice + 1),
         whatsapp: telefoneFicticio(indice + 10),
         email: `cliente${indice + 1}@exemplo.invalido`,
+        // endereço completo porque a NFS-e exige o do tomador (E18); as ruas
+        // são as mesmas da oficina, que é fictícia e declarada como tal
+        address: {
+          zip: '01310-100',
+          street: 'Avenida Paulista',
+          number: String(100 + indice * 7),
+          complement: '',
+          district: 'Bela Vista',
+          city: 'São Paulo',
+          state: 'SP',
+        },
       },
       dono,
     )) as { id: string };
@@ -716,6 +737,29 @@ async function main(): Promise<void> {
     if (!nota) continue;
     const token = convite.publicUrl.slice(convite.publicUrl.lastIndexOf('/') + 1);
     await chamar('POST', `/public/reviews/${token}`, { rating: nota.nota, comment: nota.comentario ?? '' });
+  }
+
+  /**
+   * Nota fiscal (E18). O emissor da demonstração é o SIMULADOR: nenhuma nota
+   * de verdade é emitida, e a tela carimba "simulação" em tudo. Sem isto a
+   * tela de notas abriria vazia na conta demo.
+   */
+  await chamar(
+    'PUT',
+    '/fiscal-settings',
+    {
+      municipalRegistration: '1234567',
+      taxRegime: 'SIMPLES_NACIONAL',
+      cnae: '4520-0/01',
+      serviceListItem: '14.01',
+      issRateBps: 500,
+      rpsSeries: '1',
+      additionalInformation: 'Garantia de 90 dias para serviços, conforme o CDC.',
+    },
+    dono,
+  );
+  for (const ordem of entregues.slice(0, 3)) {
+    await chamar('POST', `/work-orders/${ordem.id}/invoices`, { clientRequestId: uuidv7() }, dono);
   }
 
   const LEADS = [

@@ -153,6 +153,11 @@ export const router = createBrowserRouter([
             handle: { crumb: 'Funil' },
           },
           {
+            path: 'notas',
+            lazy: page(() => import('../features/invoices/InvoicesPage'), 'InvoicesPage'),
+            handle: { crumb: 'Notas fiscais' },
+          },
+          {
             path: 'relatorios',
             lazy: page(() => import('../features/reports/ReportsPage'), 'ReportsPage'),
             handle: { crumb: 'Relatórios' },
@@ -194,6 +199,11 @@ export const router = createBrowserRouter([
                 path: 'precos',
                 lazy: page(() => import('../features/settings/PricingSettingsPage'), 'PricingSettingsPage'),
                 handle: { crumb: 'Preços e estoque' },
+              },
+              {
+                path: 'fiscal',
+                lazy: page(() => import('../features/settings/FiscalSettingsPage'), 'FiscalSettingsPage'),
+                handle: { crumb: 'Fiscal' },
               },
               { path: 'equipe', lazy: page(() => import('../features/settings/TeamPage'), 'TeamPage'), handle: { crumb: 'Equipe' } },
               {

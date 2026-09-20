@@ -55,6 +55,14 @@ export const PERMISSIONS = [
   'finance:read',
   'finance:write',
   'reports:read',
+  /**
+   * nota fiscal (V3, E18): ver é uma coisa, emitir é outra, e CANCELAR é a
+   * mais séria das três — a prefeitura dá prazo curto e o cancelamento
+   * indevido dá dor de cabeça com o contador
+   */
+  'invoices:read',
+  'invoices:issue',
+  'invoices:cancel',
   'team:manage',
   'organization:manage',
   'audit:read',
@@ -105,6 +113,9 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'payments:record',
     'finance:read',
     'reports:read',
+    'invoices:read',
+    'invoices:issue',
+    'invoices:cancel',
   ],
   ATTENDANT: [
     'dashboard:view',
@@ -129,6 +140,9 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'inventory:read',
     // o atendente costuma ser o caixa: registra o pagamento, mas não vê o financeiro
     'payments:record',
+    // é ele que entrega o carro e ouve "me dá a nota"; cancelar, não
+    'invoices:read',
+    'invoices:issue',
   ],
   MECHANIC: [
     'dashboard:view',
@@ -158,6 +172,9 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'finance:read',
     'finance:write',
     'reports:read',
+    'invoices:read',
+    'invoices:issue',
+    'invoices:cancel',
   ],
 };
 

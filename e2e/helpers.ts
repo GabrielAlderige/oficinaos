@@ -8,9 +8,12 @@ export const SENHA = 'cavalo-correto-bateria-grampo';
  * Chamada direta à API para montar o cenário. Passo de navegador é caro e
  * frágil: o que a tela precisa provar é o fluxo do orçamento, não o cadastro.
  */
-export async function api<T>(path: string, options: { payload?: unknown; token?: string } = {}): Promise<T> {
+export async function api<T>(
+  path: string,
+  options: { payload?: unknown; token?: string; method?: 'GET' | 'POST' | 'PATCH' | 'PUT' } = {},
+): Promise<T> {
   const { payload, token } = options;
-  const metodo = payload === undefined ? 'GET' : 'POST';
+  const metodo = options.method ?? (payload === undefined ? 'GET' : 'POST');
   const response = await fetch(`${API}${path}`, {
     method: metodo,
     headers: {

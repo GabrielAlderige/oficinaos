@@ -13,6 +13,9 @@ import { registerErrorHandling } from './core/plugins/error-handler';
 import { registerSecurity } from './core/plugins/security';
 import type { Database } from './db/client';
 import { createEmailProvider, type EmailProvider } from './integrations/email/email';
+import { createNfseProvider, type NfseProvider } from './integrations/fiscal/nfse';
+import { InvoicesService } from './modules/invoices/invoices.service';
+import { fiscalSettingsRoutes, invoiceRoutes, workOrderInvoiceRoutes } from './modules/invoices/invoices.routes';
 import { createStorageProvider, type StorageProvider } from './integrations/storage/storage';
 import { AUTH_CACHE_TTL_MS } from './modules/auth/auth.constants';
 import { authRoutes } from './modules/auth/auth.routes';
@@ -107,6 +110,7 @@ export interface Services {
   leads: LeadsService;
   imports: ImportsService;
   tracking: TrackingService;
+  invoices: InvoicesService;
 }
 
 declare module 'fastify' {
@@ -127,6 +131,8 @@ export interface AppDeps {
   email?: EmailProvider;
   /** os testes injetam o storage em memória: nenhum arquivo toca o disco */
   storage?: StorageProvider;
+  /** emissor de nota fiscal; hoje só o simulador (E18) */
+  nfse?: NfseProvider;
 }
 
 /** Monta a API sem abrir porta: o server.ts escuta; os testes usam `app.inject()`. */
@@ -135,6 +141,7 @@ export async function buildApp({
   db,
   email = createEmailProvider(env),
   storage = createStorageProvider(env),
+  nfse = createNfseProvider(env),
 }: AppDeps) {
   const app = Fastify({
     // nos testes o nível padrão é 'silent' (TEST_LOG_LEVEL=error mostra os erros)
@@ -162,7 +169,7 @@ export async function buildApp({
 
   const tokens = new AccessTokens(env.JWT_SECRET);
   const caches = createAuthCaches(AUTH_CACHE_TTL_MS);
-  const deps: ServiceDeps = { db, env, email, storage, tokens, caches, log: app.log };
+  const deps: ServiceDeps = { db, env, email, storage, nfse, tokens, caches, log: app.log };
   const workOrders = new WorkOrdersService(deps);
   const payments = new PaymentsService(deps);
   const services: Services = {
@@ -193,6 +200,7 @@ export async function buildApp({
     leads: new LeadsService(deps),
     imports: new ImportsService(deps),
     tracking: new TrackingService(deps),
+    invoices: new InvoicesService(deps),
   };
 
   app.decorate('db', db);
@@ -251,6 +259,9 @@ export async function buildApp({
   await app.register(workOrderReviewRoutes, { prefix: '/api/v1/work-orders' });
   await app.register(leadRoutes, { prefix: '/api/v1/leads' });
   await app.register(importRoutes, { prefix: '/api/v1/imports' });
+  await app.register(invoiceRoutes, { prefix: '/api/v1/invoices' });
+  await app.register(workOrderInvoiceRoutes, { prefix: '/api/v1/work-orders' });
+  await app.register(fiscalSettingsRoutes, { prefix: '/api/v1/fiscal-settings' });
   await app.register(supplierPriceListRoutes, { prefix: '/api/v1/suppliers' });
   // sem login: o token do link é a credencial (limite por IP em cada rota)
   await app.register(publicQuoteRoutes, { prefix: '/api/v1/public' });

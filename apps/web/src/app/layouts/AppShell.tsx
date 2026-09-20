@@ -16,6 +16,7 @@ import {
   Landmark,
   PanelLeftClose,
   Receipt,
+  ReceiptText,
   PanelLeftOpen,
   Settings,
   Users,
@@ -61,6 +62,7 @@ const NAV: NavItem[] = [
   { to: '/pos-venda', label: 'Pós-venda', icon: PhoneCall, permission: 'customers:view_contact' },
   { to: '/funil', label: 'Funil', icon: Target, permission: 'customers:view_contact' },
   { to: '/avaliacoes', label: 'Avaliações', icon: Star, permission: 'dashboard:view' },
+  { to: '/notas', label: 'Notas fiscais', icon: ReceiptText, permission: 'invoices:read' },
   { to: '/relatorios', label: 'Relatórios', icon: FileBarChart, permission: 'reports:read' },
   { to: '/configuracoes', label: 'Configurações', icon: Settings },
 ];

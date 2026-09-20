@@ -99,6 +99,9 @@ uma refatoração, não uma reescrita.
 | D34 | Fila de pós-venda sem job (E16) | A fila é **recalculada quando a tela abre**, com `dedupe_key` UNIQUE para não duplicar | Job noturno gerando a fila | Não há fila de jobs ainda (pg-boss é da plataforma), e uma tela que se resolve sozinha não depende de cron configurado. Quando o pg-boss entrar, ele chama exatamente o mesmo `sincronizar` — e a `dedupe_key` continua sendo a trava |
 | D35 | Conferência da importação (E17) | O ensaio roda a importação INTEIRA numa transação e dá `rollback` no fim | Validar linha a linha sem gravar, num caminho separado | Validação paralela mente: ela não vê o CPF duplicado que a própria planilha cria, nem o veículo cujo dono só existe depois da linha 300. Rodando de verdade e desfazendo, o que a tela mostra é exatamente o que vai acontecer |
 | D36 | Tirar item da OS que já tem história | A peça baixada **volta** ao estoque com movimento `CUSTOMER_RETURN`; orçamento, compra, cotação e foto perdem só o **ponteiro** (`on delete set null (work_order_item_id)`); item com **tempo apontado** não é excluído (409 `ITEM_HAS_TIME_LOGGED`) | Barrar a exclusão sempre que houvesse histórico, ou apagar o histórico junto | A oficina reabre a OS e tira a peça que o cliente desistiu: isso tem que funcionar, senão o saldo do estoque vira ficção e alguém "ajusta" à mão. O orçamento enviado guarda a própria cópia (descrição, quantidade, preço), então perder o ponteiro não apaga prova nenhuma. Tempo apontado é a exceção: é trabalho que alguém fez, conta na produtividade, e some sem deixar rastro — ali a API explica em vez de apagar |
+| D37 | Nota fiscal atrás de driver (E18) | `NfseProvider` com um driver só hoje, o **simulador**, que não emite nada e devolve `environment: 'SIMULATOR'`; a chamada ao emissor roda FORA da transação, com a nota nascendo `QUEUED` | Integrar direto com um emissor, ou com a prefeitura | Emissor exige conta, contrato e certificado em nome do CNPJ da oficina — nada disso existe antes da primeira venda. Com o driver, o domínio inteiro (dados fiscais, prévia, ISS, emissão, cancelamento, auditoria) fica pronto e testado, e o dia da credencial é só configuração. O simulador NÃO gera XML nem PDF, e a tela carimba "simulação" em tudo: documento fiscal falso é exatamente o que não se inventa |
+| D38 | Segredo fiscal fora do nosso banco (E18) | Guardamos só `provider_company_id`; certificado A1 e senha vão direto para o emissor | Guardar o .pfx cifrado no nosso storage | Certificado é a assinatura da empresa: se não passa pelo nosso banco, não vaza dele. Emissor sério recebe o certificado pelo painel dele e assume a guarda |
+| D39 | O que entra na nota (E18) | Só **serviços**, e só o que o cliente paga: aprovado quando houve aprovação, OS inteira quando não houve (a mesma regra do `devidoCents`). O desconto da OS entra rateado pela fração de serviços | Emitir a OS inteira numa nota só | Peça é nota de mercadoria (NF-e/NFC-e), outro imposto e outro órgão. Misturar produziria nota errada, e nota errada custa multa. A tela mostra o valor das peças ao lado, dizendo que ficam de fora |
 | D29 | Gráficos do dashboard (E9) | **Componentes próprios** (colunas em HTML/CSS, uma série por vez) | Recharts | As cinco séries do MVP são um total por dia — barra e rótulo, nada que exija biblioteca. O Recharts custaria ~35 kB gzip (ele puxa vários módulos do d3) **no pedaço que carrega logo depois do login**, já que o dashboard é a tela de Início. O gráfico inteiro custou ~1 kB. Vale reavaliar quando chegarem os relatórios do MVP 2, com muitas séries |
 
 ---
@@ -588,6 +591,17 @@ interface MessagingProvider {
   readonly delivery: 'user-assisted' | 'api';
   send(input: { to: string; templateKey: string; variables: Record<string, string>;
                 body: string }): Promise<{ status: 'LINK_READY' | 'SENT' | 'FAILED'; url?: string }>;
+}
+
+// nota fiscal de serviço (V3, E18). Hoje existe um driver só: `simulador`, que
+// NÃO emite nada e devolve environment 'SIMULATOR' — a tela carimba "simulação"
+// em tudo que vem dele. Um emissor real (agregador de NFS-e) implementa a mesma
+// interface; a conta, o token e o certificado A1 ficam do lado dele (D37, D38).
+interface NfseProvider {
+  readonly driver: string;
+  readonly environment: 'SIMULATOR' | 'HOMOLOGATION' | 'PRODUCTION';
+  emitir(pedido: PedidoDeNfse): Promise<RespostaDoEmissor>;   // AUTHORIZED | QUEUED | REJECTED
+  cancelar(input: { providerRef: string | null; invoiceId: string; reason: string }): Promise<RespostaDeCancelamento>;
 }
 
 interface StorageProvider  { presignPut(...): Promise<PresignedUrl>; presignGet(...): Promise<string>; head(key: string): Promise<ObjectInfo> }

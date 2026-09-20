@@ -62,3 +62,6 @@ export * from './aftersales';
 export * from './schemas/aftersales';
 export * from './schemas/imports';
 export * from './schemas/tracking';
+export * from './enums/fiscal';
+export * from './fiscal';
+export * from './schemas/fiscal';

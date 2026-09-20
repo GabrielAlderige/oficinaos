@@ -359,6 +359,23 @@ DECIDIDO (ganhos ÷ (ganhos + perdidos)) — lead novo não conta como perda.
 | POST | `/work-orders/{{id}}/tracking-link` → `{{ publicUrl, message, whatsappUrl }}`. O token nasce na primeira vez e não muda: o cliente guarda o link | `quotes:send` | 2 |
 | GET | `/public/tracking/{{token}}` → em que passo o carro está, previsão, o que foi aprovado e quanto falta pagar. Sem login, sem custo de peça e sem observação interna | pública (limite por IP) | 2 |
 
+### Nota fiscal de serviço — `/invoices`, `/fiscal-settings` (V3, E18)
+
+| Método | Rota | Permissão | Fase |
+|---|---|---|---|
+| GET | `/fiscal-settings` → inscrição municipal, regime, item da lista (LC 116), alíquota de ISS, série do RPS, driver e ambiente do emissor | `invoices:read` | 3 |
+| PUT | `/fiscal-settings` — o **ambiente e o driver não vêm da tela**: saem da configuração do servidor, para ninguém "virar produção" num campo do painel | `organization:manage` | 3 |
+| GET | `/work-orders/{{id}}/invoices/preview` → os números antes de emitir (serviços, desconto rateado, base, ISS, total), o texto que o cliente lê, o valor das PEÇAS que ficam de fora, e `pending[]`: o que falta, com `onde` (oficina, cliente ou OS) para a tela linkar | `invoices:read` | 3 |
+| POST | `/work-orders/{{id}}/invoices` `{{ clientRequestId, issRetained?, deductionsCents?, retenções federais? }}` → 201 com a nota. Só de OS **finalizada ou entregue**; dado faltando volta 422 com a lista; OS que já tem nota viva volta 409; o mesmo `clientRequestId` devolve a mesma nota (D32) | `invoices:issue` | 3 |
+| GET | `/work-orders/{{id}}/invoices` → as notas daquela OS | `invoices:read` | 3 |
+| GET | `/invoices?status=&from=&to=&q=&page=` · `GET /invoices/{{id}}` | `invoices:read` | 3 |
+| POST | `/invoices/{{id}}/cancel` `{{ reason }}` (mínimo 5 letras) — só nota `AUTHORIZED`; cancelar de novo volta 409 | `invoices:cancel` | 3 |
+
+Hoje o emissor é o **simulador** (D37): nenhuma nota é enviada a prefeitura
+nenhuma, a resposta vem com `environment: 'SIMULATOR'` e sem XML nem PDF, e a
+tela carimba "simulação". A nota nasce `QUEUED` e a chamada ao emissor roda
+fora da transação, que é como um emissor real se comporta.
+
 ### Estoque — `/inventory`
 
 | Método | Rota | Permissão | Fase |
@@ -420,5 +437,5 @@ DECIDIDO (ganhos ÷ (ganhos + perdidos)) — lead novo não conta como perda.
 | Assinatura | `GET /billing/subscription`, `POST /billing/checkout`, `POST /billing/change-plan`, `POST /billing/cancel` |
 | Pagamentos | `POST /work-orders/{id}/charges` (Pix, cartão, boleto via gateway), `POST /webhooks/payments/{provider}` |
 | WhatsApp oficial | `POST /webhooks/whatsapp`, `POST /messages/send` |
-| Fiscal | `POST /work-orders/{id}/invoices`, `GET /fiscal-documents` |
+| Fiscal | ✅ NFS-e na E18 (acima). Falta a nota de PEÇA: `POST /work-orders/{id}/invoices?kind=NFE` e os dados fiscais do catálogo (NCM, CFOP, CST) |
 | Integrações | `GET/POST/DELETE /integrations[/{provider}]` |

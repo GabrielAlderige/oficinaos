@@ -119,9 +119,25 @@ mesmo IP.
 
 ## V3: integrações e escala
 
+Começou em **20/09/2026**, antes de publicar, pela ordem que ele escolheu:
+nota fiscal e pagamentos primeiro.
+
+### Etapas
+
+| Etapa | Entrega | Pronto quando |
+|---|---|---|
+| **E18. Nota fiscal de serviço** ✅ 20/09 | Dados fiscais da oficina; prévia com os números e o que falta; emissão a partir da OS finalizada; cancelamento com motivo; lista das notas com o ISS | O que falta preencher aparece com o caminho para resolver, não com código de rejeição; a nota cobre só SERVIÇO e diz isso na tela; o ISS sai de dentro do preço; o mesmo POST não emite duas notas; cancelar tem permissão própria. **Cumprido**: 26 testes novos (15 de regra pura + 11 de API), 1 cenário e2e com auditoria de acessibilidade, e três mutações provadas. **O emissor é o simulador** (D37): nada é enviado a prefeitura nenhuma, não se gera XML nem PDF, e toda tela carimba "simulação" |
+| **E19. Pagamentos online** | Pix (QR e copia e cola), cartão e boleto pelo Asaas; link de pagamento dentro do orçamento aprovado; webhook conciliando e baixando a conta a receber; estorno | (a definir na etapa) |
+| **E20. Assinatura do SaaS** | Cobrança recorrente sobre `plans`/`subscriptions`, trial → pago, upgrade/downgrade, inadimplência e bloqueio | (a definir na etapa) |
+| **E21. Jobs e automações** | pg-boss; lembrete por tempo e km, confirmação de agendamento, orçamento sem resposta, aniversário de revisão; e-mail real | (a definir na etapa) |
+| **E22. WhatsApp oficial** | Business Platform por provedor: template aprovado, envio automático, entrega e leitura, resposta voltando | (a definir na etapa) |
+| **E23 em diante** | Consulta veicular e catálogo licenciado; backoffice de plataforma; tempo real e PWA; multi-filial; API pública; IA assistida; marketplace | (a definir na etapa) |
+
+### Blocos
+
 | Bloco | Entrega |
 |---|---|
-| **Nota fiscal** | NFS-e (serviço) e NF-e/NFC-e (peças) por emissor terceirizado. **Recomendo antecipar para logo depois do MVP 2**: é bloqueio de venda para boa parte das oficinas |
+| **Nota fiscal** — parcial na E18 | ✅ **NFS-e (serviço)** com emissor atrás de driver. **Falta a nota de PEÇA** (NF-e/NFC-e): exige NCM, CFOP, CST/CSOSN e origem em todo o catálogo, e nem toda oficina precisa — vira etapa quando houver oficina que precise. Emitir de verdade depende de contratar emissor e cadastrar o certificado A1 lá |
 | **Pagamentos** | Pix (QR Code e copia e cola), cartão e boleto por gateway; **link de pagamento dentro do orçamento aprovado**; conciliação por webhook |
 | **Assinatura do SaaS** | Cobrança recorrente, trial, upgrade, downgrade, cancelamento e bloqueio por inadimplência, usando a estrutura de planos que já existe |
 | **WhatsApp oficial** | WhatsApp Business Platform (direto ou por provedor autorizado): envio automático, confirmação de entrega e leitura, respostas voltando para o sistema |

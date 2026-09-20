@@ -963,6 +963,30 @@ leads                         ✅ E16: id, name, phone, stage (NEW|CONTACTED|QUO
                               work_order_id, closed_at. CHECK: perdido sempre tem motivo
 ```
 
+### Nota fiscal de serviço (V3, E18, migrations 0041/0042)
+
+```
+organization_fiscal_settings  1:1 com a oficina: inscrição municipal e estadual, regime (MEI|SIMPLES_NACIONAL|
+                              LUCRO_PRESUMIDO|LUCRO_REAL), cnae, item da lista LC 116, código municipal do
+                              serviço, iss_rate_bps (0..10000), iss_retained_default, rps_series, environment
+                              (SIMULATOR|HOMOLOGATION|PRODUCTION), provider, provider_company_id,
+                              additional_information. **Sem certificado e sem senha**: quem assina é o
+                              emissor, e o que guardamos é só o id da empresa lá (D38)
+invoices                      id, kind (NFSE), status (DRAFT|QUEUED|AUTHORIZED|REJECTED|CANCELED), environment,
+                              provider, work_order_id, customer_id, vehicle_id, rps_number + rps_series
+                              (UNIQUE por oficina; a numeração do RPS é NOSSA), invoice_number e
+                              verification_code (da prefeitura), provider_ref, public/pdf/xml_url,
+                              client_request_id (UNIQUE por oficina: o mesmo POST não emite duas — D32),
+                              service/deductions/discount/base/iss/irrf/pis/cofins/csll/inss/total/net em
+                              centavos, iss_rate_bps, iss_retained, description (a discriminação que o cliente
+                              lê), provider_response jsonb (a resposta inteira do emissor: é ela que explica
+                              uma rejeição), issued_at, canceled_at/by/reason, rejection_reason.
+                              CHECK: cancelada sempre tem data E motivo; autorizada sempre tem issued_at
+invoice_items                 cópia congelada dos SERVIÇOS que entraram na nota (descrição, quantidade, preço,
+                              total, posição). `work_order_item_id` é ponteiro, não verdade:
+                              `on delete set null (work_order_item_id)`, como em quote_items (D36)
+```
+
 `part_offers.is_mock` é coluna **e** aparece na interface. Oferta de provider de
 desenvolvimento nunca pode ser confundida com preço real.
 
