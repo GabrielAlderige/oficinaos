@@ -18,7 +18,8 @@ type ContextKey =
   | 'app.review_token_hash'
   | 'app.tracking_token'
   | 'app.charge_provider_ref'
-  | 'app.subscription_provider_ref';
+  | 'app.subscription_provider_ref'
+  | 'app.job_runner';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -126,6 +127,17 @@ export function withSubscriptionRef<T>(
   fn: (tx: Tx) => Promise<T>,
 ): Promise<T> {
   return withDbContext(db, { 'app.subscription_provider_ref': providerSubscriptionId }, fn);
+}
+
+/**
+ * Capacidade do trabalhador de fundo (E21). O job roda sem pessoa e sem
+ * oficina: ele precisa descobrir QUAIS oficinas existem para depois tratar
+ * cada uma com contexto normal. A capacidade dá exatamente isso — ler o id
+ * das oficinas — e nada mais; o trabalho de verdade continua passando pelo
+ * RLS de sempre, oficina por oficina.
+ */
+export function withJobRunner<T>(db: Database, fn: (tx: Tx) => Promise<T>): Promise<T> {
+  return withDbContext(db, { 'app.job_runner': 'on' }, fn);
 }
 
 /** Tabelas globais (users, sessions, plans, password_reset_tokens): sem contexto de tenant. */

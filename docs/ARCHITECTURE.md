@@ -108,6 +108,9 @@ uma refatoração, não uma reescrita.
 | D43 | "Assinatura bloqueada" é calculado (E20) | `situacaoDaAssinatura` decide na leitura: teste vencido, carência de 7 dias depois do atraso, ou cancelamento passado do período pago | Gravar um status `BLOCKED` com job noturno | Gravar exigiria um job varrendo a tabela toda madrugada só para a tela ficar certa — e ela ficaria errada entre a meia-noite e o job. Mesma escolha da conta vencida (D31) |
 | D44 | Bloqueio é só de ESCRITA (E20) | Assinatura vencida barra POST/PATCH/PUT/DELETE com 402 `SUBSCRIPTION_BLOCKED`; leitura continua, e as rotas de pagar e de sair declaram `allowBlocked` | Derrubar o login, ou esconder os dados | A oficina inadimplente continua sendo dona dos dados dela: trancar cliente, OS e histórico por causa de um boleto é sequestro de dado, não cobrança. E bloquear a porta de pagar seria bloquear a própria cobrança |
 | D45 | Uma porta só para o aviso do gateway (E20) | `/webhooks/payments/{provider}` lê o aviso uma vez e despacha: com referência de assinatura vai para o SaaS, sem ela vai para a cobrança do cliente | Um webhook para cada coisa | O gateway manda o mesmo tipo de evento para as duas; duas rotas significariam dois lugares para validar token, deduplicar e errar |
+| D46 | Fila de jobs no próprio Postgres (E21) | **pg-boss** no esquema `pgboss`, instalado pela DONA junto das migrations (`migrate: false` no runtime) | Redis + BullMQ, ou cron do sistema | Serviço novo é servidor novo para manter, e a oficina não paga por isso. E instalar a fila pela dona mantém a role que atende requisição sem poder de DDL: o isolamento continua sendo permissão, não disciplina |
+| D47 | O trabalhador acorda de hora em hora (E21) | Uma volta por hora; quem decide se roda é `deveRodarAgora`, com a hora LOCAL da oficina e a última execução | Um cron por oficina, ou uma volta diária às 3 da manhã | Uma volta diária num horário fixo entrega o resumo às 5 da manhã para quem está em Manaus. Com a volta de hora em hora, cada oficina recebe às 8 DELA — e a trava de "uma vez por dia" mora no registro de execução, não na memória do processo |
+| D48 | Automação não fala com o cliente (E21) | Ela deixa pronto: fila do dia, aviso no sino, resumo por e-mail para a OFICINA. Mensagem para o cliente continua saindo por `wa.me`, com uma pessoa apertando enviar | Disparo automático de WhatsApp | É a regra do briefing (nada de API não oficial), e é também o que evita o pior erro possível: mandar mensagem errada, em escala, em nome da oficina. Com a API oficial (E22) isso muda — com o consentimento explícito de cada oficina |
 | D29 | Gráficos do dashboard (E9) | **Componentes próprios** (colunas em HTML/CSS, uma série por vez) | Recharts | As cinco séries do MVP são um total por dia — barra e rótulo, nada que exija biblioteca. O Recharts custaria ~35 kB gzip (ele puxa vários módulos do d3) **no pedaço que carrega logo depois do login**, já que o dashboard é a tela de Início. O gráfico inteiro custou ~1 kB. Vale reavaliar quando chegarem os relatórios do MVP 2, com muitas séries |
 
 ---
@@ -623,7 +626,7 @@ interface PaymentGateway {
 }
 
 interface StorageProvider  { presignPut(...): Promise<PresignedUrl>; presignGet(...): Promise<string>; head(key: string): Promise<ObjectInfo> }
-interface EmailProvider    { send(msg: EmailMessage): Promise<void> }
+interface EmailProvider    { send(msg: EmailMessage): Promise<void> }   // console | memory | smtp (E21)
 interface VehicleDataProvider { lookupByPlate(plate: string): Promise<VehicleInfo | null> }   // V3, só fonte licenciada
 // CEP (E17): não tem interface no back — a consulta é do navegador (apps/web/src/lib/cep.ts),
 // com BrasilAPI e ViaCEP de reserva. Dado público, sem chave, e o formulário não trava se cair

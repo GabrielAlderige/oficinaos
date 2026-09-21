@@ -1,3 +1,4 @@
+import { createTransport, type Transporter } from 'nodemailer';
 import type { Env } from '../../config/env';
 
 export interface EmailMessage {
@@ -37,6 +38,40 @@ export class MemoryEmailProvider implements EmailProvider {
   }
 }
 
+/**
+ * E-mail de verdade, por SMTP (E21). Serve qualquer provedor que fale SMTP —
+ * SES, Resend, Postmark, ou o Mailpit local — porque a diferença entre eles é
+ * a URL de conexão, não o código.
+ *
+ * O transporte é criado uma vez e reaproveitado: abrir conexão por e-mail
+ * derruba o limite de qualquer provedor no primeiro dia de uso.
+ */
+export class SmtpEmailProvider implements EmailProvider {
+  readonly driver = 'smtp';
+  private transporte: Transporter | null = null;
+
+  constructor(
+    private readonly url: string,
+    private readonly from: string,
+    private readonly criar: (url: string) => Transporter = (endereco) => createTransport(endereco),
+  ) {}
+
+  async send(message: EmailMessage): Promise<void> {
+    this.transporte ??= this.criar(this.url);
+    await this.transporte.sendMail({
+      from: this.from,
+      to: message.to,
+      subject: message.subject,
+      text: message.text,
+    });
+  }
+}
+
 export function createEmailProvider(env: Env): EmailProvider {
-  return env.EMAIL_DRIVER === 'memory' ? new MemoryEmailProvider() : new ConsoleEmailProvider();
+  if (env.EMAIL_DRIVER === 'memory') return new MemoryEmailProvider();
+  if (env.EMAIL_DRIVER === 'smtp') {
+    if (!env.SMTP_URL) throw new Error('EMAIL_DRIVER=smtp exige SMTP_URL no ambiente');
+    return new SmtpEmailProvider(env.SMTP_URL, env.EMAIL_FROM);
+  }
+  return new ConsoleEmailProvider();
 }

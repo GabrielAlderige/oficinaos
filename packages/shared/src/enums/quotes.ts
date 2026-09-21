@@ -82,6 +82,10 @@ export const NOTIFICATION_TYPES = [
   'SUPPLIER_QUOTE_ANSWERED',
   /** chegou peça comprada para uma OS (E12) */
   'PURCHASE_RECEIVED',
+  /** automações (E21): a oficina descobre o que precisa de decisão hoje */
+  'APPOINTMENT_TOMORROW',
+  'QUOTE_NO_ANSWER',
+  'FOLLOW_UP_DUE',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
@@ -92,6 +96,9 @@ export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
   QUOTE_QUESTION: 'Pergunta do cliente',
   SUPPLIER_QUOTE_ANSWERED: 'Fornecedor respondeu a cotação',
   PURCHASE_RECEIVED: 'Peça chegou',
+  APPOINTMENT_TOMORROW: 'Agendamento de amanhã',
+  QUOTE_NO_ANSWER: 'Orçamento sem resposta',
+  FOLLOW_UP_DUE: 'Contatos de hoje',
 };
 
 export const MESSAGE_CHANNELS = ['WHATSAPP_LINK', 'EMAIL', 'PUBLIC_PAGE'] as const;

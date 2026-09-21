@@ -26,7 +26,7 @@ const envSchema = z.object({
   /** Assina o access token (HS256). Nunca vai para o front. */
   JWT_SECRET: z.string().min(32, 'precisa ter pelo menos 32 caracteres'),
   /** console = imprime o e-mail no terminal (dev); memory = guarda em memória (testes). */
-  EMAIL_DRIVER: z.enum(['console', 'memory']).default('console'),
+  EMAIL_DRIVER: z.enum(['console', 'memory', 'smtp']).default('console'),
   /**
    * Onde ficam as fotos do check-in e os anexos da OS (ARCHITECTURE §11).
    * disk   = pasta local, servida pela própria API com URL assinada (dev)
@@ -53,6 +53,18 @@ const envSchema = z.object({
   ASAAS_BASE_URL: z.url().default('https://api-sandbox.asaas.com/v3'),
   /** Token que o Asaas repete em todo aviso; sem ele, o aviso é recusado. */
   ASAAS_WEBHOOK_TOKEN: z.string().optional(),
+  /**
+   * Trabalhador de fundo (E21): as automações diárias. Desligado nos testes,
+   * que rodam cada automação na mão para ver o efeito na hora.
+   */
+  JOBS_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((valor) => valor === 'true'),
+  /** SMTP de verdade (E21). Sem URL, o driver de e-mail continua sendo o console. */
+  SMTP_URL: z.string().optional(),
+  /** Remetente dos e-mails: precisa ser um endereço do domínio verificado. */
+  EMAIL_FROM: z.string().default('OficinaOS <nao-responda@oficinaos.local>'),
   /** Teto por arquivo. O painel comprime a foto no aparelho antes de enviar (~300 KB). */
   /**
    * Liga o provider FALSO de pesquisa de peças (E14). Desligado por padrão, de

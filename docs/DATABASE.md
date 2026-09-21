@@ -963,6 +963,27 @@ leads                         ✅ E16: id, name, phone, stage (NEW|CONTACTED|QUO
                               work_order_id, closed_at. CHECK: perdido sempre tem motivo
 ```
 
+### Automações (V3, E21, migrations 0048/0049)
+
+```
+automation_settings           1:1 com a oficina: follow_up_queue, appointment_reminder, quote_no_answer e
+                              daily_digest (ligado/desligado), run_hour (0..23, no relógio DA OFICINA),
+                              quote_no_answer_days (1..30) e digest_email. Linha ausente = padrões do
+                              `AUTOMATION_DEFAULTS`, não "tudo desligado"
+automation_runs               uma linha por execução: key, ran_at, ran_on (o DIA da oficina — é ele que
+                              garante "uma vez por dia"), created, duration_ms e error. Automação sem
+                              registro é promessa, e promessa não se audita
+```
+
+O esquema **`pgboss`** guarda a fila de jobs. Ele é criado e migrado pela DONA
+(`scripts/migrate.ts`, com o SQL da própria biblioteca), e a role da aplicação
+recebe só `SELECT/INSERT/UPDATE/DELETE` ali dentro: quem atende requisição não
+tem poder de criar tabela (D46).
+
+A capacidade `app.job_runner` (policy `organizations_for_jobs`) deixa o
+trabalhador de fundo ler **a lista de oficinas** — e nada mais. O trabalho de
+cada oficina continua passando pelo RLS de sempre.
+
 ### Assinatura do SaaS (V3, E20, migrations 0045/0046/0047)
 
 ```

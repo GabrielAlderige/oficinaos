@@ -82,6 +82,13 @@ async function configureDatabase(name: string) {
     await c.query(
       `ALTER DEFAULT PRIVILEGES FOR ROLE ${ownerRole} IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO ${appRole}`,
     );
+    /**
+     * Esquema da fila de jobs (E21). O pg-boss cria e migra as próprias
+     * tabelas, então ele precisa de CREATE — mas SÓ aqui dentro: o `public`,
+     * onde moram os dados da oficina, continua fechado para a aplicação.
+     */
+    await c.query(`CREATE SCHEMA IF NOT EXISTS pgboss AUTHORIZATION ${ownerRole}`);
+    await c.query(`GRANT USAGE, CREATE ON SCHEMA pgboss TO ${appRole}`);
     console.log(`  banco ${name}: extensões e privilégios ok`);
   });
 }

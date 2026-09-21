@@ -413,6 +413,24 @@ renova o período; vencido, põe em `PAST_DUE` e começa a carência.
 `emTeste`, `emCarencia`, `bloqueada` e `diasRestantes` para o painel avisar
 qualquer pessoa da equipe, não só quem administra o plano.
 
+### Automações — `/automations` (V3, E21)
+
+| Método | Rota | Permissão | Fase |
+|---|---|---|---|
+| GET | `/automations` → o que está ligado, a hora escolhida, o prazo do orçamento parado, o e-mail do resumo, se o trabalhador de fundo está no ar, e a última execução de cada automação (com o que foi criado e o erro, se houve) | `organization:manage` | 3 |
+| PUT | `/automations` `{{ followUpQueue?, appointmentReminder?, quoteNoAnswer?, dailyDigest?, runHour? (0..23), quoteNoAnswerDays? (1..30), digestEmail? }}` | `organization:manage` | 3 |
+| POST | `/automations/run` `{{ key }}` — roda **aquela** automação agora, ignorando hora e "uma vez por dia". Existe para a oficina ver o efeito sem esperar o amanhecer | `organization:manage` | 3 |
+
+As quatro automações: **fila de pós-venda** (a mesma `sincronizarFilaDePosVenda`
+que a tela chama, D34), **lembrete de agendamento** (amanhã, sem confirmação),
+**orçamento sem resposta** e **resumo do dia por e-mail** (desligado por
+padrão). Nenhuma manda mensagem ao cliente (D48): elas criam fila, aviso no
+sino e e-mail para a própria oficina.
+
+O trabalhador de fundo é o **pg-boss** no esquema `pgboss` (D46), instalado
+pela dona junto das migrations. Ele acorda de hora em hora e pergunta a cada
+oficina se já é a hora dela (D47).
+
 ### Estoque — `/inventory`
 
 | Método | Rota | Permissão | Fase |

@@ -212,6 +212,11 @@ export const router = createBrowserRouter([
                 handle: { crumb: 'Plano' },
               },
               {
+                path: 'automacoes',
+                lazy: page(() => import('../features/settings/AutomationsPage'), 'AutomationsPage'),
+                handle: { crumb: 'Automações' },
+              },
+              {
                 path: 'importar',
                 lazy: page(() => import('../features/settings/ImportPage'), 'ImportPage'),
                 handle: { crumb: 'Importar' },

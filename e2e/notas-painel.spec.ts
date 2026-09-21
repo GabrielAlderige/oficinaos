@@ -96,7 +96,8 @@ test('a oficina completa os dados fiscais, emite a nota do serviço e cancela a 
     await captura(page, 'nota-03-conferencia');
 
     await dialogo.getByRole('button', { name: 'Emitir nota' }).click();
-    await expect(page.getByText(/Nota .* emitida/)).toBeVisible();
+    // o número no meio distingue o aviso do evento "Nota fiscal emitida" da timeline
+    await expect(page.getByText(/Nota \d+ emitida/)).toBeVisible();
 
     // o cartão da OS rebusca depois do toast: ler a tela antes disso pega o
     // estado velho (leitura única não tem retry, `expect(locator)` tem)

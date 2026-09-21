@@ -35,6 +35,9 @@ export function testEnv(overrides: Partial<NodeJS.ProcessEnv> = {}): Env {
     JWT_SECRET: 'segredo-de-teste-com-bem-mais-de-32-caracteres',
     EMAIL_DRIVER: 'memory',
     STORAGE_DRIVER: 'memory',
+    // o trabalhador de fundo (E21) não sobe em teste: cada automação é
+    // chamada na mão, para o efeito ser conferido na hora
+    JOBS_ENABLED: 'false',
     APP_URL: 'http://localhost:5173',
     ...overrides,
   });

@@ -15,6 +15,8 @@ import type { Database } from './db/client';
 import { createEmailProvider, type EmailProvider } from './integrations/email/email';
 import { createNfseProvider, type NfseProvider } from './integrations/fiscal/nfse';
 import { createPaymentGateway, type PaymentGateway } from './integrations/payments';
+import { AutomationsService } from './modules/automations/automations.service';
+import { automationRoutes } from './modules/automations/automations.routes';
 import { BillingService } from './modules/billing/billing.service';
 import { billingRoutes } from './modules/billing/billing.routes';
 import { ChargesService } from './modules/charges/charges.service';
@@ -118,6 +120,7 @@ export interface Services {
   invoices: InvoicesService;
   charges: ChargesService;
   billing: BillingService;
+  automations: AutomationsService;
 }
 
 declare module 'fastify' {
@@ -220,6 +223,7 @@ export async function buildApp({
     invoices: new InvoicesService(deps),
     charges: new ChargesService(deps),
     billing: new BillingService(deps),
+    automations: new AutomationsService(deps),
   };
 
   app.decorate('db', db);
@@ -284,6 +288,7 @@ export async function buildApp({
   await app.register(fiscalSettingsRoutes, { prefix: '/api/v1/fiscal-settings' });
   await app.register(chargeRoutes, { prefix: '/api/v1/charges' });
   await app.register(billingRoutes, { prefix: '/api/v1/billing' });
+  await app.register(automationRoutes, { prefix: '/api/v1/automations' });
   await app.register(workOrderChargeRoutes, { prefix: '/api/v1/work-orders' });
   // sem login: quem prova a origem é o token que o gateway repete no aviso
   await app.register(paymentWebhookRoutes, { prefix: '/api/v1/webhooks' });
