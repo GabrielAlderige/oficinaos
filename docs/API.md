@@ -393,6 +393,26 @@ própria situação (D42). Hoje o gateway padrão é o **simulador**, que não c
 ninguém; o driver do **Asaas** existe e tem testes de contrato, mas ainda não
 foi exercitado contra a API real.
 
+### Assinatura do SaaS — `/billing` (V3, E20)
+
+| Método | Rota | Permissão | Fase |
+|---|---|---|---|
+| GET | `/billing` → plano, situação calculada (em teste, em carência, bloqueada, dias restantes), uso contra os limites, planos disponíveis e histórico de pagamento | `billing:manage` | 3 |
+| POST | `/billing/subscribe` `{{ clientRequestId, plan, cycle }}` — cria a assinatura no gateway. Quem está em teste só começa a pagar quando o teste acabar. Assinar de novo volta 409 | `billing:manage` | 3 |
+| POST | `/billing/change-plan` `{{ plan, cycle }}` — limite novo vale na hora, preço na próxima cobrança. Ciclo sem preço cadastrado volta 422 | `billing:manage` | 3 |
+| POST | `/billing/cancel` `{{ reason? }}` — a oficina trabalha até o fim do período já pago | `billing:manage` | 3 |
+| POST | `/billing/resume` — desistiu de cancelar | `billing:manage` | 3 |
+
+Todas declaram `allowBlocked`: são exatamente as telas de que a oficina
+bloqueada precisa (D44). O pagamento da assinatura chega pelo **mesmo**
+webhook da cobrança do cliente (D45) — com referência de assinatura, ele
+renova o período; vencido, põe em `PAST_DUE` e começa a carência.
+
+**Bloqueio.** Com a assinatura vencida, POST/PATCH/PUT/DELETE respondem
+**402 `SUBSCRIPTION_BLOCKED`**; GET continua funcionando. O `/auth/me` devolve
+`emTeste`, `emCarencia`, `bloqueada` e `diasRestantes` para o painel avisar
+qualquer pessoa da equipe, não só quem administra o plano.
+
 ### Estoque — `/inventory`
 
 | Método | Rota | Permissão | Fase |
@@ -451,7 +471,7 @@ foi exercitado contra a API real.
 
 | Grupo | Rotas principais |
 |---|---|
-| Assinatura | `GET /billing/subscription`, `POST /billing/checkout`, `POST /billing/change-plan`, `POST /billing/cancel` |
+| Assinatura | ✅ E20 (acima): plano, uso, troca, cancelamento e bloqueio por inadimplência |
 | Pagamentos | ✅ E19 (acima): Pix, boleto e cartão pelo gateway, com conciliação por webhook |
 | WhatsApp oficial | `POST /webhooks/whatsapp`, `POST /messages/send` |
 | Fiscal | ✅ NFS-e na E18 (acima). Falta a nota de PEÇA: `POST /work-orders/{id}/invoices?kind=NFE` e os dados fiscais do catálogo (NCM, CFOP, CST) |

@@ -17,7 +17,8 @@ type ContextKey =
   | 'app.supplier_token_hash'
   | 'app.review_token_hash'
   | 'app.tracking_token'
-  | 'app.charge_provider_ref';
+  | 'app.charge_provider_ref'
+  | 'app.subscription_provider_ref';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -113,6 +114,18 @@ export function withTrackingToken<T>(db: Database, token: string, fn: (tx: Tx) =
  */
 export function withChargeRef<T>(db: Database, providerChargeId: string, fn: (tx: Tx) => Promise<T>): Promise<T> {
   return withDbContext(db, { 'app.charge_provider_ref': providerChargeId }, fn);
+}
+
+/**
+ * Capacidade do aviso da assinatura (E20): o id da assinatura no gateway lê
+ * exatamente aquela linha, para a API descobrir a oficina que pagou.
+ */
+export function withSubscriptionRef<T>(
+  db: Database,
+  providerSubscriptionId: string,
+  fn: (tx: Tx) => Promise<T>,
+): Promise<T> {
+  return withDbContext(db, { 'app.subscription_provider_ref': providerSubscriptionId }, fn);
 }
 
 /** Tabelas globais (users, sessions, plans, password_reset_tokens): sem contexto de tenant. */

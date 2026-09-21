@@ -81,7 +81,15 @@ export const paymentWebhookRoutes: FastifyPluginAsyncZod = async (app) => {
     async (request, reply) => {
       const bruto = typeof request.body === 'string' ? request.body : JSON.stringify(request.body ?? {});
       try {
-        const resultado = await service.handleWebhook(request.headers, bruto);
+        const aviso = service.parseWebhook(request.headers, bruto);
+        // o mesmo aviso serve para dois donos: a cobrança do cliente (E19) e a
+        // assinatura da própria oficina (E20). Quem tem referência de
+        // assinatura vai para o segundo caminho
+        const resultado = !aviso
+          ? { handled: false, reason: 'evento ignorado' }
+          : aviso.providerSubscriptionId
+            ? await app.services.billing.handleSubscriptionEvent(aviso)
+            : await service.handleChargeEvent(aviso);
         request.log.info({ provider: request.params.provider, ...resultado }, 'aviso de pagamento');
         return resultado;
       } catch (erro) {

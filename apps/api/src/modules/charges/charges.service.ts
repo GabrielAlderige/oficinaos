@@ -18,7 +18,7 @@ import type { AuthContext, ClientInfo, ServiceDeps } from '../../core/auth-conte
 import { AppError, notFound } from '../../core/errors';
 import { withChargeRef, withTenant } from '../../db/tenant';
 import type { Tx } from '../../db/tenant';
-import type { PedidoDeCobranca } from '../../integrations/payments';
+import type { AvisoDeCobranca, PedidoDeCobranca } from '../../integrations/payments';
 import * as customerRepo from '../customers/customers.repository';
 import * as orgRepo from '../organizations/organizations.repository';
 import { registrarPagamentoDaCobranca, recalcularPagamentoDaOs } from '../payments/payments.sync';
@@ -356,13 +356,16 @@ export class ChargesService {
    * dinheiro. Responde sempre 200 quando o aviso é legítimo mas não interessa
    * — gateway que recebe erro reenvia para sempre.
    */
-  async handleWebhook(
-    headers: Record<string, string | string[] | undefined>,
-    rawBody: string,
-  ): Promise<{ handled: boolean; reason: string }> {
-    const aviso = this.deps.gateway.lerAviso(headers, rawBody);
-    if (!aviso) return { handled: false, reason: 'evento ignorado' };
+  /**
+   * Lê o aviso e prova a origem. Separado do tratamento porque o mesmo aviso
+   * pode ser de uma cobrança do CLIENTE (aqui) ou da assinatura da OFICINA
+   * (E20): quem decide o caminho é a rota, com o resultado desta leitura.
+   */
+  parseWebhook(headers: Record<string, string | string[] | undefined>, rawBody: string) {
+    return this.deps.gateway.lerAviso(headers, rawBody);
+  }
 
+  async handleChargeEvent(aviso: AvisoDeCobranca): Promise<{ handled: boolean; reason: string }> {
     // 1) de quem é este dinheiro? A capacidade lê UMA linha, sem oficina no contexto
     const cobranca = await withChargeRef(this.deps.db, aviso.providerChargeId, async (tx) =>
       repo.findByProviderRef(tx, aviso.providerChargeId),

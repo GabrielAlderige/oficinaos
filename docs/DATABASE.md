@@ -963,6 +963,21 @@ leads                         ✅ E16: id, name, phone, stage (NEW|CONTACTED|QUO
                               work_order_id, closed_at. CHECK: perdido sempre tem motivo
 ```
 
+### Assinatura do SaaS (V3, E20, migrations 0045/0046/0047)
+
+```
+subscriptions (+)             billing_cycle (MONTHLY|YEARLY), price_cents (o preço CONGELADO na assinatura:
+                              mexer na tabela de planos não remarca quem já assinou), past_due_since (a
+                              carência conta daqui), canceled_at, cancel_reason, checkout_url.
+                              "Bloqueada" NÃO é coluna: sai de `situacaoDaAssinatura` na leitura (D43).
+                              Policy extra `subscription_by_provider_ref`: com
+                              `app.subscription_provider_ref` no contexto, lê só aquela linha — é assim que o
+                              webhook, que chega sem oficina, acha quem pagou
+subscription_payments         o histórico da assinatura da oficina: provider + provider_payment_id (UNIQUE,
+                              e é essa a trava contra o aviso reenviado), amount_cents, status, due_date,
+                              paid_at, period_start/end, invoice_url
+```
+
 ### Cobrança online (V3, E19, migrations 0043/0044)
 
 ```

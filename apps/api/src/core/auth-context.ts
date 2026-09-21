@@ -1,5 +1,5 @@
 import type { FastifyBaseLogger, FastifyRequest } from 'fastify';
-import { ErrorCode, type Permission, type Role } from '@oficinaos/shared';
+import { ErrorCode, type Permission, type Role, type SubscriptionStatus } from '@oficinaos/shared';
 import type { Env } from '../config/env';
 import type { Database } from '../db/client';
 import type { EmailProvider } from '../integrations/email/email';
@@ -35,6 +35,12 @@ declare module 'fastify' {
   }
   interface FastifyContextConfig {
     auth?: RouteAuth;
+    /**
+     * A rota continua funcionando com a assinatura vencida (E20). Vale para
+     * sair da conta e para pagar: bloquear quem quer acertar a conta seria
+     * bloquear a própria cobrança.
+     */
+    allowBlocked?: boolean;
   }
 }
 
@@ -50,15 +56,24 @@ export interface MembershipState {
   organizationActive: boolean;
 }
 
+/** O que o guard precisa saber da assinatura para decidir se ainda grava (E20). */
+export interface SubscriptionState {
+  status: SubscriptionStatus;
+  trialEndsAt: Date | null;
+  currentPeriodEnd: Date | null;
+  pastDueSince: Date | null;
+}
+
 export interface AuthCaches {
   sessions: TtlCache<SessionState>;
   memberships: TtlCache<MembershipState>;
+  subscriptions: TtlCache<SubscriptionState>;
 }
 
 export const membershipKey = (organizationId: string, userId: string) => `${organizationId}:${userId}`;
 
 export function createAuthCaches(ttlMs: number): AuthCaches {
-  return { sessions: new TtlCache(ttlMs), memberships: new TtlCache(ttlMs) };
+  return { sessions: new TtlCache(ttlMs), memberships: new TtlCache(ttlMs), subscriptions: new TtlCache(ttlMs) };
 }
 
 /** Dependências comuns dos services. */

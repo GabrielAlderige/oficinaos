@@ -216,6 +216,8 @@ const NA_ORDEM = [
   'odometer_readings', 'vehicles', 'customers',
   'messages', 'notifications', 'activity_logs',
   'organization_fiscal_settings',
+  // assinatura do SaaS (E20): o histórico de pagamento sai antes da assinatura
+  'subscription_payments',
   'organization_counters', 'usage_counters', 'subscriptions', 'invitations', 'memberships',
 ];
 

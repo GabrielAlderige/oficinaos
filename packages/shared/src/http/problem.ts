@@ -54,6 +54,8 @@ export const ErrorCode = {
   /** o lançamento já estava cancelado */
   PAYMENT_ALREADY_CANCELED: 'PAYMENT_ALREADY_CANCELED',
   // fornecedores
+  /** assinatura vencida: a oficina lê tudo, mas não grava até acertar */
+  SUBSCRIPTION_BLOCKED: 'SUBSCRIPTION_BLOCKED',
   /** já existe fornecedor com este CNPJ na oficina */
   SUPPLIER_DOCUMENT_TAKEN: 'SUPPLIER_DOCUMENT_TAKEN',
   // cotação com fornecedores

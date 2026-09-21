@@ -207,6 +207,11 @@ export const router = createBrowserRouter([
               },
               { path: 'equipe', lazy: page(() => import('../features/settings/TeamPage'), 'TeamPage'), handle: { crumb: 'Equipe' } },
               {
+                path: 'plano',
+                lazy: page(() => import('../features/settings/PlanSettingsPage'), 'PlanSettingsPage'),
+                handle: { crumb: 'Plano' },
+              },
+              {
                 path: 'importar',
                 lazy: page(() => import('../features/settings/ImportPage'), 'ImportPage'),
                 handle: { crumb: 'Importar' },

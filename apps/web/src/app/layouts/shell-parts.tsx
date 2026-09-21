@@ -164,18 +164,57 @@ export function UserMenu() {
   );
 }
 
-/** Aviso do período de teste. Só informa: cobrança ainda não existe (V3). */
+/**
+ * Aviso da assinatura (E20). Três estados que a oficina precisa ver sem
+ * procurar: o teste correndo, o pagamento em aberto (com os dias que ainda
+ * restam) e o bloqueio — que é só de escrita, e a frase diz isso.
+ */
 export function TrialNotice() {
   const { subscription } = useMe();
-  if (!subscription || subscription.status !== 'TRIALING' || !subscription.trialEndsAt) return null;
-  const days = Math.max(0, Math.ceil((Date.parse(subscription.trialEndsAt) - Date.now()) / 86_400_000));
+  if (!subscription) return null;
+
+  if (subscription.bloqueada) {
+    return (
+      <div className="rounded-lg border border-danger/40 bg-danger-soft p-3 text-xs">
+        <p className="font-medium">
+          {subscription.status === 'TRIALING' ? 'O período de teste terminou' : 'Assinatura em aberto'}
+        </p>
+        <p className="mt-0.5">Tudo continua salvo e visível, mas não dá para gravar até acertar a assinatura.</p>
+        <Link className="mt-1 inline-block underline underline-offset-2" to="/configuracoes/plano">
+          Ver o plano
+        </Link>
+      </div>
+    );
+  }
+
+  if (subscription.emCarencia) {
+    return (
+      <div className="rounded-lg border border-warning/40 bg-warning-soft p-3 text-xs">
+        <p className="font-medium">Pagamento em aberto</p>
+        <p className="mt-0.5">
+          A oficina trabalha por mais {subscription.diasRestantes}{' '}
+          {subscription.diasRestantes === 1 ? 'dia' : 'dias'}.
+        </p>
+        <Link className="mt-1 inline-block underline underline-offset-2" to="/configuracoes/plano">
+          Acertar agora
+        </Link>
+      </div>
+    );
+  }
+
+  if (!subscription.emTeste || !subscription.trialEndsAt) return null;
   return (
     <div className="rounded-lg border border-border bg-surface-muted/60 p-3 text-xs">
       <p className="font-medium">Plano {subscription.planName} em teste</p>
       <p className="mt-0.5 text-muted">
-        {days === 0 ? 'Termina hoje' : `${days} ${days === 1 ? 'dia restante' : 'dias restantes'}`}, até{' '}
-        {formatDate(subscription.trialEndsAt)}
+        {subscription.diasRestantes === 0
+          ? 'Termina hoje'
+          : `${subscription.diasRestantes} ${subscription.diasRestantes === 1 ? 'dia restante' : 'dias restantes'}`}
+        , até {formatDate(subscription.trialEndsAt)}
       </p>
+      <Link className="mt-1 inline-block underline underline-offset-2" to="/configuracoes/plano">
+        Ver planos
+      </Link>
     </div>
   );
 }

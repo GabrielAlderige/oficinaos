@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { ChargeMethod, ChargeStatus, PaymentEnvironment } from '@oficinaos/shared';
+import type { BillingCycle, ChargeMethod, ChargeStatus, PaymentEnvironment } from '@oficinaos/shared';
 
 /**
  * Cobrança online atrás de uma interface (ARCHITECTURE §12), como o e-mail, o
@@ -54,10 +54,38 @@ export interface AvisoDeCobranca {
   externalId: string;
   eventType: string;
   providerChargeId: string;
+  /** preenchido quando a cobrança nasceu de uma assinatura (E20) */
+  providerSubscriptionId: string | null;
   status: ChargeStatus;
   paidAmountCents: number | null;
   paidAt: Date | null;
   failureReason: string | null;
+  raw: Record<string, unknown>;
+}
+
+/** Assinatura do SaaS (E20): a oficina vira cliente recorrente do gateway. */
+export interface PedidoDeAssinatura {
+  /** o id da oficina: é a referência externa da assinatura no gateway */
+  organizationId: string;
+  amountCents: number;
+  cycle: BillingCycle;
+  description: string;
+  /** 'YYYY-MM-DD': quando a primeira (ou próxima) cobrança vence */
+  nextDueDate: string;
+  cliente: {
+    name: string;
+    document: string | null;
+    email: string | null;
+    phone: string | null;
+    providerCustomerId: string | null;
+  };
+}
+
+export interface RespostaDaAssinatura {
+  providerSubscriptionId: string;
+  providerCustomerId: string | null;
+  /** a página onde a oficina paga; `null` no simulador */
+  checkoutUrl: string | null;
   raw: Record<string, unknown>;
 }
 
@@ -73,6 +101,12 @@ export interface PaymentGateway {
    * sem origem confiável é dinheiro inventado.
    */
   lerAviso(headers: Record<string, string | string[] | undefined>, rawBody: string): AvisoDeCobranca | null;
+  criarAssinatura(pedido: PedidoDeAssinatura): Promise<RespostaDaAssinatura>;
+  atualizarAssinatura(
+    providerSubscriptionId: string,
+    mudanca: { amountCents: number; cycle: BillingCycle; description: string },
+  ): Promise<{ raw: Record<string, unknown> }>;
+  cancelarAssinatura(providerSubscriptionId: string): Promise<{ raw: Record<string, unknown> }>;
 }
 
 /**
@@ -116,6 +150,24 @@ export class SimuladorPaymentGateway implements PaymentGateway {
     return { raw: { simulacao: true, estornada: providerChargeId, amountCents } };
   }
 
+  async criarAssinatura(pedido: PedidoDeAssinatura): Promise<RespostaDaAssinatura> {
+    const digest = createHash('sha256').update(`assinatura:${pedido.organizationId}`).digest('hex');
+    return {
+      providerSubscriptionId: `sim-sub-${digest.slice(0, 16)}`,
+      providerCustomerId: `sim-cli-${digest.slice(16, 24)}`,
+      checkoutUrl: null,
+      raw: { simulacao: true, aviso: 'Nenhuma assinatura foi criada em gateway nenhum.', ciclo: pedido.cycle },
+    };
+  }
+
+  async atualizarAssinatura(providerSubscriptionId: string, mudanca: { amountCents: number; cycle: BillingCycle }) {
+    return { raw: { simulacao: true, assinatura: providerSubscriptionId, ...mudanca } };
+  }
+
+  async cancelarAssinatura(providerSubscriptionId: string) {
+    return { raw: { simulacao: true, cancelada: providerSubscriptionId } };
+  }
+
   /**
    * No simulador o "aviso" vem da própria oficina, pela rota de webhook, para
    * ver a conciliação funcionar. O corpo é o nosso, não o de um gateway.
@@ -124,19 +176,27 @@ export class SimuladorPaymentGateway implements PaymentGateway {
     const corpo = JSON.parse(rawBody) as {
       event?: string;
       providerChargeId?: string;
+      providerSubscriptionId?: string;
       externalId?: string;
       amountCents?: number;
     };
     if (!corpo.providerChargeId) return null;
     const evento = corpo.event ?? 'PAYMENT_RECEIVED';
-    if (evento !== 'PAYMENT_RECEIVED') return null;
+    const situacoes: Record<string, ChargeStatus> = {
+      PAYMENT_RECEIVED: 'PAID',
+      PAYMENT_OVERDUE: 'EXPIRED',
+      PAYMENT_REFUNDED: 'REFUNDED',
+    };
+    const status = situacoes[evento];
+    if (!status) return null;
     return {
       externalId: corpo.externalId ?? `sim-evt-${corpo.providerChargeId}`,
       eventType: evento,
       providerChargeId: corpo.providerChargeId,
-      status: 'PAID',
-      paidAmountCents: corpo.amountCents ?? null,
-      paidAt: new Date(),
+      providerSubscriptionId: corpo.providerSubscriptionId ?? null,
+      status,
+      paidAmountCents: status === 'PAID' ? (corpo.amountCents ?? null) : null,
+      paidAt: status === 'PAID' ? new Date() : null,
       failureReason: null,
       raw: { ...corpo, simulacao: true },
     };

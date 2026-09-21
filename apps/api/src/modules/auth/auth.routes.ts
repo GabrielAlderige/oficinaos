@@ -172,7 +172,8 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
 
   app.delete(
     '/sessions/:id',
-    { config: { auth: 'authenticated' }, schema: { params: idParamSchema } },
+    // encerrar sessão continua valendo com a assinatura vencida (E20)
+    { config: { auth: 'authenticated', allowBlocked: true }, schema: { params: idParamSchema } },
     async (request, reply) => {
       await service.revokeSession(getAuth(request), request.params.id);
       return reply.code(204).send();
@@ -182,7 +183,8 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
   app.post(
     '/switch-organization',
     {
-      config: { auth: 'authenticated' },
+      // trocar de oficina não é gravar dado da oficina bloqueada (E20)
+      config: { auth: 'authenticated', allowBlocked: true },
       schema: { body: switchOrganizationSchema, response: { 200: authResponseSchema } },
     },
     async (request, reply) => {

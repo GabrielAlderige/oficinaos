@@ -76,6 +76,49 @@ export interface OrdemCompleta extends OrdemDeServico {
   items: ItemDaOS[];
 }
 
+/**
+ * Empurra o relógio da assinatura: faz o teste da oficina vencer AGORA.
+ *
+ * É o único lugar em que o e2e fala com o banco direto — não existe (e não
+ * deve existir) rota que vença o teste de uma oficina, e esperar 14 dias não
+ * é teste. Roda com a conexão de DONA, lida do `.env` do repositório.
+ */
+export async function vencerOTesteDaOficina(email: string): Promise<void> {
+  const { readFileSync } = await import('node:fs');
+  const { Client } = await import('pg');
+  const env = readFileSync(new URL('../.env', import.meta.url), 'utf8');
+  const url = env
+    .split(/\r?\n/)
+    .find((linha) => linha.startsWith('DATABASE_OWNER_URL='))
+    ?.slice('DATABASE_OWNER_URL='.length)
+    .trim();
+  if (!url) throw new Error('Falta DATABASE_OWNER_URL no .env para o teste de assinatura vencida');
+
+  const client = new Client({ connectionString: url });
+  await client.connect();
+  try {
+    // o RLS é FORÇADO até para a dona das tabelas: sem contexto, o UPDATE casa
+    // zero linhas em silêncio. `users` é global; o resto sai do contexto.
+    const usuario = await client.query<{ id: string }>('select id from users where email = $1', [email]);
+    const userId = usuario.rows[0]?.id;
+    if (!userId) throw new Error(`Usuário ${email} não encontrado`);
+
+    await client.query('select set_config($1, $2, false)', ['app.user_id', userId]);
+    const vinculo = await client.query<{ organization_id: string }>('select organization_id from memberships');
+    const organizationId = vinculo.rows[0]?.organization_id;
+    if (!organizationId) throw new Error(`Oficina de ${email} não encontrada`);
+
+    await client.query('select set_config($1, $2, false)', ['app.org_id', organizationId]);
+    const alterou = await client.query(
+      `update subscriptions set trial_ends_at = now() - interval '1 day' where organization_id = $1`,
+      [organizationId],
+    );
+    if (!alterou.rowCount) throw new Error('A assinatura não foi encontrada para vencer o teste');
+  } finally {
+    await client.end();
+  }
+}
+
 /** Oficina nova a cada execução: placa e e-mail nunca colidem entre cenários. */
 export async function criarOficina(prefixo: string, placa: string): Promise<Oficina> {
   const marca = `${Date.now().toString(36)}${Math.floor(Math.random() * 1000)}`;

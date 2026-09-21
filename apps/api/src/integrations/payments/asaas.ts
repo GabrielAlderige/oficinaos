@@ -1,6 +1,13 @@
 import { timingSafeEqual } from 'node:crypto';
-import type { ChargeStatus, PaymentEnvironment } from '@oficinaos/shared';
-import type { AvisoDeCobranca, PaymentGateway, PedidoDeCobranca, RespostaDaCobranca } from './gateway';
+import type { BillingCycle, ChargeStatus, PaymentEnvironment } from '@oficinaos/shared';
+import type {
+  AvisoDeCobranca,
+  PaymentGateway,
+  PedidoDeAssinatura,
+  PedidoDeCobranca,
+  RespostaDaAssinatura,
+  RespostaDaCobranca,
+} from './gateway';
 
 /**
  * Asaas (E19). Gateway brasileiro de PME: Pix, boleto e cartão numa API só, e
@@ -181,6 +188,74 @@ export class AsaasPaymentGateway implements PaymentGateway {
     return { raw };
   }
 
+  // ----------------------------- assinatura ------------------------------
+
+  async criarAssinatura(pedido: PedidoDeAssinatura): Promise<RespostaDaAssinatura> {
+    const providerCustomerId =
+      pedido.cliente.providerCustomerId ??
+      (
+        await this.chamar<AsaasCustomer>('POST', '/customers', {
+          name: pedido.cliente.name,
+          cpfCnpj: pedido.cliente.document ?? undefined,
+          email: pedido.cliente.email ?? undefined,
+          mobilePhone: pedido.cliente.phone ?? undefined,
+          externalReference: pedido.organizationId,
+        })
+      ).id;
+
+    const assinatura = await this.chamar<{ id: string }>('POST', '/subscriptions', {
+      customer: providerCustomerId,
+      // o cliente escolhe como pagar na página do gateway
+      billingType: 'UNDEFINED',
+      value: reais(pedido.amountCents),
+      nextDueDate: pedido.nextDueDate,
+      cycle: pedido.cycle,
+      description: pedido.description,
+      externalReference: pedido.organizationId,
+    });
+
+    return {
+      providerSubscriptionId: assinatura.id,
+      providerCustomerId,
+      // a página de pagamento da PRIMEIRA cobrança da assinatura
+      checkoutUrl: await this.primeiraFatura(assinatura.id),
+      raw: assinatura as unknown as Record<string, unknown>,
+    };
+  }
+
+  /** A fatura mais próxima da assinatura: é para lá que a oficina vai pagar. */
+  private async primeiraFatura(providerSubscriptionId: string): Promise<string | null> {
+    try {
+      const lista = await this.chamar<{ data?: AsaasPayment[] }>(
+        'GET',
+        `/subscriptions/${providerSubscriptionId}/payments`,
+      );
+      return lista.data?.[0]?.invoiceUrl ?? null;
+    } catch {
+      // sem a fatura a assinatura existe do mesmo jeito; a tela mostra o aviso
+      return null;
+    }
+  }
+
+  async atualizarAssinatura(
+    providerSubscriptionId: string,
+    mudanca: { amountCents: number; cycle: BillingCycle; description: string },
+  ) {
+    const raw = await this.chamar<Record<string, unknown>>('PUT', `/subscriptions/${providerSubscriptionId}`, {
+      value: reais(mudanca.amountCents),
+      cycle: mudanca.cycle,
+      description: mudanca.description,
+      // a mudança vale da próxima cobrança em diante, não remarca o que já foi
+      updatePendingPayments: true,
+    });
+    return { raw };
+  }
+
+  async cancelarAssinatura(providerSubscriptionId: string) {
+    const raw = await this.chamar<Record<string, unknown>>('DELETE', `/subscriptions/${providerSubscriptionId}`);
+    return { raw };
+  }
+
   lerAviso(headers: Record<string, string | string[] | undefined>, rawBody: string): AvisoDeCobranca | null {
     const recebido = headers['asaas-access-token'];
     const token = Array.isArray(recebido) ? recebido[0] : recebido;
@@ -188,7 +263,11 @@ export class AsaasPaymentGateway implements PaymentGateway {
       throw new Error('Aviso do Asaas sem o token combinado');
     }
 
-    const corpo = JSON.parse(rawBody) as { id?: string; event?: string; payment?: AsaasPayment };
+    const corpo = JSON.parse(rawBody) as {
+      id?: string;
+      event?: string;
+      payment?: AsaasPayment & { subscription?: string };
+    };
     const cobranca = corpo.payment;
     if (!corpo.event || !cobranca?.id) return null;
     // só evento de cobrança interessa; assinatura e transferência são outra história
@@ -200,6 +279,7 @@ export class AsaasPaymentGateway implements PaymentGateway {
       externalId: corpo.id ?? `${corpo.event}:${cobranca.id}`,
       eventType: corpo.event,
       providerChargeId: cobranca.id,
+      providerSubscriptionId: cobranca.subscription ?? null,
       status,
       paidAmountCents: status === 'PAID' ? centavos(cobranca.value) : null,
       paidAt: status === 'PAID' ? (quando ? new Date(`${quando}T12:00:00-03:00`) : new Date()) : null,

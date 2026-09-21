@@ -144,6 +144,21 @@ export async function insertSubscription(tx: Tx, values: typeof subscriptions.$i
   await tx.insert(subscriptions).values(values);
 }
 
+/** O que o guard lê para saber se a oficina ainda grava (E20). */
+export async function findSubscriptionState(tx: Tx, organizationId: string) {
+  const [row] = await tx
+    .select({
+      status: subscriptions.status,
+      trialEndsAt: subscriptions.trialEndsAt,
+      currentPeriodEnd: subscriptions.currentPeriodEnd,
+      pastDueSince: subscriptions.pastDueSince,
+    })
+    .from(subscriptions)
+    .where(eq(subscriptions.organizationId, organizationId))
+    .limit(1);
+  return row;
+}
+
 export async function getSubscriptionSummary(tx: Tx, organizationId: string) {
   const [row] = await tx
     .select({
@@ -151,6 +166,8 @@ export async function getSubscriptionSummary(tx: Tx, organizationId: string) {
       planName: plans.name,
       status: subscriptions.status,
       trialEndsAt: subscriptions.trialEndsAt,
+      currentPeriodEnd: subscriptions.currentPeriodEnd,
+      pastDueSince: subscriptions.pastDueSince,
     })
     .from(subscriptions)
     .innerJoin(plans, eq(plans.id, subscriptions.planId))

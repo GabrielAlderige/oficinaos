@@ -11,6 +11,7 @@ import {
   permissionsFor,
   type SessionInfo,
   type signupSchema,
+  situacaoDaAssinatura,
   TRIAL_DAYS,
   TRIAL_PLAN,
 } from '@oficinaos/shared';
@@ -20,6 +21,7 @@ import {
   type MembershipState,
   membershipKey,
   type ServiceDeps,
+  type SubscriptionState,
 } from '../../core/auth-context';
 import {
   AppError,
@@ -322,12 +324,24 @@ export class AuthService {
         role: current.role,
         permissions: permissionsFor(current.role),
         organizations: organizations.map((o) => ({ id: o.organizationId, name: o.organizationName, role: o.role })),
+        // a situação vem CALCULADA (E20): assim qualquer pessoa da equipe vê o
+        // aviso de "o teste acabou" ou "a assinatura está em aberto", mesmo
+        // sem permissão para abrir a tela de plano
         subscription: subscription
           ? {
               plan: subscription.plan,
               planName: subscription.planName,
               status: subscription.status,
               trialEndsAt: subscription.trialEndsAt?.toISOString() ?? null,
+              ...(() => {
+                const situacao = situacaoDaAssinatura(subscription);
+                return {
+                  emTeste: situacao.emTeste,
+                  emCarencia: situacao.emCarencia,
+                  bloqueada: situacao.bloqueada,
+                  diasRestantes: situacao.diasRestantes,
+                };
+              })(),
             }
           : null,
         sessionId: ref.sessionId,
@@ -494,6 +508,20 @@ export class AuthService {
     };
     caches.memberships.set(key, state);
     return state;
+  }
+
+  /**
+   * Estado da assinatura, em cache curto como o da equipe (E20). O guard lê
+   * isto em toda gravação, então não pode virar uma consulta por requisição.
+   */
+  async subscriptionState(organizationId: string): Promise<SubscriptionState | undefined> {
+    const { db, caches } = this.deps;
+    const cached = caches.subscriptions.get(organizationId);
+    if (cached) return cached;
+    const row = await withTenant(db, { organizationId }, (tx) => repo.findSubscriptionState(tx, organizationId));
+    if (!row) return undefined;
+    caches.subscriptions.set(organizationId, row);
+    return row;
   }
 
   private async findUsableInvitation(rawToken: string) {

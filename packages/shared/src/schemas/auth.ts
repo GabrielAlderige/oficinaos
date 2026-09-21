@@ -74,6 +74,11 @@ export const meSchema = z.object({
       planName: z.string(),
       status: z.enum(SUBSCRIPTION_STATUSES),
       trialEndsAt: z.string().nullable(),
+      /** situação calculada (E20): é o que decide o aviso no painel */
+      emTeste: z.boolean(),
+      emCarencia: z.boolean(),
+      bloqueada: z.boolean(),
+      diasRestantes: z.number().int(),
     })
     .nullable(),
   sessionId: z.uuid(),

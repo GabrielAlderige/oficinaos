@@ -7,7 +7,7 @@ import {
 } from 'fastify-type-provider-zod';
 import { v7 as uuidv7 } from 'uuid';
 import type { Env } from './config/env';
-import { createAuthCaches, type ServiceDeps } from './core/auth-context';
+import { createAuthCaches, type AuthCaches, type ServiceDeps } from './core/auth-context';
 import { createAuthGuard } from './core/plugins/auth-guard';
 import { registerErrorHandling } from './core/plugins/error-handler';
 import { registerSecurity } from './core/plugins/security';
@@ -15,6 +15,8 @@ import type { Database } from './db/client';
 import { createEmailProvider, type EmailProvider } from './integrations/email/email';
 import { createNfseProvider, type NfseProvider } from './integrations/fiscal/nfse';
 import { createPaymentGateway, type PaymentGateway } from './integrations/payments';
+import { BillingService } from './modules/billing/billing.service';
+import { billingRoutes } from './modules/billing/billing.routes';
 import { ChargesService } from './modules/charges/charges.service';
 import { chargeRoutes, paymentWebhookRoutes, workOrderChargeRoutes } from './modules/charges/charges.routes';
 import { InvoicesService } from './modules/invoices/invoices.service';
@@ -115,6 +117,7 @@ export interface Services {
   tracking: TrackingService;
   invoices: InvoicesService;
   charges: ChargesService;
+  billing: BillingService;
 }
 
 declare module 'fastify' {
@@ -125,6 +128,13 @@ declare module 'fastify' {
     email: EmailProvider;
     storage: StorageProvider;
     services: Services;
+    /**
+     * Caches curtos de sessão, papel e assinatura (30 s). Exposto porque
+     * mudança feita FORA da API — o relógio passando, o suporte mexendo no
+     * banco — só aparece quando o cache vence; quem precisa do efeito na hora
+     * limpa a entrada.
+     */
+    caches: AuthCaches;
   }
 }
 
@@ -209,6 +219,7 @@ export async function buildApp({
     tracking: new TrackingService(deps),
     invoices: new InvoicesService(deps),
     charges: new ChargesService(deps),
+    billing: new BillingService(deps),
   };
 
   app.decorate('db', db);
@@ -217,6 +228,7 @@ export async function buildApp({
   app.decorate('email', email);
   app.decorate('storage', storage);
   app.decorate('services', services);
+  app.decorate('caches', caches);
   app.decorateRequest('auth', null);
 
   app.addHook('onSend', async (request, reply) => {
@@ -271,6 +283,7 @@ export async function buildApp({
   await app.register(workOrderInvoiceRoutes, { prefix: '/api/v1/work-orders' });
   await app.register(fiscalSettingsRoutes, { prefix: '/api/v1/fiscal-settings' });
   await app.register(chargeRoutes, { prefix: '/api/v1/charges' });
+  await app.register(billingRoutes, { prefix: '/api/v1/billing' });
   await app.register(workOrderChargeRoutes, { prefix: '/api/v1/work-orders' });
   // sem login: quem prova a origem é o token que o gateway repete no aviso
   await app.register(paymentWebhookRoutes, { prefix: '/api/v1/webhooks' });

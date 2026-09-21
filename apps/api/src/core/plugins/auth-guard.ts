@@ -1,5 +1,5 @@
 import type { FastifyRequest } from 'fastify';
-import { can } from '@oficinaos/shared';
+import { bloqueiaEscrita, can, ErrorCode, situacaoDaAssinatura } from '@oficinaos/shared';
 import { withoutTenant } from '../../db/tenant';
 import type { Database } from '../../db/client';
 import { sessions } from '../../db/schema';
@@ -7,7 +7,7 @@ import { eq } from 'drizzle-orm';
 import type { AccessTokens } from '../../modules/auth/tokens';
 import type { AuthService } from '../../modules/auth/auth.service';
 import type { AuthCaches, AuthContext, SessionState } from '../auth-context';
-import { forbidden, unauthorized } from '../errors';
+import { AppError, forbidden, unauthorized } from '../errors';
 
 interface GuardDeps {
   db: Database;
@@ -61,6 +61,32 @@ export function createAuthGuard({ db, tokens, caches, auth }: GuardDeps) {
     };
   }
 
+  const ESCRITA = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
+
+  /**
+   * Assinatura vencida trava a ESCRITA, nunca a leitura (E20). A oficina
+   * continua vendo tudo o que é dela — cliente, OS, histórico — e continua
+   * conseguindo pagar: as rotas de cobrança e de sair da conta declaram
+   * `allowBlocked`. Trancar o dado de quem atrasou um boleto é sequestro de
+   * dado, não cobrança.
+   */
+  async function assertNaoBloqueada(request: FastifyRequest, organizationId: string): Promise<void> {
+    if (!ESCRITA.has(request.method)) return;
+    if (request.routeOptions.config.allowBlocked) return;
+
+    const estado = await auth.subscriptionState(organizationId);
+    if (!estado) return;
+    const situacao = situacaoDaAssinatura(estado);
+    if (!bloqueiaEscrita(situacao)) return;
+
+    throw new AppError(
+      402,
+      ErrorCode.SUBSCRIPTION_BLOCKED,
+      situacao.status === 'TRIALING' ? 'O período de teste terminou' : 'Assinatura em aberto',
+      'A oficina continua com tudo salvo e visível, mas para voltar a gravar é preciso acertar a assinatura em Configurações → Plano.',
+    );
+  }
+
   return async function authGuard(request: FastifyRequest): Promise<void> {
     if (request.is404) return;
     const rule = request.routeOptions.config.auth ?? 'authenticated';
@@ -68,5 +94,6 @@ export function createAuthGuard({ db, tokens, caches, auth }: GuardDeps) {
 
     request.auth = await authenticate(request);
     if (rule !== 'authenticated' && !can(request.auth.role, rule)) throw forbidden();
+    await assertNaoBloqueada(request, request.auth.organizationId);
   };
 }
