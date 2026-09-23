@@ -1,0 +1,9 @@
+# Arquivos que o LINUX executa precisam terminar linha com LF, mesmo quando o
+# repositório é clonado no Windows: um `\r` invisível no fim do shebang vira
+# "bad interpreter" no servidor, às 3 da manhã, dentro do cron do backup.
+*.sh text eol=lf
+Dockerfile text eol=lf
+docker-compose.yml text eol=lf
+deploy/Caddyfile text eol=lf
+deploy/.env.example text eol=lf
+.dockerignore text eol=lf
