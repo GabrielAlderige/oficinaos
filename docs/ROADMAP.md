@@ -115,6 +115,22 @@ limite de 300 requisições/min derrubava um cenário diferente do e2e a cada
 rodada — fora de produção o teto passou a ser 5.000, porque ali tudo sai do
 mesmo IP.
 
+### Publicar (22/09)
+
+O deploy saiu antes da E22, como ele pediu: `Dockerfile` (API e Caddy com o
+painel, as páginas públicas e a landing), `docker-compose.yml` (Postgres, API,
+web), `deploy/Caddyfile` com TLS automático e as URLs bonitas das páginas
+públicas, `deploy/.env.example`, `deploy/backup.sh` e `deploy/restore.sh`, e o
+passo a passo em **docs/DEPLOY.md**.
+
+O que foi testado aqui: build de produção dos três apps, `dist/migrate.js`
+aplicando as migrations e `dist/server.js` em `NODE_ENV=production`
+respondendo `/health`, `/ready` e um cadastro completo. Os arquivos de
+container **não** foram construídos — não há Docker nesta máquina, e isso está
+dito no topo do guia.
+
+Fecha a pendência do `docker-compose.yml`, que vinha desde a E1.
+
 ---
 
 ## V3: integrações e escala

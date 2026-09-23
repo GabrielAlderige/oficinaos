@@ -188,8 +188,9 @@ oficinaos/
 │           ├── entitlements.ts           # plano → recursos e limites
 │           └── br/                       # CPF/CNPJ, placa (antiga ↔ Mercosul), telefone, CEP
 ├── e2e/                                  # Playwright: fluxo orçamento → aprovação
-├── docker/postgres/init.sql              # roles owner/app, extensões
-├── docker-compose.yml                    # postgres, minio, mailpit
+├── Dockerfile                            # imagem da API e imagem do web (Caddy)
+├── docker-compose.yml                    # produção: postgres, api, web
+├── deploy/                               # Caddyfile, .env.example, backup e restore
 ├── docs/                                 # este documento e os irmãos
 ├── .env.example
 ├── package.json                          # workspaces + scripts da raiz
@@ -752,8 +753,15 @@ rodam no host com hot reload. O único serviço externo exigido em dev é o Post
 
 `npm run db:setup` cria as roles `oficinaos_owner` e `oficinaos_app`, os bancos
 `oficinaos_dev` e `oficinaos_test` (UTF-8, ordenação ICU pt-BR), as extensões e os
-privilégios padrão. É idempotente. Um `docker-compose.yml` fica para quando houver
-alguém no time com Docker; não é versionado sem ter sido testado.
+privilégios padrão. É idempotente, e com `--prod` prepara só o banco de
+produção (sem o de teste).
+
+**Em produção** (docs/DEPLOY.md) é Docker: `Dockerfile` com uma imagem para a
+API e outra para o Caddy — que serve o painel, as quatro páginas públicas e a
+landing, e faz proxy de `/api` na MESMA origem, para não existir CORS nem
+cookie de terceiro. As migrations e a preparação do banco rodam **à mão**
+(`docker compose run --rm migrate`): migration é decisão de quem publica, não
+efeito colateral de reiniciar um container.
 
 Os comandos estão no README.
 

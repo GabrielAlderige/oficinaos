@@ -1,0 +1,113 @@
+# ---------------------------------------------------------------------------
+# OficinaOS em um servidor só. Três serviços:
+#
+#   db     Postgres 17, sem porta publicada (ninguém fala com ele de fora)
+#   api    Fastify + trabalhador de fundo (automações)
+#   web    Caddy: painel, páginas públicas, landing e TLS automático
+#
+# Subir:      docker compose up -d
+# Migrar:     docker compose run --rm migrate
+# Ver logs:   docker compose logs -f api
+#
+# O passo a passo completo está em docs/DEPLOY.md.
+# ---------------------------------------------------------------------------
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+      POSTGRES_DB: oficinaos
+      # ordenação pt-BR: acento ordena certo em nome de cliente e de peça
+      POSTGRES_INITDB_ARGS: '--locale-provider=icu --icu-locale=pt-BR --encoding=UTF8 --locale=C'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d oficinaos']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    # sem `ports`: o banco só existe dentro da rede do compose
+
+  # Um tiro só, à mão: prepara roles e privilégios (db-setup) e aplica as
+  # migrations. Não roda no boot da API de propósito — migration é decisão de
+  # quem publica, não efeito colateral de reiniciar um container.
+  migrate:
+    build:
+      context: .
+      target: api
+    image: oficinaos-api:${TAG:-latest}
+    profiles: ['ferramentas']
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_ADMIN_URL: postgres://postgres:${POSTGRES_PASSWORD}@db:5432/oficinaos
+      DATABASE_URL: postgres://oficinaos_app:${APP_DB_PASSWORD:?defina APP_DB_PASSWORD}@db:5432/oficinaos
+      DATABASE_OWNER_URL: postgres://oficinaos_owner:${OWNER_DB_PASSWORD:?defina OWNER_DB_PASSWORD}@db:5432/oficinaos
+      JWT_SECRET: ${JWT_SECRET}
+    command: >
+      sh -c "node dist/db-setup.js --prod && node dist/migrate.js"
+
+  api:
+    build:
+      context: .
+      target: api
+    image: oficinaos-api:${TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      API_PORT: 3333
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      DATABASE_URL: postgres://oficinaos_app:${APP_DB_PASSWORD}@db:5432/oficinaos
+      JWT_SECRET: ${JWT_SECRET:?gere com: openssl rand -base64 48}
+      APP_URL: ${APP_URL:?ex.: https://app.suaoficina.com.br}
+      WEB_ORIGINS: ${APP_URL}
+      # automações diárias (E21)
+      JOBS_ENABLED: ${JOBS_ENABLED:-true}
+      # e-mail de verdade; sem SMTP_URL o driver volta a ser o console
+      EMAIL_DRIVER: ${EMAIL_DRIVER:-console}
+      SMTP_URL: ${SMTP_URL:-}
+      EMAIL_FROM: ${EMAIL_FROM:-OficinaOS <nao-responda@localhost>}
+      # cobrança online (E19) e assinatura (E20)
+      PAYMENT_GATEWAY: ${PAYMENT_GATEWAY:-simulador}
+      ASAAS_API_KEY: ${ASAAS_API_KEY:-}
+      ASAAS_BASE_URL: ${ASAAS_BASE_URL:-https://api-sandbox.asaas.com/v3}
+      ASAAS_WEBHOOK_TOKEN: ${ASAAS_WEBHOOK_TOKEN:-}
+      # nota fiscal (E18): `simulador` não emite nada
+      FISCAL_DRIVER: ${FISCAL_DRIVER:-simulador}
+    volumes:
+      # as fotos do check-in e os anexos: entram no backup diário
+      - storage:/app/storage
+    expose:
+      - '3333'
+
+  web:
+    build:
+      context: .
+      target: web
+    image: oficinaos-web:${TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?ex.: app.suaoficina.com.br}
+      LANDING_DOMAIN: ${LANDING_DOMAIN:-}
+      ACME_EMAIL: ${ACME_EMAIL:?e-mail para os avisos do certificado}
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  pgdata:
+  storage:
+  caddy_data:
+  caddy_config:

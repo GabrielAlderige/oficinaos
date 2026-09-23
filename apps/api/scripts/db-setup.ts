@@ -17,10 +17,18 @@ function required(name: string): URL {
   return new URL(value);
 }
 
+/**
+ * Em produção não existe banco de teste: `--prod` (ou NODE_ENV=production)
+ * prepara só o banco que a oficina usa. É o mesmo script de propósito — a
+ * preparação do servidor de verdade não pode ser um caminho que ninguém
+ * nunca rodou.
+ */
+const somenteProducao = process.argv.includes('--prod') || process.env.NODE_ENV === 'production';
+
 const admin = required('DATABASE_ADMIN_URL');
 const app = required('DATABASE_URL');
 const owner = required('DATABASE_OWNER_URL');
-const testApp = required('TEST_DATABASE_URL');
+const testApp = somenteProducao ? null : required('TEST_DATABASE_URL');
 
 const ident = (value: string) => `"${value.replaceAll('"', '""')}"`;
 const literal = (value: string) => `'${value.replaceAll("'", "''")}'`;
@@ -93,12 +101,12 @@ async function configureDatabase(name: string) {
   });
 }
 
-if (user(testApp) !== user(app)) {
+if (testApp && user(testApp) !== user(app)) {
   throw new Error('TEST_DATABASE_URL deve usar a mesma role de DATABASE_URL');
 }
 
-console.log('Preparando o PostgreSQL…');
-const databases = [dbName(app), dbName(testApp)];
+console.log(`Preparando o PostgreSQL${somenteProducao ? ' (produção)' : ''}…`);
+const databases = testApp ? [dbName(app), dbName(testApp)] : [dbName(app)];
 await withClient(admin, 'postgres', async (c) => {
   await ensureRole(c, owner);
   await ensureRole(c, app);

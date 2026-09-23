@@ -1,0 +1,30 @@
+# O que NÃO entra na imagem. Cada item aqui é build mais rápido — e, nos três
+# primeiros, também é segurança: segredo e foto de cliente não viram camada de
+# imagem que alguém copia sem perceber.
+.env
+.env.*
+!.env.example
+.secrets/
+storage/
+apps/api/storage/
+
+node_modules
+**/node_modules
+**/dist
+apps/web/dist
+apps/landing/dist
+apps/landing/.astro
+
+.git
+.github
+test-results
+playwright-report
+e2e/screenshots
+coverage
+*.log
+
+# documentação e ferramentas não fazem parte do que roda
+docs/
+README.md
+.vscode/
+.claude/

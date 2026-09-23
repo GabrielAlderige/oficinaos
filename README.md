@@ -303,6 +303,20 @@ ficam em `e2e/screenshots/`, fora do git.
 | `npm run db:migrate` | Aplica as migrations no banco de dev (`-- --test` para o de teste) |
 | `npm run db:seed:demo` | Cria a oficina de demonstração (`-- --reset` apaga, `-- --reset --seed` recria) |
 
+## Publicar
+
+Um servidor, três containers (Postgres, API e Caddy) e um domínio. O passo a
+passo completo — servidor, DNS, segredos, backup e como voltar atrás — está em
+**[docs/DEPLOY.md](docs/DEPLOY.md)**.
+
+```sh
+cp deploy/.env.example .env      # no servidor, com os segredos gerados
+docker compose build
+docker compose up -d db
+docker compose --profile ferramentas run --rm migrate
+docker compose up -d
+```
+
 ## Variáveis de ambiente
 
 | Variável | Uso |
@@ -313,7 +327,11 @@ ficam em `e2e/screenshots/`, fora do git.
 | `WEB_ORIGINS` | Origens do painel liberadas no CORS, separadas por vírgula. Rotas que usam o cookie de sessão exigem Origin desta lista |
 | `APP_URL` | Endereço público do painel: base dos links de redefinição de senha e de convite |
 | `JWT_SECRET` | Assina o token de acesso (HS256). Pelo menos 32 caracteres. Nunca vai para o front |
-| `EMAIL_DRIVER` | `console` (dev: imprime no terminal da API) ou `memory` (testes) |
+| `EMAIL_DRIVER` | `console` (dev: imprime no terminal da API), `memory` (testes) ou `smtp` (produção) |
+| `SMTP_URL` / `EMAIL_FROM` | O provedor de e-mail e o remetente, quando `EMAIL_DRIVER=smtp` |
+| `JOBS_ENABLED` | Liga o trabalhador de fundo das automações diárias (`true` por padrão; `false` nos testes) |
+| `PAYMENT_GATEWAY` | `simulador` (padrão, não cobra ninguém) ou `asaas` — que exige `ASAAS_API_KEY`, `ASAAS_BASE_URL` e `ASAAS_WEBHOOK_TOKEN` |
+| `FISCAL_DRIVER` | Emissor da nota de serviço; hoje só `simulador`, que não emite documento fiscal |
 | `PARTS_SEARCH_MOCK` | Liga o provider FALSO da pesquisa de peças (`false` por padrão). Toda oferta dele vem marcada como demonstração |
 | `STORAGE_DRIVER` | Anexos e fotos: `disk` (dev: grava em `storage/`, servido pela própria API com URL assinada) ou `memory` (testes) |
 | `STORAGE_DIR` | Pasta do driver `disk`, relativa à raiz. Fora do git |

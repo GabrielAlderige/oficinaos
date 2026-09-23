@@ -1,0 +1,71 @@
+# ---------------------------------------------------------------------------
+# Caddy: TLS automático (Let's Encrypt), painel, páginas públicas e landing.
+#
+# Dois endereços:
+#   app.<dominio>  → painel + /api (mesma origem: sem CORS, cookie funciona)
+#   <dominio>      → a landing estática
+#
+# Os domínios vêm do .env do compose; sem eles, sobe em :80 para testar por IP.
+# ---------------------------------------------------------------------------
+
+{
+	# e-mail do Let's Encrypt: é para onde vão os avisos de renovação
+	email {$ACME_EMAIL:admin@localhost}
+}
+
+{$APP_DOMAIN::80} {
+	encode zstd gzip
+
+	# a API mora atrás do mesmo endereço do painel: o navegador nunca
+	# conversa com outra origem, então não há CORS nem cookie de terceiro
+	handle /api/* {
+		reverse_proxy api:3333
+	}
+
+	handle {
+		root * /srv/painel
+
+		# URLs bonitas das páginas públicas. Cada uma é uma ENTRADA própria do
+		# build (ARCHITECTURE §8.2): o cliente no 3G não baixa o painel junto.
+		@orcamento path_regexp orcamento ^/orcamento/.+
+		rewrite @orcamento /orcamento.html
+		@cotacao path_regexp cotacao ^/cotacao/.+
+		rewrite @cotacao /cotacao.html
+		@avaliacao path_regexp avaliacao ^/avaliacao/.+
+		rewrite @avaliacao /avaliacao.html
+		@acompanhar path_regexp acompanhar ^/acompanhar/.+
+		rewrite @acompanhar /acompanhar.html
+
+		# o resto é o painel (SPA): qualquer rota desconhecida cai no index
+		try_files {path} /index.html
+		file_server
+	}
+
+	header {
+		# o painel é servido só por HTTPS; um ano, com os subdomínios juntos
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		# o painel não é embutível em outro site
+		X-Frame-Options DENY
+		-Server
+	}
+
+	# o arquivo com hash no nome nunca muda: cache longo, sem revalidar
+	@imutavel path /assets/*
+	header @imutavel Cache-Control "public, max-age=31536000, immutable"
+}
+
+{$LANDING_DOMAIN::8080} {
+	encode zstd gzip
+	root * /srv/site
+	try_files {path} {path}/ /index.html
+	file_server
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+}
