@@ -57,7 +57,7 @@ export function useShareQuote(id: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (channel: ShareChannel) =>
-      api<{ quote: Quote; message: string; whatsappUrl: string | null }>(`/quotes/${id}/share`, {
+      api<{ quote: Quote; message: string; whatsappUrl: string | null; via: 'API' | 'LINK' }>(`/quotes/${id}/share`, {
         method: 'POST',
         json: { channel },
       }),

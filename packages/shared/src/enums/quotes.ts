@@ -101,7 +101,7 @@ export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
   FOLLOW_UP_DUE: 'Contatos de hoje',
 };
 
-export const MESSAGE_CHANNELS = ['WHATSAPP_LINK', 'EMAIL', 'PUBLIC_PAGE'] as const;
+export const MESSAGE_CHANNELS = ['WHATSAPP_LINK', 'WHATSAPP_API', 'EMAIL', 'PUBLIC_PAGE'] as const;
 export type MessageChannel = (typeof MESSAGE_CHANNELS)[number];
 
 export const MESSAGE_DIRECTIONS = ['OUTBOUND', 'INBOUND'] as const;
@@ -113,6 +113,16 @@ export type MessageDirection = (typeof MESSAGE_DIRECTIONS)[number];
  */
 export const MESSAGE_STATUSES = ['LINK_OPENED', 'SENT', 'DELIVERED', 'READ', 'FAILED', 'RECEIVED'] as const;
 export type MessageStatus = (typeof MESSAGE_STATUSES)[number];
+
+/** O que a tela mostra de cada situação. "Link aberto" é o máximo que se sabe sem a API oficial. */
+export const MESSAGE_STATUS_LABELS: Record<MessageStatus, string> = {
+  LINK_OPENED: 'link aberto',
+  SENT: 'enviada',
+  DELIVERED: 'entregue',
+  READ: 'lida',
+  FAILED: 'falhou',
+  RECEIVED: 'recebida',
+};
 
 /** Validade padrão do orçamento, em dias. A oficina pode estender depois. */
 export const DEFAULT_QUOTE_VALIDITY_DAYS = 7;

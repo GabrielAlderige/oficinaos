@@ -65,6 +65,18 @@ const envSchema = z.object({
   SMTP_URL: z.string().optional(),
   /** Remetente dos e-mails: precisa ser um endereço do domínio verificado. */
   EMAIL_FROM: z.string().default('OficinaOS <nao-responda@oficinaos.local>'),
+  /**
+   * Cifra as credenciais de terceiro guardadas no banco (hoje, o token do
+   * WhatsApp de cada oficina — E22). 32 bytes em base64:
+   * `openssl rand -base64 32`. Trocar esta chave torna ilegível o que já foi
+   * guardado, e cada oficina precisa conectar de novo.
+   */
+  SECRETS_KEY: z.string().optional(),
+  /**
+   * A API do WhatsApp Business (E22). Aponta para a Meta em produção; nos
+   * testes, para um endereço falso — teste nenhum fala com a Meta de verdade.
+   */
+  WHATSAPP_BASE_URL: z.url().default('https://graph.facebook.com/v21.0'),
   /** Teto por arquivo. O painel comprime a foto no aparelho antes de enviar (~300 KB). */
   /**
    * Liga o provider FALSO de pesquisa de peças (E14). Desligado por padrão, de

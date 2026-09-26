@@ -86,6 +86,15 @@ export const ErrorCode = {
   APPOINTMENT_CONFLICT: 'APPOINTMENT_CONFLICT',
   /** o check-in já foi feito: o agendamento já tem OS */
   APPOINTMENT_ALREADY_CHECKED_IN: 'APPOINTMENT_ALREADY_CHECKED_IN',
+  // WhatsApp oficial (E22)
+  /** o cliente não tem WhatsApp no cadastro: não há para onde mandar */
+  CUSTOMER_WITHOUT_WHATSAPP: 'CUSTOMER_WITHOUT_WHATSAPP',
+  /** passaram-se 24 h da última mensagem do cliente: só modelo aprovado sai agora */
+  WHATSAPP_WINDOW_CLOSED: 'WHATSAPP_WINDOW_CLOSED',
+  /** o modelo ainda não foi aprovado pela Meta: mandar assim volta erro dela */
+  WHATSAPP_TEMPLATE_NOT_APPROVED: 'WHATSAPP_TEMPLATE_NOT_APPROVED',
+  /** a Meta recusou o envio; a mensagem dela sobe junto */
+  WHATSAPP_SEND_FAILED: 'WHATSAPP_SEND_FAILED',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];

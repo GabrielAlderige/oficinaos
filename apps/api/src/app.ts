@@ -51,9 +51,7 @@ import { partsSearchRoutes, supplierPriceListRoutes } from './modules/parts-sear
 import {
   followUpRoutes,
   leadRoutes,
-  publicReviewRoutes,
   publicTrackingRoutes,
-  reviewRoutes,
   workOrderReviewRoutes,
 } from './modules/aftersales/aftersales.routes';
 import { FollowUpsService } from './modules/aftersales/follow-ups.service';
@@ -87,6 +85,8 @@ import { WorkOrdersService } from './modules/work-orders/work-orders.service';
 import { memberRoutes } from './modules/members/members.routes';
 import { MembersService } from './modules/members/members.service';
 import { organizationRoutes } from './modules/organizations/organizations.routes';
+import { messagingRoutes, whatsappWebhookRoutes } from './modules/messaging/messaging.routes';
+import { MessagingService } from './modules/messaging/messaging.service';
 import { OrganizationsService } from './modules/organizations/organizations.service';
 import { systemRoutes } from './modules/system/system.routes';
 
@@ -121,6 +121,7 @@ export interface Services {
   charges: ChargesService;
   billing: BillingService;
   automations: AutomationsService;
+  messaging: MessagingService;
 }
 
 declare module 'fastify' {
@@ -190,7 +191,9 @@ export async function buildApp({
   const tokens = new AccessTokens(env.JWT_SECRET);
   const caches = createAuthCaches(AUTH_CACHE_TTL_MS);
   const deps: ServiceDeps = { db, env, email, storage, nfse, gateway, tokens, caches, log: app.log };
-  const workOrders = new WorkOrdersService(deps);
+  // o canal de WhatsApp nasce antes de quem manda mensagem por ele (E22)
+  const messaging = new MessagingService(deps);
+  const workOrders = new WorkOrdersService(deps, messaging);
   const payments = new PaymentsService(deps);
   const services: Services = {
     auth: new AuthService(deps),
@@ -202,7 +205,7 @@ export async function buildApp({
     parts: new PartsService(deps),
     workOrders,
     uploads: new UploadsService(deps),
-    quotes: new QuotesService(deps),
+    quotes: new QuotesService(deps, messaging),
     notifications: new NotificationsService(deps),
     payments,
     appointments: new AppointmentsService(deps, workOrders),
@@ -224,6 +227,7 @@ export async function buildApp({
     charges: new ChargesService(deps),
     billing: new BillingService(deps),
     automations: new AutomationsService(deps),
+    messaging,
   };
 
   app.decorate('db', db);
@@ -279,7 +283,6 @@ export async function buildApp({
   await app.register(partsSearchRoutes, { prefix: '/api/v1/parts-search' });
   await app.register(reportRoutes, { prefix: '/api/v1/reports' });
   await app.register(followUpRoutes, { prefix: '/api/v1/follow-ups' });
-  await app.register(reviewRoutes, { prefix: '/api/v1/reviews' });
   await app.register(workOrderReviewRoutes, { prefix: '/api/v1/work-orders' });
   await app.register(leadRoutes, { prefix: '/api/v1/leads' });
   await app.register(importRoutes, { prefix: '/api/v1/imports' });
@@ -289,14 +292,16 @@ export async function buildApp({
   await app.register(chargeRoutes, { prefix: '/api/v1/charges' });
   await app.register(billingRoutes, { prefix: '/api/v1/billing' });
   await app.register(automationRoutes, { prefix: '/api/v1/automations' });
+  await app.register(messagingRoutes, { prefix: '/api/v1/messaging' });
   await app.register(workOrderChargeRoutes, { prefix: '/api/v1/work-orders' });
   // sem login: quem prova a origem é o token que o gateway repete no aviso
   await app.register(paymentWebhookRoutes, { prefix: '/api/v1/webhooks' });
+  // sem login: quem prova a origem é a assinatura do corpo cru com o segredo do app da oficina
+  await app.register(whatsappWebhookRoutes, { prefix: '/api/v1/webhooks' });
   await app.register(supplierPriceListRoutes, { prefix: '/api/v1/suppliers' });
   // sem login: o token do link é a credencial (limite por IP em cada rota)
   await app.register(publicQuoteRoutes, { prefix: '/api/v1/public' });
   await app.register(publicSupplierQuoteRoutes, { prefix: '/api/v1/public' });
-  await app.register(publicReviewRoutes, { prefix: '/api/v1/public' });
   await app.register(publicTrackingRoutes, { prefix: '/api/v1/public' });
 
   return app;

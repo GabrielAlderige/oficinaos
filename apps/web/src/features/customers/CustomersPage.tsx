@@ -9,6 +9,7 @@ import { displayDocument, displayPhone } from '../../lib/contact';
 import { errorMessage } from '../../lib/errors';
 import { formatDate } from '../../lib/format';
 import { useCan } from '../../lib/session';
+import { withParam } from '../../lib/search-params';
 import { useDebouncedValue } from '../../lib/use-debounced-value';
 import { useCustomers } from './api';
 import { CustomerFormDialog } from './CustomerFormDialog';
@@ -20,7 +21,8 @@ export function CustomersPage() {
   const page = Math.max(1, Number(params.get('page')) || 1);
   const [search, setSearch] = useState(params.get('q') ?? '');
   const q = useDebouncedValue(search.trim(), 300);
-  const [creating, setCreating] = useState(false);
+  // `?novo=1` abre o cadastro direto: é o atalho da tela inicial
+  const [creating, setCreating] = useState(params.get('novo') === '1');
 
   // a busca fica na URL: F5 e voltar mantêm o que a pessoa estava procurando
   useEffect(() => {
@@ -113,7 +115,15 @@ export function CustomersPage() {
         )}
       </Card>
 
-      <CustomerFormDialog open={creating} onOpenChange={setCreating} onSaved={(c) => navigate(`/clientes/${c.id}`)} />
+      <CustomerFormDialog
+        open={creating}
+        onOpenChange={(aberto) => {
+          setCreating(aberto);
+          // fechar limpa o atalho da URL: F5 não reabre o diálogo
+          if (!aberto && params.get('novo')) setParams(withParam(params, 'novo', null), { replace: true });
+        }}
+        onSaved={(c) => navigate(`/clientes/${c.id}`)}
+      />
     </>
   );
 }

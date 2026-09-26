@@ -1,11 +1,13 @@
-import { api, captura, criarOficina, entrarNoPainel, expect, test, textoDe } from './helpers';
+import { api, captura, criarOficina, entrarNoPainel, expect, test } from './helpers';
 
 /**
  * Pós-venda, avaliação e funil (E16). O roteiro é o dia do atendente: pedir a
  * avaliação de quem levou o carro, anotar no funil quem ligou pedindo preço, e
  * mover esse contato até virar cliente.
  */
-test('a oficina pede avaliação, anota o contato no funil e fecha o negócio', async ({ page }) => {
+test('a oficina pede avaliação, anota o contato no funil e fecha o negócio', async ({ page, ignorarErros }) => {
+  // o convite sem link do Google cadastrado responde 422 de propósito
+  ignorarErros.push(/status of 422/);
   const oficina = await criarOficina('posvenda', 'PVE9Y87');
   const ordem = await api<{ id: string; number: number }>('/work-orders', {
     token: oficina.token,
@@ -30,37 +32,30 @@ test('a oficina pede avaliação, anota o contato no funil e fecha o negócio', 
 
   await entrarNoPainel(page, oficina.email);
 
-  await test.step('o convite de avaliação só aparece com o carro entregue', async () => {
+  await test.step('o convite de avaliação leva ao Google da oficina', async () => {
     await page.goto(`/ordens/${ordem.number}`);
     await expect(page.getByRole('button', { name: 'Pedir avaliação' })).toBeVisible();
     await captura(page, 'posvenda-01-pedir-avaliacao');
-  });
 
-  await test.step('o cliente avalia pelo link, e a nota aparece no painel', async () => {
-    // o link sai pela API, como sairia pelo botão (que abre o WhatsApp)
-    const convite = await api<{ publicUrl: string }>(`/work-orders/${ordem.id}/review-invite`, {
+    // sem o link cadastrado, o botão avisa onde configurar em vez de mandar
+    // o cliente para lugar nenhum
+    await page.getByRole('button', { name: 'Pedir avaliação' }).click();
+    await expect(page.getByText(/link de avaliação do Google/i)).toBeVisible();
+
+    await api('/organization/settings', {
       token: oficina.token,
-      payload: {},
+      method: 'PATCH',
+      payload: { googleReviewUrl: 'https://g.page/r/oficina-de-teste' },
     });
-    const token = convite.publicUrl.slice(convite.publicUrl.lastIndexOf('/') + 1);
 
-    const celular = await page.context().newPage();
-    await celular.setViewportSize({ width: 390, height: 844 });
-    await celular.goto(`/avaliacao/${token}`);
-    await expect(celular.getByRole('heading', { name: 'Como foi o atendimento?' })).toBeVisible();
-    await celular.getByRole('button', { name: /5 estrelas/ }).click();
-    await celular.getByLabel(/Quer contar alguma coisa/).fill('Rápido e bem feito.');
-    await celular.screenshot({ path: 'e2e/screenshots/posvenda-02-avaliacao-celular.png', fullPage: true });
-    await celular.getByRole('button', { name: 'Enviar avaliação' }).click();
-    await expect(celular.getByRole('heading', { name: 'Obrigado pela avaliação!' })).toBeVisible();
-    await celular.close();
-
-    await page.goto('/avaliacoes');
-    await expect(page.getByRole('heading', { name: 'Avaliações', exact: true })).toBeVisible();
-    const tela = await textoDe(page.locator('main'));
-    expect(tela, 'a média apareceu').toContain('5,0');
-    expect(tela, 'o comentário aparece como o cliente escreveu').toContain('Rápido e bem feito.');
-    await captura(page, 'posvenda-03-avaliacoes');
+    const [aba] = await Promise.all([
+      page.context().waitForEvent('page'),
+      page.getByRole('button', { name: 'Pedir avaliação' }).click(),
+    ]);
+    const link = decodeURIComponent(aba.url().replace(/\+/g, ' '));
+    expect(link, 'o convite carrega o link do Google').toContain('g.page/r/oficina-de-teste');
+    await aba.close();
+    await captura(page, 'posvenda-02-convite-google');
   });
 
   await test.step('o contato entra no funil, anda de etapa e vira cliente', async () => {

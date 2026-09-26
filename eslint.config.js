@@ -13,8 +13,23 @@ export default defineConfig(
   js.configs.recommended,
   tseslint.configs.recommended,
   {
-    files: ['apps/api/**/*.ts', 'packages/**/*.ts', 'e2e/**/*.ts', '**/*.config.{ts,js}'],
+    // o service worker roda no navegador, mas fora do bundle (public/sw.js)
+    files: [
+      'apps/api/**/*.ts',
+      'packages/**/*.ts',
+      'e2e/**/*.ts',
+      '**/*.config.{ts,js}',
+    ],
     languageOptions: { globals: globals.node },
+  },
+  {
+    // roda no Node, mas o que está dentro de page.evaluate roda no navegador
+    files: ['apps/web/scripts/**/*.mjs'],
+    languageOptions: { globals: { ...globals.node, ...globals.browser } },
+  },
+  {
+    files: ['apps/web/public/sw.js'],
+    languageOptions: { globals: { ...globals.serviceworker, ...globals.browser } },
   },
   {
     files: ['apps/web/src/**/*.{ts,tsx}'],

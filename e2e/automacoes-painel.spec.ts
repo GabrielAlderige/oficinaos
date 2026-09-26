@@ -11,7 +11,11 @@ test('a oficina configura as automações e vê uma delas rodar', async ({ page 
   const oficina = await criarOficina('automacao', 'AUT1A23');
 
   // um agendamento para amanhã: é o que o lembrete vai encontrar
-  const amanha = new Date(Date.now() + 26 * 60 * 60 * 1000);
+  // AMANHÃ ao meio-dia: "daqui a 26 h" rodando de noite cai depois de amanhã, e
+  // o lembrete, que olha só o dia seguinte, não acharia nada
+  const amanha = new Date();
+  amanha.setDate(amanha.getDate() + 1);
+  amanha.setHours(12, 0, 0, 0);
   await api('/appointments', {
     token: oficina.token,
     payload: {

@@ -74,6 +74,12 @@ export const router = createBrowserRouter([
             ],
           },
           {
+            // a tela de quem trabalha no celular (E24)
+            path: 'minhas-os',
+            lazy: page(() => import('../features/work-orders/MyDayPage'), 'MyDayPage'),
+            handle: { crumb: 'Minhas OS' },
+          },
+          {
             path: 'ordens',
             handle: { crumb: 'Ordens de serviço' },
             children: [
@@ -84,11 +90,6 @@ export const router = createBrowserRouter([
                 handle: { crumb: 'OS' },
                 children: [
                   { index: true, lazy: page(() => import('../features/work-orders/WorkOrderPage'), 'WorkOrderPage') },
-                  {
-                    path: 'cotacoes/:id',
-                    lazy: page(() => import('../features/supplier-quotes/SupplierQuotePage'), 'SupplierQuotePage'),
-                    handle: { crumb: 'Cotação de peças' },
-                  },
                 ],
               },
             ],
@@ -97,44 +98,15 @@ export const router = createBrowserRouter([
           { path: 'servicos', lazy: page(() => import('../features/catalog/ServicesPage'), 'ServicesPage'), handle: { crumb: 'Serviços' } },
           {
             path: 'pecas',
-            handle: { crumb: 'Peças' },
+            handle: { crumb: 'Peças e estoque' },
             children: [
               { index: true, lazy: page(() => import('../features/catalog/PartsPage'), 'PartsPage') },
               {
-                path: 'pesquisa',
-                lazy: page(() => import('../features/parts-search/PartsSearchPage'), 'PartsSearchPage'),
-                handle: { crumb: 'Pesquisar peças' },
+                path: 'recomendacoes',
+                lazy: page(() => import('../features/catalog/ReorderPage'), 'ReorderPage'),
+                handle: { crumb: 'Recomendações de pedido' },
               },
               { path: ':id', lazy: page(() => import('../features/catalog/PartPage'), 'PartPage'), handle: { crumb: 'Peça' } },
-            ],
-          },
-          {
-            path: 'fornecedores',
-            handle: { crumb: 'Fornecedores' },
-            children: [
-              { index: true, lazy: page(() => import('../features/suppliers/SuppliersPage'), 'SuppliersPage') },
-              { path: ':id', lazy: page(() => import('../features/suppliers/SupplierPage'), 'SupplierPage'), handle: { crumb: 'Fornecedor' } },
-            ],
-          },
-          {
-            path: 'compras',
-            handle: { crumb: 'Compras' },
-            children: [
-              { index: true, lazy: page(() => import('../features/purchases/PurchaseOrdersPage'), 'PurchaseOrdersPage') },
-              { path: 'novo', lazy: page(() => import('../features/purchases/PurchaseOrderFormPage'), 'PurchaseOrderFormPage'), handle: { crumb: 'Novo pedido' } },
-              {
-                path: 'sugestao',
-                lazy: page(() => import('../features/purchases/PurchaseSuggestionsPage'), 'PurchaseSuggestionsPage'),
-                handle: { crumb: 'Sugestão de compra' },
-              },
-              {
-                path: ':id',
-                handle: { crumb: 'Pedido' },
-                children: [
-                  { index: true, lazy: page(() => import('../features/purchases/PurchaseOrderPage'), 'PurchaseOrderPage') },
-                  { path: 'editar', lazy: page(() => import('../features/purchases/PurchaseOrderFormPage'), 'PurchaseOrderFormPage'), handle: { crumb: 'Editar' } },
-                ],
-              },
             ],
           },
           {
@@ -143,39 +115,30 @@ export const router = createBrowserRouter([
             handle: { crumb: 'Pós-venda' },
           },
           {
-            path: 'avaliacoes',
-            lazy: page(() => import('../features/aftersales/ReviewsPage'), 'ReviewsPage'),
-            handle: { crumb: 'Avaliações' },
-          },
-          {
             path: 'funil',
             lazy: page(() => import('../features/aftersales/LeadsPage'), 'LeadsPage'),
             handle: { crumb: 'Funil' },
           },
           {
-            path: 'notas',
-            lazy: page(() => import('../features/invoices/InvoicesPage'), 'InvoicesPage'),
-            handle: { crumb: 'Notas fiscais' },
+            path: 'conversas',
+            lazy: page(() => import('../features/messaging/ChatPage'), 'ChatPage'),
+            // `wide`: a conversa ocupa a tela inteira, sem a largura de leitura
+            handle: { crumb: 'Conversas', wide: true },
           },
           {
-            path: 'relatorios',
-            lazy: page(() => import('../features/reports/ReportsPage'), 'ReportsPage'),
-            handle: { crumb: 'Relatórios' },
+            path: 'notas',
+            lazy: page(() => import('../features/invoices/InvoicesPage'), 'InvoicesPage'),
+            handle: { crumb: 'Notas fiscais', desktop: 'A nota fiscal' },
           },
           {
             path: 'financeiro',
-            handle: { crumb: 'Financeiro' },
+            handle: { crumb: 'Financeiro', desktop: 'O financeiro' },
             children: [
               { index: true, element: <Navigate to="receber" replace /> },
               {
                 path: 'receber',
                 lazy: page(() => import('../features/finance/FinancePage'), 'ReceivablesPage'),
                 handle: { crumb: 'A receber' },
-              },
-              {
-                path: 'pagar',
-                lazy: page(() => import('../features/finance/FinancePage'), 'PayablesPage'),
-                handle: { crumb: 'A pagar' },
               },
               {
                 path: 'caixa',
@@ -203,13 +166,18 @@ export const router = createBrowserRouter([
               {
                 path: 'fiscal',
                 lazy: page(() => import('../features/settings/FiscalSettingsPage'), 'FiscalSettingsPage'),
-                handle: { crumb: 'Fiscal' },
+                handle: { crumb: 'Fiscal', desktop: 'A configuração fiscal' },
               },
               { path: 'equipe', lazy: page(() => import('../features/settings/TeamPage'), 'TeamPage'), handle: { crumb: 'Equipe' } },
               {
                 path: 'plano',
                 lazy: page(() => import('../features/settings/PlanSettingsPage'), 'PlanSettingsPage'),
                 handle: { crumb: 'Plano' },
+              },
+              {
+                path: 'whatsapp',
+                lazy: page(() => import('../features/settings/WhatsAppSettingsPage'), 'WhatsAppSettingsPage'),
+                handle: { crumb: 'WhatsApp', desktop: 'A conexão do WhatsApp' },
               },
               {
                 path: 'automacoes',
@@ -219,7 +187,7 @@ export const router = createBrowserRouter([
               {
                 path: 'importar',
                 lazy: page(() => import('../features/settings/ImportPage'), 'ImportPage'),
-                handle: { crumb: 'Importar' },
+                handle: { crumb: 'Importar', desktop: 'A importação de planilha' },
               },
               { path: 'sessoes', lazy: page(() => import('../features/settings/SessionsPage'), 'SessionsPage'), handle: { crumb: 'Sessões' } },
             ],

@@ -18,4 +18,5 @@ export * from './aftersales';
 export * from './fiscal';
 export * from './charges';
 export * from './automations';
+export * from './messaging';
 export * from './audit';

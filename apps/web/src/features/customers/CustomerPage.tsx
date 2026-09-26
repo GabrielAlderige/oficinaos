@@ -57,6 +57,7 @@ function CustomerDetail({ customer }: { customer: Customer }) {
   const canWrite = useCan('customers:write');
   const canDelete = useCan('customers:delete');
   const canAddVehicle = useCan('vehicles:write');
+  const canMessage = useCan('messages:send');
   const vehicles = useCustomerVehicles(customer.id);
   const remove = useDeleteCustomer();
   const [editing, setEditing] = useState(false);
@@ -86,14 +87,23 @@ function CustomerDetail({ customer }: { customer: Customer }) {
           <p className="mt-1 text-sm text-muted">Cliente desde {formatDate(customer.createdAt)}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {whatsapp && (
-            <Button asChild variant="secondary">
-              <a href={whatsapp} target="_blank" rel="noopener noreferrer">
-                <MessageCircle />
-                WhatsApp
-              </a>
-            </Button>
-          )}
+          {/* a conversa pelo sistema guarda o histórico; o link direto não guarda nada */}
+          {whatsapp &&
+            (canMessage ? (
+              <Button asChild variant="secondary">
+                <Link to={`/conversas?cliente=${customer.id}`}>
+                  <MessageCircle />
+                  Conversar
+                </Link>
+              </Button>
+            ) : (
+              <Button asChild variant="secondary">
+                <a href={whatsapp} target="_blank" rel="noopener noreferrer">
+                  <MessageCircle />
+                  WhatsApp
+                </a>
+              </Button>
+            ))}
           {canWrite && (
             <Button variant="secondary" onClick={() => setEditing(true)}>
               <Pencil />

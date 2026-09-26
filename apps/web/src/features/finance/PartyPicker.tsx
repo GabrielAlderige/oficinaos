@@ -4,7 +4,6 @@ import { Input } from '../../components/ui/input';
 import { cn } from '../../lib/cn';
 import { useDebouncedValue } from '../../lib/use-debounced-value';
 import { useCustomers } from '../customers/api';
-import { useSuppliers } from '../suppliers/api';
 
 interface Escolhido {
   id: string;
@@ -12,15 +11,14 @@ interface Escolhido {
 }
 
 /**
- * De quem se recebe, ou para quem se paga. Busca em vez de lista inteira: uma
+ * De quem se recebe. Busca em vez de lista inteira: uma
  * oficina com dois anos de casa tem milhares de clientes, e um `select` com
  * tudo dentro é inútil no celular.
  *
- * O campo é OPCIONAL de propósito — conta de luz não tem fornecedor cadastrado,
- * e travar o lançamento por isso faria a despesa continuar no caderno.
+ * O campo é OPCIONAL de propósito: lançamento sem cliente (uma venda de balcão,
+ * um acerto antigo) continua entrando.
  */
-export function PartyPicker({ kind, value, onChange, label }: {
-  kind: 'customer' | 'supplier';
+export function PartyPicker({ value, onChange, label }: {
   value: Escolhido | null;
   onChange(escolhido: Escolhido | null): void;
   label: string;
@@ -29,12 +27,8 @@ export function PartyPicker({ kind, value, onChange, label }: {
   const q = useDebouncedValue(texto.trim(), 300);
   const buscando = q.length >= 2 && !value;
 
-  const clientes = useCustomers({ q, page: 1, pageSize: 6 }, { enabled: buscando && kind === 'customer' });
-  const fornecedores = useSuppliers({ q, category: '', page: 1, pageSize: 6 }, { enabled: buscando && kind === 'supplier' });
-  const achados: Escolhido[] =
-    kind === 'customer'
-      ? (clientes.data?.data ?? []).map((c) => ({ id: c.id, name: c.name }))
-      : (fornecedores.data?.data ?? []).map((s) => ({ id: s.id, name: s.name }));
+  const clientes = useCustomers({ q, page: 1, pageSize: 6 }, { enabled: buscando });
+  const achados: Escolhido[] = (clientes.data?.data ?? []).map((c) => ({ id: c.id, name: c.name }));
 
   if (value) {
     return (
@@ -63,7 +57,7 @@ export function PartyPicker({ kind, value, onChange, label }: {
           {...fieldA11y('finance-party', undefined, true)}
           value={texto}
           onChange={(event) => setTexto(event.target.value)}
-          placeholder={kind === 'customer' ? 'Nome do cliente' : 'Nome do fornecedor'}
+          placeholder="Nome do cliente"
           autoComplete="off"
         />
         {buscando && achados.length > 0 && (

@@ -30,6 +30,18 @@ export default defineConfig({
       use: { browserName: 'chromium', viewport: { width: 1280, height: 900 } },
     },
     {
+      // a oficina no celular do mecânico (E24): é onde ele trabalha o dia todo
+      name: 'celular',
+      testMatch: /celular\.spec\.ts$/,
+      use: {
+        browserName: 'chromium',
+        viewport: { width: 390, height: 844 },
+        deviceScaleFactor: 2,
+        isMobile: true,
+        hasTouch: true,
+      },
+    },
+    {
       // o cliente abre o link no celular: é o único jeito que interessa provar
       name: 'cliente',
       testMatch: /cliente\.spec\.ts$/,

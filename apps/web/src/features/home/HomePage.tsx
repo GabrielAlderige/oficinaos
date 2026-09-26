@@ -5,11 +5,14 @@ import {
   type DashboardPeriod,
   type DashboardSummary,
 } from '@oficinaos/shared';
-import { useSearchParams } from 'react-router';
+import { CalendarDays, ClipboardPlus, UserPlus } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router';
+import { Button } from '../../components/ui/button';
 import { Alert, Card, CardHeader, PageHeader, Skeleton } from '../../components/ui/display';
 import { cn } from '../../lib/cn';
 import { firstName } from '../../lib/format';
 import { useCan, useMe } from '../../lib/session';
+import { useIsPhone } from '../../lib/use-media-query';
 import { AttentionPanel } from '../dashboard/AttentionPanel';
 import { useDashboardSummary } from '../dashboard/api';
 import { MetricChart } from '../dashboard/MetricChart';
@@ -114,6 +117,7 @@ function MaisUsados({ dados }: { dados: DashboardSummary }) {
 export function HomePage() {
   const me = useMe();
   const podeVer = useCan('dashboard:view');
+  const celular = useIsPhone();
   const [params, setParams] = useSearchParams();
   const escolhido = params.get('periodo');
   const periodo: DashboardPeriod = ehPeriodo(escolhido) ? escolhido : 'month';
@@ -154,6 +158,8 @@ export function HomePage() {
         }
       />
 
+      <AcoesRapidas />
+
       <div className="space-y-4">
         {podeVer && resumo.isError && (
           <Alert variant="danger">Não deu para carregar os números. Atualize a página.</Alert>
@@ -185,12 +191,46 @@ export function HomePage() {
             </Card>
             <Numeros dados={dados} />
             <AttentionPanel />
-            <MetricChart periodo={{ period: periodo }} podeVerDinheiro={dados.billedCents !== null} />
+            {/* o gráfico é do computador: numa coluna de 390 px ele vira
+                risco, e o celular já custa uma requisição a mais (E24) */}
+            {!celular && <MetricChart periodo={{ period: periodo }} podeVerDinheiro={dados.billedCents !== null} />}
             <MaisUsados dados={dados} />
           </>
         )}
         <SetupChecklist />
       </div>
     </>
+  );
+}
+
+/**
+ * O que a oficina faz dez vezes por dia, a um clique da tela inicial. Antes
+ * era: abrir o menu, achar a seção, abrir a lista, achar o botão — quatro
+ * passos para começar uma OS.
+ */
+function AcoesRapidas() {
+  const podeOS = useCan('work_orders:write');
+  const podeAgenda = useCan('appointments:write');
+  const podeCliente = useCan('customers:write');
+
+  const acoes = [
+    { to: '/ordens/nova', label: 'Nova OS', icon: ClipboardPlus, mostrar: podeOS, principal: true },
+    { to: '/agenda', label: 'Agenda de hoje', icon: CalendarDays, mostrar: podeAgenda, principal: false },
+    { to: '/clientes?novo=1', label: 'Novo cliente', icon: UserPlus, mostrar: podeCliente, principal: false },
+  ].filter((acao) => acao.mostrar);
+
+  if (!acoes.length) return null;
+
+  return (
+    <div className="mb-4 flex flex-wrap gap-2">
+      {acoes.map((acao) => (
+        <Button key={acao.to} asChild variant={acao.principal ? 'primary' : 'secondary'}>
+          <Link to={acao.to}>
+            <acao.icon />
+            {acao.label}
+          </Link>
+        </Button>
+      ))}
+    </div>
   );
 }

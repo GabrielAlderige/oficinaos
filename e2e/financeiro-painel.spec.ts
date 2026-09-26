@@ -22,7 +22,7 @@ test('a oficina recebe pela tela do financeiro, lança a despesa do mês e vê o
   await entrarNoPainel(page, oficina.email);
 
   await test.step('a OS finalizada já está em "A receber", pelo valor aprovado', async () => {
-    await page.getByRole('navigation', { name: 'Principal' }).getByRole('link', { name: 'A receber' }).click();
+    await page.getByRole('navigation', { name: 'Principal' }).getByRole('link', { name: 'Financeiro' }).click();
     await expect(page.getByRole('heading', { name: 'Contas a receber' })).toBeVisible();
     // o cabeçalho aparece antes da lista: ler a tela agora pegaria "Carregando…"
     await expect(page.getByRole('button', { name: new RegExp(`OS nº ${ordem.number}`) })).toBeVisible();
@@ -62,11 +62,13 @@ test('a oficina recebe pela tela do financeiro, lança a despesa do mês e vê o
     expect(cartao, 'falta na OS').toContain('R$ 380,00');
   });
 
-  await test.step('a despesa do mês vira conta a pagar', async () => {
-    await page.getByRole('navigation', { name: 'Principal' }).getByRole('link', { name: 'A pagar' }).click();
-    await expect(page.getByRole('heading', { name: 'Contas a pagar' })).toBeVisible();
-    // a lista vazia repete o botão no estado vazio: o do cabeçalho é o primeiro
-    await page.getByRole('button', { name: 'Nova conta a pagar' }).first().click();
+  await test.step('a despesa do mês se lança no próprio fluxo de caixa', async () => {
+    // "A pagar" deixou de ser uma lista inteira (E23): a despesa entra onde
+    // ela muda alguma coisa, que é no caixa
+    await page.getByRole('navigation', { name: 'Principal' }).getByRole('link', { name: 'Financeiro' }).click();
+    await page.getByRole('navigation', { name: 'Seções do financeiro' }).getByRole('link', { name: 'Fluxo de caixa' }).click();
+    await expect(page.getByRole('heading', { name: 'Fluxo de caixa' })).toBeVisible();
+    await page.getByRole('button', { name: 'Lançar despesa' }).click();
 
     const dialogo = page.getByRole('dialog');
     await dialogo.getByLabel('Descrição', { exact: true }).fill('Aluguel do galpão');
@@ -76,11 +78,8 @@ test('a oficina recebe pela tela do financeiro, lança a despesa do mês e vê o
     await dialogo.getByRole('button', { name: 'Lançar', exact: true }).click();
     await expect(page.getByRole('dialog')).toHaveCount(0);
 
-    await expect(page.getByText('Aluguel do galpão').first()).toBeVisible();
-    const lista = await textoDe(page.locator('main'));
-    expect(lista).toContain('R$ 1.200,00');
-
-    // e a baixa dela sai daqui mesmo
+    // e a baixa sai da própria lista de despesas em aberto
+    await expect(page.getByRole('heading', { name: 'Despesas em aberto' })).toBeVisible();
     await page.getByRole('button', { name: /Aluguel do galpão/ }).click();
     const ficha = page.getByRole('dialog');
     await ficha.getByRole('button', { name: 'Registrar pagamento', exact: true }).click();
@@ -88,16 +87,16 @@ test('a oficina recebe pela tela do financeiro, lança a despesa do mês e vê o
     await ficha.getByRole('button', { name: 'Registrar', exact: true }).click();
     await expect(ficha.getByText('Quitada', { exact: true }).first()).toBeVisible();
     await page.keyboard.press('Escape');
+    // paga, ela sai da lista de abertas — e entra no caixa
+    await expect(page.getByRole('heading', { name: 'Despesas em aberto' })).toBeHidden();
   });
 
   await test.step('o fluxo de caixa mostra as duas pontas e o lucro estimado', async () => {
-    await page.getByRole('link', { name: 'Fluxo de caixa' }).first().click();
-    await expect(page.getByRole('heading', { name: 'Fluxo de caixa' })).toBeVisible();
     // os números chegam depois do cabeçalho: ler a tela antes disso pega "Carregando…"
     await expect(page.getByText('R$ 300,00').first()).toBeVisible();
     const tela = await textoDe(page.locator('main'));
     expect(tela, 'entrou o recebimento da OS').toContain('R$ 300,00');
-    expect(tela, 'saiu o aluguel').toContain('R$ 1.200,00');
+    expect(tela, 'o aluguel pago entrou como saída do caixa').toContain('R$ 1.200,00');
     expect(tela).toContain('Lucro estimado');
     await captura(page, 'financeiro-04-caixa');
 

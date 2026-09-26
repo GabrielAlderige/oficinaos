@@ -98,6 +98,8 @@ echo "POSTGRES_PASSWORD=$(openssl rand -base64 36)"
 echo "APP_DB_PASSWORD=$(openssl rand -base64 36)"
 echo "OWNER_DB_PASSWORD=$(openssl rand -base64 36)"
 echo "JWT_SECRET=$(openssl rand -base64 48)"
+# cifra o token do WhatsApp de cada oficina (E22); precisa ter 32 bytes
+echo "SECRETS_KEY=$(openssl rand -base64 32)"
 
 nano .env   # cole os valores e preencha domínios e SMTP
 ```
@@ -155,6 +157,21 @@ Depois, dentro do painel:
 3. **Configurações → Automações**: escolha a hora em que o sistema monta a
    fila do dia.
 4. **Configurações → Equipe**: convide quem trabalha com você.
+5. **No celular da equipe**: abra `https://app.<seu-domínio>` no telefone e
+   instale o aplicativo — no Android o Chrome oferece "Instalar aplicativo"; no
+   iPhone é Safari → Compartilhar → "Adicionar à Tela de Início". O mecânico
+   entra e já cai em **Minhas OS**. Só funciona com HTTPS, que o Caddy já
+   resolve.
+6. **Configurações → WhatsApp** (opcional): conecte a conta oficial da oficina.
+   Sem isso o sistema já funciona — as mensagens saem pelo link do WhatsApp,
+   com o texto pronto. Conectar serve para o sistema enviar sozinho e para as
+   respostas do cliente chegarem na tela **Conversas**. Precisa de
+   `SECRETS_KEY` no `.env` do servidor (§3): é a chave que cifra o token da
+   oficina no banco.
+
+> **Guarde a `SECRETS_KEY` junto do backup.** Restaurar o banco sem ela deixa
+> ilegível o que foi guardado, e cada oficina precisa conectar o WhatsApp de
+> novo. Gere com `openssl rand -base64 32`.
 
 > A oficina de demonstração (`npm run db:seed:demo`) só existe em
 > desenvolvimento, de propósito: dado inventado não nasce junto com dado real
@@ -172,6 +189,8 @@ Depois, dentro do painel:
 | Certificado não sai | DNS ainda não propagou, ou as portas 80/443 estão fechadas no firewall do provedor |
 | Painel abre, mas nada carrega | `docker compose logs web` e confira `APP_DOMAIN` e `APP_URL` — os dois precisam ser o MESMO endereço |
 | Login funciona e depois desloga | `JWT_SECRET` mudou entre reinícios (ficou vazio no `.env`) |
+| A Meta não aceita o webhook | o endereço precisa de HTTPS válido e público. Confira a URL e o token em **Configurações → WhatsApp** — a URL é `https://app.<seu-domínio>/api/v1/webhooks/whatsapp/<id da oficina>` |
+| Conectar o WhatsApp devolve "servidor sem chave de segredos" | falta `SECRETS_KEY` no `.env`; gere com `openssl rand -base64 32` e reinicie a API |
 
 O `/api/v1/health` responde se o processo está vivo; o `/api/v1/ready` só
 responde 200 quando o banco também responde. São eles que um monitor externo

@@ -8,6 +8,7 @@ import {
   DEFAULT_QUOTE_VALIDITY_DAYS,
   effectiveQuoteStatus,
   ErrorCode,
+  formatBRL,
   isQuoteAnswerable,
   type ManualDecisionInput,
   milliToNumber,
@@ -32,6 +33,7 @@ import { releaseReservations, reserveApprovedItems } from '../../core/reservatio
 import { organizations, quotes as quotesTable, type QuoteSnapshot } from '../../db/schema';
 import type { Tx } from '../../db/tenant';
 import { withQuoteToken, withTenant } from '../../db/tenant';
+import type { MessagingService } from '../messaging/messaging.service';
 import * as workOrderRepo from '../work-orders/work-orders.repository';
 import { applyWorkOrderChange } from '../work-orders/totals';
 import * as repo from './quotes.repository';
@@ -48,7 +50,11 @@ function conflict(detail: string) {
 }
 
 export class QuotesService {
-  constructor(private readonly deps: ServiceDeps) {}
+  constructor(
+    private readonly deps: ServiceDeps,
+    /** o canal de WhatsApp (E22); sem ele, o orçamento sai pelo link, como antes */
+    private readonly messaging?: MessagingService,
+  ) {}
 
   // ------------------------------------------------------------ na oficina
 
@@ -235,55 +241,101 @@ export class QuotesService {
     });
   }
 
-  /** Registra o canal de envio e devolve a mensagem pronta do WhatsApp. */
-  async share(auth: AuthContext, id: string, channel: ShareChannel, client: ClientInfo): Promise<{ quote: Quote; message: string; whatsappUrl: string | null }> {
-    return withTenant(this.deps.db, auth, async (tx) => {
+  /**
+   * Manda o orçamento para o cliente.
+   *
+   * Com o canal oficial conectado (E22), a mensagem sai pelo servidor; sem
+   * ele, continua como sempre: o texto pronto e o link `wa.me`, com uma pessoa
+   * apertando enviar. O número é o do CLIENTE — é ele quem vai decidir.
+   */
+  async share(
+    auth: AuthContext,
+    id: string,
+    channel: ShareChannel,
+    client: ClientInfo,
+  ): Promise<{ quote: Quote; message: string; whatsappUrl: string | null; via: 'API' | 'LINK' }> {
+    const preparo = await withTenant(this.deps.db, auth, async (tx) => {
       const found = await repo.findQuote(tx, auth.organizationId, id);
       if (!found) throw notFound('Orçamento não encontrado.');
 
       const link = this.publicUrl(found.quote.publicToken);
+      const shopName = found.quote.snapshot.shop.name;
       const message = whatsappQuoteMessage({
         customerName: found.customerName,
-        shopName: found.quote.snapshot.shop.name,
+        shopName,
         vehicle: { make: found.vehicleMake, model: found.vehicleModel, plate: found.vehiclePlate },
         totalCents: found.quote.totalCents,
         link,
       });
-      // o número é o do CLIENTE: o link abre a conversa com quem vai decidir.
-      // Antes saía o da própria oficina, enquanto a tela dizia "o cliente não
-      // tem WhatsApp cadastrado" — promessa que o dado não cumpria.
-      const whatsapp = found.customerWhatsapp ?? null;
-
-      await repo.updateQuote(tx, id, { sentChannel: channel });
-      await repo.insertMessage(tx, {
-        organizationId: auth.organizationId,
+      return {
         customerId: found.customerId,
-        channel: channel === 'WHATSAPP_LINK' ? 'WHATSAPP_LINK' : 'PUBLIC_PAGE',
-        direction: 'OUTBOUND',
-        templateKey: 'QUOTE_SENT',
-        body: message,
-        toAddress: whatsapp,
+        // Antes saía o número da própria oficina, enquanto a tela dizia "o
+        // cliente não tem WhatsApp cadastrado" — promessa que o dado não cumpria
+        whatsapp: found.customerWhatsapp ?? null,
         workOrderId: found.quote.workOrderId,
-        quoteId: id,
-        // o link wa.me não confirma entrega: LINK_OPENED é o que realmente sabemos
-        status: 'LINK_OPENED',
-        sentBy: auth.userId,
-      });
+        message,
+        // a ordem é a do catálogo: cliente, oficina, veículo, valor, link (E22)
+        variaveis: [
+          found.customerName.trim().split(/\s+/)[0] ?? found.customerName,
+          shopName,
+          `${found.vehicleMake} ${found.vehicleModel}`,
+          formatBRL(found.quote.totalCents),
+          link,
+        ],
+      };
+    });
+
+    // a chamada à Meta roda FORA da transação: rede lenta não segura o banco
+    const pelaApi =
+      this.messaging && channel === 'WHATSAPP_LINK'
+        ? await this.messaging.enviarDoSistema(auth, {
+            customerId: preparo.customerId,
+            telefone: preparo.whatsapp,
+            templateKey: 'QUOTE_SENT',
+            texto: preparo.message,
+            variaveis: preparo.variaveis,
+            workOrderId: preparo.workOrderId,
+            quoteId: id,
+          })
+        : { enviada: false, status: null, motivo: 'canal não conectado' };
+
+    return withTenant(this.deps.db, auth, async (tx) => {
+      await repo.updateQuote(tx, id, { sentChannel: channel });
+      // quando sai pela API, quem registra a mensagem é o módulo de conversa:
+      // duas linhas para o mesmo envio mentiriam no histórico
+      if (!pelaApi.enviada) {
+        await repo.insertMessage(tx, {
+          organizationId: auth.organizationId,
+          customerId: preparo.customerId,
+          channel: channel === 'WHATSAPP_LINK' ? 'WHATSAPP_LINK' : 'PUBLIC_PAGE',
+          direction: 'OUTBOUND',
+          templateKey: 'QUOTE_SENT',
+          body: preparo.message,
+          toAddress: preparo.whatsapp,
+          workOrderId: preparo.workOrderId,
+          quoteId: id,
+          // o link wa.me não confirma entrega: LINK_OPENED é o que realmente sabemos
+          status: 'LINK_OPENED',
+          sentBy: auth.userId,
+        });
+      }
       await recordActivity(tx, {
         organizationId: auth.organizationId,
         actorUserId: auth.userId,
         action: 'quote.shared',
         entityType: 'quote',
         entityId: id,
-        metadata: { channel },
+        metadata: { channel, via: pelaApi.enviada ? 'API' : 'LINK' },
         ...client,
       });
 
       return {
         quote: await this.load(tx, auth.organizationId, id),
-        message,
+        message: preparo.message,
         // E.164 no banco: concatenar "55" aqui gerava `wa.me/55+55…` (link morto)
-        whatsappUrl: whatsapp ? whatsappLink(whatsapp, message) : null,
+        whatsappUrl:
+          pelaApi.enviada || !preparo.whatsapp ? null : whatsappLink(preparo.whatsapp, preparo.message),
+        via: pelaApi.enviada ? ('API' as const) : ('LINK' as const),
       };
     });
   }

@@ -9,6 +9,7 @@ import type {
   PartCategory,
   PartInput,
   PartListItem,
+  PurchaseSuggestions,
   Service,
   ServiceInput,
   StockMovementInput,
@@ -210,5 +211,16 @@ export function useRemoveApplication(partId: string) {
   return useMutation({
     mutationFn: (id: string) => api<void>(`/parts/${partId}/applications/${id}`, { method: 'DELETE' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: catalogKeys.applications(partId) }),
+  });
+}
+
+/**
+ * O que está na hora de pedir (E12, agora dentro de Peças e estoque): peça
+ * abaixo do mínimo e peça que a OS espera. A conta é do servidor.
+ */
+export function usePurchaseSuggestions() {
+  return useQuery({
+    queryKey: ['purchase-suggestions'],
+    queryFn: () => api<PurchaseSuggestions>('/purchase-orders/suggestions'),
   });
 }

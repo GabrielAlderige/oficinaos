@@ -31,7 +31,10 @@ export const quoteRoutes: FastifyPluginAsyncZod = async (app) => {
     async (request) => service.get(getAuth(request), request.params.id),
   );
 
-  /** Devolve a mensagem pronta e o link wa.me: quem envia é a pessoa (V1). */
+  /**
+   * Manda o orçamento. Com o canal oficial conectado (E22) sai pelo servidor
+   * (`via: 'API'`); sem ele, devolve o texto pronto e o link `wa.me`.
+   */
   app.post(
     '/:id/share',
     {
@@ -40,7 +43,12 @@ export const quoteRoutes: FastifyPluginAsyncZod = async (app) => {
         params: idParamSchema,
         body: shareQuoteSchema,
         response: {
-          200: z.object({ quote: quoteSchema, message: z.string(), whatsappUrl: z.string().nullable() }),
+          200: z.object({
+            quote: quoteSchema,
+            message: z.string(),
+            whatsappUrl: z.string().nullable(),
+            via: z.enum(['API', 'LINK']),
+          }),
         },
       },
     },

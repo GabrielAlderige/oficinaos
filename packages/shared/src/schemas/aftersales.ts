@@ -52,8 +52,13 @@ export const followUpDoneSchema = z.object({ outcome: optionalText(200).default(
 
 // ------------------------------- avaliações -------------------------------
 
+/**
+ * O convite para avaliar. O link é o do **Google** da oficina (cadastrado em
+ * Configurações → Oficina): a avaliação que vale para quem procura oficina na
+ * internet é a de lá, não uma nota guardada aqui dentro.
+ */
 export const reviewInviteResultSchema = z.object({
-  reviewId: z.uuid(),
+  /** o link do Perfil da Empresa no Google */
   publicUrl: z.string(),
   message: z.string(),
   whatsappUrl: z.string().nullable(),

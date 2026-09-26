@@ -23,6 +23,7 @@ import {
   type WorkOrderEvent,
   type WorkOrderItem,
   type WorkOrderItemInput,
+  type MyDay,
   type WorkOrderListItem,
   WORK_ORDER_STATUS_LABELS,
   WORK_ORDER_TRANSITIONS,
@@ -32,14 +33,14 @@ import {
 import type { z } from 'zod';
 import { diffChanges, recordActivity } from '../../core/audit';
 import { cancelWorkOrderEntries, ensureWorkOrderReceivable } from '../finance/finance.sync';
-import { findRunningTimer, listItemTimers, readItemTimes, startTimer, stopTimer } from './timers';
+import { findRunningTimer, listItemTimers, readItemTimes, readRunningTimer, startTimer, stopTimer } from './timers';
 import type { AuthContext, ClientInfo, ServiceDeps } from '../../core/auth-context';
 import { COUNTER_WORK_ORDER, nextNumber } from '../../core/counters';
 import { AppError, notFound, validationFailed } from '../../core/errors';
 import { blankToNull, isoOrNull } from '../../core/normalize';
 import { assertOdometerNotDecreasing } from '../../core/odometer';
 import { readOrganizationSettings } from '../../core/org-settings';
-import { saldoCents, whatsappLink, whatsappVehicleReadyMessage } from '@oficinaos/shared';
+import { formatBRL, saldoCents, whatsappLink, whatsappVehicleReadyMessage } from '@oficinaos/shared';
 import { consumeApprovedItems, releaseReservations, returnConsumedItem, type ConsumptionSummary } from '../../core/reservations';
 import { revokeOpenForWorkOrder as revokeOpenQuotes } from '../quotes/quotes.repository';
 import { cancelOpenForWorkOrder as cancelOpenSupplierQuotes } from '../supplier-quotes/supplier-quotes.repository';
@@ -47,6 +48,7 @@ import { applyWorkOrderChange, pricingLinesOf } from './totals';
 import type { workOrderItems, workOrders } from '../../db/schema';
 import type { Tx } from '../../db/tenant';
 import { withTenant } from '../../db/tenant';
+import type { MessagingService } from '../messaging/messaging.service';
 import * as repo from './work-orders.repository';
 
 type OrderPatch = Partial<typeof workOrders.$inferInsert>;
@@ -78,9 +80,59 @@ function versionConflict() {
 }
 
 export class WorkOrdersService {
-  constructor(private readonly deps: ServiceDeps) {}
+  constructor(
+    private readonly deps: ServiceDeps,
+    /** o canal de WhatsApp (E22); sem ele, a mensagem sai pelo link, como antes */
+    private readonly messaging?: MessagingService,
+  ) {}
 
   // ------------------------------------------------------------- leitura
+
+  /**
+   * O dia do mecânico, em uma requisição só (E24).
+   *
+   * É a tela que ele abre no celular, de pé ao lado do carro, com 3G ruim:
+   * os carros que estão com ele e o cronômetro que ficou correndo. Endpoint
+   * próprio em vez de três chamadas porque, nessa tela, cada ida ao servidor
+   * é meio segundo esperando com a mão suja.
+   *
+   * Sem mecânico escolhido na OS, ela não aparece aqui — e é assim que deve
+   * ser: "minhas OS" que mostra a OS dos outros vira lista que ninguém lê.
+   */
+  async myDay(auth: AuthContext): Promise<MyDay> {
+    return withTenant(this.deps.db, auth, async (tx) => {
+      const { rows } = await repo.listWorkOrders(tx, auth.organizationId, {
+        status: 'active',
+        mechanicId: auth.userId,
+        limit: 50,
+        offset: 0,
+      });
+
+      const correndo = await readRunningTimer(tx, auth.organizationId, auth.userId);
+      return {
+        runningTimer: correndo
+          ? {
+              workOrderId: correndo.workOrderId,
+              workOrderNumber: correndo.workOrderNumber,
+              itemId: correndo.itemId,
+              itemDescription: correndo.itemDescription,
+              startedAt: correndo.startedAt.toISOString(),
+            }
+          : null,
+        orders: rows.map((row) => ({
+          id: row.order.id,
+          number: row.order.number,
+          status: row.order.status,
+          customerName: row.customer.name,
+          vehicleName: [row.vehicle.make, row.vehicle.model].filter(Boolean).join(' '),
+          vehiclePlate: row.vehicle.plate,
+          promisedAt: isoOrNull(row.order.promisedAt),
+          complaint: row.order.complaint,
+          hasRunningTimer: correndo?.workOrderId === row.order.id,
+        })),
+      };
+    });
+  }
 
   async list(auth: AuthContext, query: ListQuery): Promise<Page<WorkOrderListItem>> {
     return withTenant(this.deps.db, auth, async (tx) => {
@@ -434,50 +486,73 @@ export class WorkOrdersService {
   }
 
   /**
-   * "Veículo pronto" pelo WhatsApp. A mensagem sai pronta e quem aperta enviar
-   * é a pessoa da oficina — no V1 o canal é o link `wa.me`, sem API não
-   * oficial. Fica no histórico de comunicação, como o envio do orçamento.
+   * "Veículo pronto" pelo WhatsApp.
    *
-   * O número é o do CLIENTE: o link abre a conversa com quem vai buscar o carro.
+   * Com o canal oficial conectado (E22), a mensagem **sai pelo servidor** e a
+   * tela só confirma. Sem canal, continua como sempre foi: o texto pronto e o
+   * link `wa.me`, com uma pessoa apertando enviar. O número é o do CLIENTE — é
+   * com quem vai buscar o carro que a conversa abre.
    */
   async vehicleReady(
     auth: AuthContext,
     id: string,
     client: ClientInfo,
-  ): Promise<{ message: string; whatsappUrl: string | null }> {
+    opcoes: { somenteSeAutomatico?: boolean } = {},
+  ): Promise<{ message: string; whatsappUrl: string | null; via: 'API' | 'LINK' }> {
+    const aviso = await withTenant(this.deps.db, auth, async (tx) => {
+      const encontrado = await this.montarAvisoDeVeiculoPronto(tx, auth.organizationId, id);
+      if (!encontrado) throw notFound('OS não encontrada.');
+      return encontrado;
+    });
+
+    // a chamada à Meta roda FORA da transação: rede lenta não segura o banco
+    const pelaApi = this.messaging
+      ? await this.messaging.enviarDoSistema(auth, {
+          customerId: aviso.customerId,
+          telefone: aviso.whatsapp,
+          templateKey: 'VEHICLE_READY',
+          texto: aviso.message,
+          variaveis: aviso.variaveis,
+          workOrderId: id,
+          somenteSeAutomatico: opcoes.somenteSeAutomatico,
+        })
+      : { enviada: false, status: null, motivo: 'canal não conectado' };
+
+    // aviso automático que não saiu não deixa rastro de "link aberto": ninguém
+    // abriu link nenhum, e a OS não foi "comunicada ao cliente"
+    if (opcoes.somenteSeAutomatico && !pelaApi.enviada) {
+      return { message: aviso.message, whatsappUrl: null, via: 'LINK' as const };
+    }
+
     return withTenant(this.deps.db, auth, async (tx) => {
-      const found = await repo.findWorkOrder(tx, auth.organizationId, { id });
-      if (!found) throw notFound('OS não encontrada.');
-
-      const oficina = await repo.findOrganization(tx, auth.organizationId);
-      const message = whatsappVehicleReadyMessage({
-        customerName: found.customer.name,
-        shopName: oficina?.name ?? 'Oficina',
-        vehicle: { make: found.vehicle.make, model: found.vehicle.model, plate: found.vehicle.plate },
-        balanceCents: saldoCents(found.order),
-      });
-      const whatsapp = found.customer.whatsapp ?? null;
-
-      await repo.insertMessage(tx, {
-        organizationId: auth.organizationId,
-        customerId: found.customer.id,
-        channel: 'WHATSAPP_LINK',
-        direction: 'OUTBOUND',
-        templateKey: 'VEHICLE_READY',
-        body: message,
-        toAddress: whatsapp,
-        workOrderId: id,
-        // o link wa.me não confirma entrega: é o que realmente sabemos
-        status: 'LINK_OPENED',
-        sentBy: auth.userId,
-      });
+      // quando sai pela API, quem registra a mensagem é o módulo de conversa:
+      // duas linhas para o mesmo aviso mentiriam no histórico
+      if (!pelaApi.enviada) {
+        await repo.insertMessage(tx, {
+          organizationId: auth.organizationId,
+          customerId: aviso.customerId,
+          channel: 'WHATSAPP_LINK',
+          direction: 'OUTBOUND',
+          templateKey: 'VEHICLE_READY',
+          body: aviso.message,
+          toAddress: aviso.whatsapp,
+          workOrderId: id,
+          // o link wa.me não confirma entrega: é o que realmente sabemos
+          status: 'LINK_OPENED',
+          sentBy: auth.userId,
+        });
+      }
       // entra na timeline, não só na auditoria: "o carro está pronto há dois
       // dias, alguém avisou?" é pergunta que se responde olhando o histórico
       await repo.insertEvent(tx, {
         organizationId: auth.organizationId,
         workOrderId: id,
         type: 'CUSTOMER_NOTIFIED',
-        data: { canal: 'WHATSAPP_LINK', temWhatsapp: Boolean(whatsapp), balanceCents: saldoCents(found.order) },
+        data: {
+          canal: pelaApi.enviada ? 'WHATSAPP_API' : 'WHATSAPP_LINK',
+          temWhatsapp: Boolean(aviso.whatsapp),
+          balanceCents: aviso.balanceCents,
+        },
         actorUserId: auth.userId,
       });
       await recordActivity(tx, {
@@ -486,17 +561,48 @@ export class WorkOrdersService {
         action: 'work_order.vehicle_ready',
         entityType: 'work_order',
         entityId: id,
-        metadata: { number: found.order.number, balanceCents: saldoCents(found.order) },
+        metadata: { number: aviso.number, balanceCents: aviso.balanceCents, via: pelaApi.enviada ? 'API' : 'LINK' },
         ...client,
       });
 
       return {
-        message,
+        message: aviso.message,
         // o telefone é gravado em E.164; quem monta o link é o shared, senão
         // sai `wa.me/55+55…` e o link não abre conversa nenhuma
-        whatsappUrl: whatsapp ? whatsappLink(whatsapp, message) : null,
+        whatsappUrl: pelaApi.enviada ? null : aviso.whatsapp ? whatsappLink(aviso.whatsapp, aviso.message) : null,
+        via: pelaApi.enviada ? ('API' as const) : ('LINK' as const),
       };
     });
+  }
+
+  /** O texto do aviso e o que ele precisa: serve para o botão e para o automático. */
+  private async montarAvisoDeVeiculoPronto(tx: Tx, organizationId: string, id: string) {
+    const found = await repo.findWorkOrder(tx, organizationId, { id });
+    if (!found) return null;
+
+    const oficina = await repo.findOrganization(tx, organizationId);
+    const shopName = oficina?.name ?? 'Oficina';
+    const balanceCents = saldoCents(found.order);
+    const message = whatsappVehicleReadyMessage({
+      customerName: found.customer.name,
+      shopName,
+      vehicle: { make: found.vehicle.make, model: found.vehicle.model, plate: found.vehicle.plate },
+      balanceCents,
+    });
+    return {
+      customerId: found.customer.id,
+      whatsapp: found.customer.whatsapp ?? null,
+      message,
+      balanceCents,
+      number: found.order.number,
+      // a ordem é a do catálogo: cliente, oficina, veículo, saldo (E22)
+      variaveis: [
+        found.customer.name.trim().split(/\s+/)[0] ?? found.customer.name,
+        shopName,
+        `${found.vehicle.make} ${found.vehicle.model}`,
+        formatBRL(balanceCents),
+      ],
+    };
   }
 
   /** Ação de status: quem valida a transição é a máquina de estados do shared. */
@@ -507,7 +613,7 @@ export class WorkOrdersService {
     input: { reason?: string },
     client: ClientInfo,
   ): Promise<WorkOrder> {
-    return withTenant(this.deps.db, auth, async (tx) => {
+    const ordem = await withTenant(this.deps.db, auth, async (tx) => {
       const order = await repo.lockWorkOrder(tx, auth.organizationId, id);
       if (!order) throw notFound('OS não encontrada.');
 
@@ -585,6 +691,19 @@ export class WorkOrdersService {
       });
       return this.load(tx, auth, id);
     });
+
+    // "veículo pronto" sozinho (E22), depois da transação: a oficina liga isso
+    // em Configurações → WhatsApp, e só vale com o canal oficial conectado.
+    // Falhar aqui não pode derrubar a finalização da OS — o carro está pronto
+    // mesmo que a mensagem não tenha saído, e o motivo fica no log
+    if (action === 'complete' && this.messaging) {
+      try {
+        await this.vehicleReady(auth, id, client, { somenteSeAutomatico: true });
+      } catch (erro) {
+        this.deps.log.warn({ err: erro, workOrderId: id }, 'aviso automático de veículo pronto falhou');
+      }
+    }
+    return ordem;
   }
 
   /**

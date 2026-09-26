@@ -146,8 +146,10 @@ nota fiscal e pagamentos primeiro.
 | **E19. Pagamentos online** ✅ 20/09 | Cobrança por Pix, boleto, cartão ou link a partir da OS; código e link para mandar no WhatsApp; conciliação automática pelo aviso do gateway; cancelamento e estorno | Não dá para cobrar duas vezes o mesmo saldo; o aviso do gateway é a única fonte do "pago" e cria pagamento no MESMO caixa do dinheiro da mão; aviso repetido não dobra a baixa; estorno desfaz a baixa e a OS volta a dever. **Cumprido**: 23 testes novos (5 de regra pura, 9 de contrato do driver Asaas, 9 de API), 1 cenário e2e com auditoria de acessibilidade, três mutações provadas. **O gateway padrão é o simulador**: não cobra ninguém. O driver do **Asaas** está escrito e testado em contrato, mas ainda não foi exercitado contra a API real — falta a conta |
 | **E20. Assinatura do SaaS** ✅ 21/09 | Tela de plano com uso contra os limites, assinar, trocar de plano, cancelar e voltar atrás; renovação e atraso pelo aviso do gateway; bloqueio por inadimplência | O bloqueio trava a ESCRITA e nunca a leitura, nem a porta de pagar; cancelar deixa trabalhar até o fim do período pago; atraso dá 7 dias de carência antes de cortar; o aviso repetido não conta duas vezes. **Cumprido**: 19 testes novos (10 de regra pura, 9 de API), 2 cenários e2e com auditoria de acessibilidade, duas mutações provadas. **A cobrança roda no simulador**: nenhuma assinatura é criada em gateway nenhum |
 | **E21. Jobs e automações** ✅ 21/09 | pg-boss no próprio Postgres; quatro automações diárias (fila de pós-venda, lembrete de agendamento, orçamento sem resposta e resumo do dia por e-mail), com tela para ligar, desligar, escolher a hora e **rodar agora**; driver de e-mail SMTP | Nenhuma automação manda mensagem para o cliente — ela deixa pronto; cada oficina roda na hora DELA, uma vez por dia; rodar duas vezes não duplica nada; dia sem pendência não vira e-mail; toda execução vira registro, inclusive o erro. **Cumprido**: 20 testes novos (9 de regra pura, 11 de API), 1 cenário e2e com auditoria de acessibilidade, duas mutações provadas. A fila é instalada pela DONA do banco: a role que atende requisição não ganhou poder de criar tabela |
-| **E22. WhatsApp oficial** | Business Platform por provedor: template aprovado, envio automático, entrega e leitura, resposta voltando | (a definir na etapa) |
-| **E23 em diante** | Consulta veicular e catálogo licenciado; backoffice de plataforma; tempo real e PWA; multi-filial; API pública; IA assistida; marketplace | (a definir na etapa) |
+| **E22. WhatsApp oficial e conversa** ✅ 24/09 | WhatsApp Business Platform com a credencial **da própria oficina** (token cifrado, nunca devolvido); conversa dentro do sistema, com a janela de 24 h explicada na tela; catálogo de 8 modelos com o texto pronto para colar na Meta; envio automático só para mensagem de utilidade; webhook com assinatura conferida trazendo resposta, entrega e leitura | Sem conectar nada, tudo continua como antes: a mensagem sai pelo `wa.me` com o texto pronto. Pós-venda **nunca** sai sozinho: o modelo aparece escrito e espera o botão. **Cumprido**: 61 testes novos (16 de regra pura e do contrato do driver, 6 do segredo cifrado, 29 de API, 10 do provedor), 1 cenário e2e com duas auditorias de acessibilidade, oito mutações provadas. Nenhuma biblioteca não oficial, em nenhum ponto |
+| **E23. Enxugar o painel** ✅ 25/09 | Menu em quatro blocos; fornecedores, compras, contas a pagar, avaliações internas e pesquisa de preço fora do painel; sugestão de compra virou a aba **Recomendações de pedido** em Peças e estoque; relatório virou **botão no topo** que abre por cima; avaliação passou a ser **no Google**; despesa se lança no fluxo de caixa; atalhos na tela inicial | O menu cabe na tela sem rolar; nada que sumiu deixou buraco: o histórico continua no banco, a entrada de peça com custo mantém o custo médio, e a despesa continua entrando no caixa (senão o lucro estimado seria mentira). **Cumprido**: suíte inteira verde, 3 cenários e2e reescritos, auditoria de acessibilidade nas telas novas |
+| **E24. O aplicativo no celular** ✅ 25/09 | O sistema **instala** no celular (PWA: manifesto, service worker, ícones, tela cheia); barra de atalhos embaixo; **"Minhas OS"** para o mecânico (carros dele, cronômetro no topo, um botão por carro); tela larga demais avisa que fica melhor no computador, sem bloquear; o mecânico entra e já cai na tela dele | O mecânico faz o dia inteiro pelo telefone sem abrir menu: 2 cenários de celular (390 px) com auditoria de acessibilidade, e `npm run pwa:check` provando manifesto, ícones e service worker no build de produção. **Nenhum dado da oficina vai para o cache** (D55) |
+| **E25 em diante** | Consulta veicular e catálogo licenciado; backoffice de plataforma; tempo real e PWA; multi-filial; API pública; IA assistida; marketplace | (a definir na etapa) |
 
 ### Blocos
 
@@ -156,12 +158,94 @@ nota fiscal e pagamentos primeiro.
 | **Nota fiscal** — parcial na E18 | ✅ **NFS-e (serviço)** com emissor atrás de driver. **Falta a nota de PEÇA** (NF-e/NFC-e): exige NCM, CFOP, CST/CSOSN e origem em todo o catálogo, e nem toda oficina precisa — vira etapa quando houver oficina que precise. Emitir de verdade depende de contratar emissor e cadastrar o certificado A1 lá |
 | **Pagamentos** — parcial na E19 | ✅ Cobrança por Pix, boleto, cartão e link, com conciliação por webhook e estorno. **Falta**: ligar o Asaas de verdade (conta + chave de sandbox) e o link de pagamento dentro da página pública do orçamento aprovado |
 | **Assinatura do SaaS** ✅ E20 | Cobrança recorrente, trial, upgrade, downgrade, cancelamento e bloqueio por inadimplência. Falta só ligar o gateway de verdade (a mesma conta do Asaas da E19) e cadastrar o preço ANUAL dos planos, que hoje é nulo — sem preço cadastrado, o ciclo anual não é oferecido |
-| **WhatsApp oficial** | WhatsApp Business Platform (direto ou por provedor autorizado): envio automático, confirmação de entrega e leitura, respostas voltando para o sistema |
-| **Automações** ✅ E21 | Fila de pós-venda (tempo e km), lembrete de agendamento, orçamento sem resposta e resumo diário por e-mail. O envio ao cliente continua sendo `wa.me` com uma pessoa apertando enviar — muda na E22 |
+| **WhatsApp oficial** ✅ E22 | WhatsApp Business Platform com a conta **de cada oficina**: envio pela API, confirmação de entrega e leitura, respostas voltando para a conversa dentro do sistema, e envio automático para mensagem de utilidade. **Falta**: exercitar o driver contra a API real (depende de uma conta conectada na Meta) e a aprovação dos modelos, que é trabalho de cada oficina no painel dela |
+| **Automações** ✅ E21 | Fila de pós-venda (tempo e km), lembrete de agendamento, orçamento sem resposta e resumo diário por e-mail. O envio ao cliente sai pelo `wa.me` com uma pessoa apertando enviar; com o canal oficial conectado (E22), mensagem de **utilidade** pode sair sozinha, se a oficina ligar |
 | **Consulta veicular** | Dados do veículo pela placa, **só por provedor licenciado** |
 | **Marketplace** | Diretório global de fornecedores, pedido e pagamento pela plataforma, comissão |
 | **IA** | Diagnóstico assistido, sugestão de peças e serviços, previsão de manutenção e demanda, recomendação de preço, redação de mensagens. Sempre como sugestão, com a IA desligável |
 | **Produto** | PWA com leitura offline → app para mecânico (Expo/React Native); multi-filial e estoque por local; papéis customizados; API pública e webhooks para parceiros; exportação contábil |
+
+### WhatsApp oficial e conversa (24/09)
+
+Ele pediu três coisas, e elas mandaram no desenho: **cada oficina traz as
+próprias credenciais**, **só mensagem de serviço pode ser automática** e a
+**conversa acontece dentro do OficinaOS**.
+
+O que isso significou na prática:
+
+- **A conta é da oficina** (D49). Ela cria o app na Meta e cola `phone_number_id`,
+  token e app secret. Antes de guardar, a API **usa** a credencial (pergunta à
+  Meta qual é o número): credencial errada não vira canal "conectado". O token
+  vai cifrado para o banco (AES-256-GCM, `SECRETS_KEY` no ambiente) e a tela só
+  vê os quatro últimos caracteres. Desconectar **apaga** as credenciais.
+- **A janela de 24 h na tela** (D50). Dentro dela, conversa normal; fora, só
+  modelo aprovado. A frase que explica isso sai da mesma função pura que a API
+  usa para aceitar ou recusar — a tela não promete o que a API nega.
+- **Pós-venda espera o botão** (D51). O modelo aparece escrito, com o nome e o
+  carro do cliente, e a mensagem só existe depois do clique. Automático existe
+  só para orçamento enviado, veículo pronto e confirmação de agendamento.
+- **O aviso da Meta entra pela assinatura do corpo cru** (D52), com um parser
+  próprio no plugin do webhook para o corpo não ser remontado.
+- **O que já existia passou a usar o canal.** "Veículo pronto" e "orçamento
+  enviado" saem pelo servidor quando há canal conectado (a resposta diz `via`),
+  e **finalizar a OS avisa o cliente sozinho** se a oficina ligou o automático
+  para "veículo pronto". A Meta fora do ar não impede a OS de ser finalizada: a
+  falha fica registrada na conversa, com o motivo.
+
+Honestidade sobre o que **não** está provado: o driver `cloud-api` foi escrito a
+partir da documentação da Graph API v21 e ainda **não falou com a Meta de
+verdade** — falta uma conta conectada. O que os testes provam é o contrato (um
+servidor local responde no lugar dela): o formato do envio de texto e de modelo,
+o token no header, a tradução do que volta, a recusa legível e a assinatura do
+aviso.
+
+Sem conectar nada, nada mudou para quem já usa: a mensagem continua saindo pelo
+link do WhatsApp, com o texto pronto — e agora fica registrada na conversa.
+
+### Enxugar o painel (25/09)
+
+Ele usou o sistema e disse: "tá muito cheio, quero deixar mais fácil a
+utilização". O que saiu, e por quê:
+
+| Saiu | Para onde foi |
+|---|---|
+| **Fornecedores**, **Compras**, **A pagar** | Apagados do painel, a pedido dele. O que a compra fazia pelo estoque (entrar peça com custo) já existia em **Entrada de estoque**; o que ela fazia pelo caixa virou **Lançar despesa**, dentro do fluxo de caixa |
+| **Sugestão de compra** | Virou a aba **Recomendações de pedido**, dentro de Peças e estoque, com "copiar lista" para colar no WhatsApp do fornecedor |
+| **Relatórios** | Botão no topo, abre por cima de qualquer tela e devolve a pessoa ao lugar onde estava |
+| **Conversas** | Ganhou a tela inteira (a página não rola, quem rola é o fio), lista com avatar e busca, separador de dia, e **respostas prontas** agrupadas pela etapa do atendimento: um toque escreve no campo, e quem manda continua sendo a pessoa |
+| **Avaliações** | O convite da OS entregue leva ao **Google** da oficina (link cadastrado em Configurações → Oficina). A página de avaliação própria e a tela de notas saíram |
+| **Pesquisar preço** | Saiu junto: as duas fontes de preço (lista do fornecedor e cotação respondida) vinham da área de compras |
+
+O que **não** saiu: nada do banco. Fornecedores, pedidos de compra, cotações e
+as avaliações já respondidas continuam gravados, e as rotas da API continuam
+testadas — `/purchase-orders/suggestions` é o que alimenta a aba nova.
+
+Duas consequências que ficam registradas: a **cotação por link com
+fornecedores** (E11) perdeu a porta de entrada no painel, porque dependia do
+cadastro de fornecedores (a página do fornecedor e a API seguem de pé); e a
+**lista de preço em CSV** deixou de ter onde ser importada, pelo mesmo motivo.
+
+### O aplicativo no celular (25/09)
+
+Ele pediu: "quero que crie um aplicativo mobile… o acesso de funcionário
+precisa estar 10 no celular, visando que funcionário usa celular na oficina e
+não computador". Escolha dele: **PWA instalável**, e o mecânico com as OS
+dele, cronômetro, fotos e quilometragem.
+
+- **Instala mesmo**: manifesto, ícones gerados a partir da marca, service
+  worker e tela cheia. No Android o próprio Chrome oferece instalar; no iPhone
+  o convite ensina o caminho do Safari. `npm run pwa:check -w @oficinaos/web`
+  sobe o build de produção num servidor local e confere que tudo responde.
+- **Minhas OS**: uma requisição (`/work-orders/my-day`), cronômetro correndo no
+  topo com o botão de parar, e **um** botão por carro — a próxima ação do
+  serviço, na ordem em que ele acontece. Alvos de 44–56 px.
+- **Barra embaixo** no lugar do menu: Minhas OS · Agenda · OS · Mais para o
+  mecânico; Início · Agenda · OS · Conversas · Mais para quem administra.
+- **"Fica melhor no computador"**: financeiro, nota fiscal, importação,
+  configuração fiscal e conexão do WhatsApp avisam — e abrem assim mesmo se a
+  pessoa insistir. Bloquear seria decidir pela oficina numa hora em que só ela
+  sabe se dá.
+- **O que o cache guarda**: os arquivos do aplicativo, e nada da oficina (D55).
 
 ---
 

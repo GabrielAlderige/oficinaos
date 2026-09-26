@@ -1,5 +1,5 @@
 import { formatBRL } from '@oficinaos/shared';
-import { Package, PackageSearch, Plus } from 'lucide-react';
+import { Package, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { Button } from '../../components/ui/button';
@@ -13,6 +13,7 @@ import { useCan } from '../../lib/session';
 import { useDebouncedValue } from '../../lib/use-debounced-value';
 import { useInventorySummary, usePartCategories, useParts } from './api';
 import { PartFormDialog } from './PartFormDialog';
+import { PartsTabs } from './PartsTabs';
 import { formatQty, StockBadge } from './stock';
 
 const GRID = 'md:grid-cols-[minmax(0,2.2fr)_minmax(0,1fr)_minmax(0,1.4fr)_7rem]';
@@ -61,8 +62,6 @@ function InventoryTiles({ onAttention, attention }: { onAttention(): void; atten
 export function PartsPage() {
   const canWrite = useCan('catalog:write');
   const canSeeStock = useCan('inventory:read');
-  // pesquisar peça é ver CUSTO: a mesma permissão do histórico de preço (E14)
-  const canSeeCost = useCan('parts:view_cost');
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const page = Math.max(1, Number(params.get('page')) || 1);
@@ -89,14 +88,6 @@ export function PartsPage() {
         description="Busque por nome, código, marca ou pelo carro: “pastilha gol 2012”."
         actions={
           <span className="flex flex-wrap gap-2">
-            {canSeeCost && (
-              <Button asChild variant="secondary">
-                <Link to="/pecas/pesquisa">
-                  <PackageSearch />
-                  Pesquisar peças
-                </Link>
-              </Button>
-            )}
             {canWrite && (
               <Button onClick={() => setCreating(true)}>
                 <Plus />
@@ -106,6 +97,7 @@ export function PartsPage() {
           </span>
         }
       />
+      <PartsTabs />
 
       {canSeeStock && (
         <InventoryTiles attention={attention} onAttention={() => setParams(withParam(params, 'estoque', attention ? null : 'atencao'))} />

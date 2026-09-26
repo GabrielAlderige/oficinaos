@@ -436,59 +436,6 @@ const estoque: Consulta = async (tx, organizationId, _janela, limit) => {
   };
 };
 
-// ------------------------------- fornecedores -------------------------------
-
-const fornecedores: Consulta = async (tx, organizationId, janela, limit) => {
-  const { rows } = await tx.execute<Record<string, unknown>>(sql`
-    select s.name as fornecedor,
-           count(distinct po.id)::int as pedidos,
-           coalesce(sum(r.valor), 0)::bigint as comprado,
-           avg(extract(epoch from (po.received_at - po.ordered_at)) / 86400)::numeric(6,1) as dias,
-           s.lead_time_days::int as prometido
-    from purchase_orders po
-    join suppliers s on s.organization_id = po.organization_id and s.id = po.supplier_id
-    left join lateral (
-      select sum(ri.quantity * ri.landed_unit_cost_cents) as valor
-      from purchase_receipt_items ri
-      join purchase_receipts rc on rc.organization_id = ri.organization_id and rc.id = ri.receipt_id
-      where rc.organization_id = po.organization_id and rc.purchase_order_id = po.id
-    ) r on true
-    where po.organization_id = ${organizationId}
-      and po.status <> 'CANCELED'
-      and po.ordered_at >= ${janela.from} and po.ordered_at < ${janela.to}
-    group by s.id, s.name, s.lead_time_days
-    order by 3 desc
-    limit ${limit}
-  `);
-  const linhas = rows.map((linha) => ({
-    fornecedor: String(linha.fornecedor),
-    pedidos: num(linha.pedidos),
-    comprado: Math.round(num(linha.comprado)),
-    dias: linha.dias === null ? null : Number(linha.dias),
-    prometido: linha.prometido === null ? null : num(linha.prometido),
-  }));
-  return {
-    columns: [
-      { key: 'fornecedor', label: 'Fornecedor', format: 'text' },
-      { key: 'pedidos', label: 'Pedidos', format: 'number' },
-      { key: 'comprado', label: 'Comprado', format: 'money' },
-      { key: 'prometido', label: 'Prazo prometido (dias)', format: 'number' },
-      { key: 'dias', label: 'Prazo real (dias)', format: 'quantity' },
-    ],
-    rows: linhas,
-    totals: {
-      fornecedor: 'Total',
-      pedidos: linhas.reduce((soma, linha) => soma + linha.pedidos, 0),
-      comprado: linhas.reduce((soma, linha) => soma + linha.comprado, 0),
-      prometido: null,
-      dias: null,
-    },
-    summary: linhas.length
-      ? 'O prazo real é do pedido ao recebimento completo; pedido ainda em aberto não entra na média.'
-      : 'Nenhum pedido de compra no período.',
-  };
-};
-
 export const REPORT_QUERIES: Record<Exclude<ReportKey, 'profit'>, Consulta> = {
   revenue: faturamento,
   services: servicos,
@@ -498,5 +445,4 @@ export const REPORT_QUERIES: Record<Exclude<ReportKey, 'profit'>, Consulta> = {
   mechanics: mecanicos,
   approval: aprovacao,
   inventory: estoque,
-  suppliers: fornecedores,
 };

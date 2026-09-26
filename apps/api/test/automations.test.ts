@@ -164,7 +164,11 @@ describe('automações', () => {
 
     const cliente = await createCustomer(t.app, dono, { name: 'Marcos Agendado' });
     const veiculo = await createVehicle(t.app, dono, cliente.id, { plate: 'AGD1A23' });
-    const amanha = new Date(Date.now() + 26 * 60 * 60 * 1000);
+    // AMANHÃ ao meio-dia, não "daqui a 26 h": rodando às 23h, 26 h à frente cai
+    // depois de amanhã, e o lembrete (que olha só o dia seguinte) não acha nada
+    const amanha = new Date();
+    amanha.setDate(amanha.getDate() + 1);
+    amanha.setHours(12, 0, 0, 0);
     const criou = await post('/api/v1/appointments', {
       customerId: cliente.id,
       vehicleId: veiculo.id,

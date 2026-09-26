@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
-import { users, workOrderItemTimers } from '../../db/schema';
+import { users, workOrderItemTimers, workOrderItems, workOrders } from '../../db/schema';
 import type { Tx } from '../../db/tenant';
 
 /**
@@ -105,4 +105,45 @@ export async function listItemTimers(tx: Tx, organizationId: string, itemId: str
       and(eq(workOrderItemTimers.organizationId, organizationId), eq(workOrderItemTimers.workOrderItemId, itemId)),
     )
     .orderBy(desc(workOrderItemTimers.startedAt));
+}
+
+/**
+ * O cronômetro que ficou correndo, com a OS e o item a que ele pertence — é o
+ * que a tela do celular precisa mostrar em cima de tudo (E24). Sem `for
+ * update`: aqui é leitura, e travar linha para desenhar tela é como se cria
+ * espera onde não havia.
+ */
+export async function readRunningTimer(tx: Tx, organizationId: string, mechanicUserId: string) {
+  const [row] = await tx
+    .select({
+      workOrderId: workOrderItemTimers.workOrderId,
+      workOrderNumber: workOrders.number,
+      itemId: workOrderItemTimers.workOrderItemId,
+      itemDescription: workOrderItems.description,
+      startedAt: workOrderItemTimers.startedAt,
+    })
+    .from(workOrderItemTimers)
+    .innerJoin(
+      workOrders,
+      and(
+        eq(workOrders.organizationId, workOrderItemTimers.organizationId),
+        eq(workOrders.id, workOrderItemTimers.workOrderId),
+      ),
+    )
+    .innerJoin(
+      workOrderItems,
+      and(
+        eq(workOrderItems.organizationId, workOrderItemTimers.organizationId),
+        eq(workOrderItems.id, workOrderItemTimers.workOrderItemId),
+      ),
+    )
+    .where(
+      and(
+        eq(workOrderItemTimers.organizationId, organizationId),
+        eq(workOrderItemTimers.mechanicUserId, mechanicUserId),
+        isNull(workOrderItemTimers.stoppedAt),
+      ),
+    )
+    .limit(1);
+  return row;
 }

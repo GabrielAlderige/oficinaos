@@ -31,8 +31,6 @@
 		rewrite @orcamento /orcamento.html
 		@cotacao path_regexp cotacao ^/cotacao/.+
 		rewrite @cotacao /cotacao.html
-		@avaliacao path_regexp avaliacao ^/avaliacao/.+
-		rewrite @avaliacao /avaliacao.html
 		@acompanhar path_regexp acompanhar ^/acompanhar/.+
 		rewrite @acompanhar /acompanhar.html
 

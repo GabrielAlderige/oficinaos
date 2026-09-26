@@ -149,12 +149,9 @@ function Corpo({ direction, onDone }: { direction: FinancialDirection; onDone():
           </Field>
         </div>
 
-        <PartyPicker
-          kind={receber ? 'customer' : 'supplier'}
-          label={receber ? 'Cliente' : 'Fornecedor'}
-          value={quem}
-          onChange={setQuem}
-        />
+        {/* fornecedor saiu do painel: a conta a pagar avulsa continua existindo,
+            só não tem de quem — e ninguém precisava preencher isso mesmo */}
+        {receber && <PartyPicker label="Cliente" value={quem} onChange={setQuem} />}
 
         <Field label="Observação" htmlFor="finance-notes">
           <Textarea

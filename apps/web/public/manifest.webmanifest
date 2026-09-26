@@ -1,0 +1,32 @@
+{
+  "name": "OficinaOS",
+  "short_name": "OficinaOS",
+  "description": "A oficina inteira no celular: as suas OS, o cronômetro, as fotos e o que falta fazer.",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "start_url": "/?app=1",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1c1c1a",
+  "theme_color": "#1c1c1a",
+  "categories": ["business", "productivity"],
+  "icons": [
+    { "src": "/icone-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icone-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icone-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Minhas OS",
+      "short_name": "Minhas OS",
+      "description": "Os carros que estão com você agora",
+      "url": "/minhas-os"
+    },
+    {
+      "name": "Agenda de hoje",
+      "short_name": "Agenda",
+      "url": "/agenda"
+    }
+  ]
+}

@@ -1,9 +1,13 @@
+import AxeBuilder from '@axe-core/playwright';
 import { api, captura, criarOficina, entrarNoPainel, expect, test, textoDe } from './helpers';
 
 /**
  * Relatórios e produtividade (E15). Prova na tela o que a API já garante: o
  * cronômetro do serviço vira tempo real no relatório de mecânicos, e o CSV que
  * o contador pede sai com um clique.
+ *
+ * O relatório não é mais uma tela: é um botão no topo que abre por cima, de
+ * qualquer lugar do sistema. O roteiro segue por aí.
  */
 test('a oficina cronometra o serviço, lê os relatórios e baixa a planilha', async ({ page }) => {
   const oficina = await criarOficina('relatorios', 'REL9Z98');
@@ -46,26 +50,44 @@ test('a oficina cronometra o serviço, lê os relatórios e baixa a planilha', a
     await expect(page.getByText(/1 min/).first()).toBeVisible();
   });
 
-  await test.step('o relatório de mecânicos mostra o tempo medido', async () => {
+  await test.step('o relatório abre por cima, sem sair de onde a pessoa estava', async () => {
     await api(`/work-orders/${ordem.id}/complete`, { token: oficina.token, payload: {} });
-    await page.goto('/relatorios?r=mechanics');
-    await expect(page.getByRole('heading', { name: 'Mecânicos' })).toBeVisible();
-    const tela = await textoDe(page.locator('main'));
-    expect(tela, 'o responsável da OS aparece').toContain(eu.user.name);
-    expect(tela, 'o tempo veio do cronômetro').toContain('1 min');
-    await captura(page, 'relatorios-02-mecanicos');
+    // de propósito a partir da tela da OS: o popup existe para não tirar
+    // ninguém do lugar
+    await page.goto(`/ordens/${ordem.number}`);
+    await page.getByRole('button', { name: 'Relatórios' }).click();
+
+    const popup = page.getByRole('dialog', { name: 'Relatórios' });
+    await expect(popup).toBeVisible();
+    await popup.getByRole('button', { name: 'Mecânicos' }).click();
+    // a tabela chega depois do cabeçalho: ler antes disso pega o esqueleto
+    await expect(popup.getByText(eu.user.name).first()).toBeVisible();
+    const comMecanicos = await textoDe(popup);
+    expect(comMecanicos, 'o responsável da OS aparece').toContain(eu.user.name);
+    expect(comMecanicos, 'o tempo veio do cronômetro').toContain('1 min');
+    await captura(page, 'relatorios-02-popup-mecanicos');
+
+    const auditoria = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze();
+    expect(auditoria.violations.map((v) => `${v.id}: ${v.nodes.length}`), 'acessibilidade').toEqual([]);
   });
 
-  await test.step('o faturamento fecha com a OS, e o CSV baixa', async () => {
-    await page.goto('/relatorios?r=revenue');
-    await expect(page.getByRole('heading', { name: 'Faturamento' })).toBeVisible();
-    const tela = await textoDe(page.locator('main'));
-    expect(tela, 'R$ 180 de serviço + 2 × R$ 250 de peça').toContain('R$ 680,00');
-    await captura(page, 'relatorios-03-faturamento');
+  await test.step('o faturamento fecha com a OS, e o CSV baixa do popup', async () => {
+    const popup = page.getByRole('dialog', { name: 'Relatórios' });
+    await popup.getByRole('button', { name: 'Faturamento' }).click();
+    await expect(popup.getByText('R$ 680,00').first()).toBeVisible();
+    expect(await textoDe(popup), 'R$ 180 de serviço + 2 × R$ 250 de peça').toContain('R$ 680,00');
+    await captura(page, 'relatorios-03-popup-faturamento');
 
     const baixando = page.waitForEvent('download');
-    await page.getByRole('button', { name: 'Baixar CSV' }).click();
+    await popup.getByRole('button', { name: 'Baixar CSV' }).click();
     const arquivo = await baixando;
     expect(arquivo.suggestedFilename()).toMatch(/^faturamento-\d{4}-\d{2}-\d{2}-a-\d{4}-\d{2}-\d{2}\.csv$/);
+
+    // fechar devolve a pessoa para a OS, que continua aberta atrás
+    await page.keyboard.press('Escape');
+    await expect(popup).toBeHidden();
+    await expect(page.getByRole('heading', { name: new RegExp(`^OS ${ordem.number}`) })).toBeVisible();
   });
 });

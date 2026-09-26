@@ -14,7 +14,6 @@ export const REPORT_KEYS = [
   'mechanics',
   'approval',
   'inventory',
-  'suppliers',
 ] as const;
 export type ReportKey = (typeof REPORT_KEYS)[number];
 
@@ -36,7 +35,6 @@ export const REPORTS: readonly ReportInfo[] = [
   { key: 'mechanics', title: 'Mecânicos', question: 'Quem entregou quanto, e o tempo real bateu com o estimado?' },
   { key: 'approval', title: 'Aprovação de orçamentos', question: 'Quantos orçamentos viram serviço — em quantidade e em valor?' },
   { key: 'inventory', title: 'Estoque', question: 'Quanto há de dinheiro parado na prateleira, e o que está faltando?', snapshot: true },
-  { key: 'suppliers', title: 'Fornecedores', question: 'Quanto foi comprado de cada um, e eles entregam no prazo?' },
 ];
 
 export const REPORT_BY_KEY: Record<ReportKey, ReportInfo> = Object.fromEntries(

@@ -242,3 +242,36 @@ export const test = base.extend<{ semErroDeConsole: void; ignorarErros: RegExp[]
 
 export { expect } from '@playwright/test';
 
+
+/**
+ * Um mecânico de verdade na oficina: convite pela API, convite aceito, e a
+ * sessão dele pronta. É o que os cenários de celular (E24) usam — a tela do
+ * mecânico só faz sentido com as permissões dele, que são bem menores.
+ */
+export async function criarMecanico(
+  oficina: Oficina,
+  nome = 'Zé Mecânico',
+): Promise<{ email: string; token: string; userId: string }> {
+  const email = `mecanico-${Date.now().toString(36)}${Math.floor(Math.random() * 1000)}@teste.local`;
+  const convite = await api<{ inviteUrl: string }>('/members/invitations', {
+    token: oficina.token,
+    payload: { email, role: 'MECHANIC' },
+  });
+  const aceito = await api<{ accessToken: string; me: { user: { id: string } } }>('/auth/accept-invite', {
+    payload: {
+      token: convite.inviteUrl.slice(convite.inviteUrl.lastIndexOf('/') + 1),
+      name: nome,
+      password: SENHA,
+    },
+  });
+  return { email, token: aceito.accessToken, userId: aceito.me.user.id };
+}
+
+/** Entrar pelo celular: o mecânico cai em "Minhas OS", não no painel. */
+export async function entrarComoMecanico(page: Page, email: string): Promise<void> {
+  await page.goto('/entrar');
+  await page.getByLabel('E-mail', { exact: true }).fill(email);
+  await page.getByLabel('Senha', { exact: true }).fill(SENHA);
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Minhas OS' })).toBeVisible();
+}

@@ -8,6 +8,7 @@ const TABS = [
   { to: 'fiscal', label: 'Fiscal' },
   { to: 'equipe', label: 'Equipe' },
   { to: 'plano', label: 'Plano' },
+  { to: 'whatsapp', label: 'WhatsApp' },
   { to: 'automacoes', label: 'Automações' },
   { to: 'importar', label: 'Importar' },
   { to: 'sessoes', label: 'Sessões' },

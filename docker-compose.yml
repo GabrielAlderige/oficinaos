@@ -81,6 +81,9 @@ services:
       ASAAS_WEBHOOK_TOKEN: ${ASAAS_WEBHOOK_TOKEN:-}
       # nota fiscal (E18): `simulador` não emite nada
       FISCAL_DRIVER: ${FISCAL_DRIVER:-simulador}
+      # WhatsApp oficial (E22): cifra o token que cada oficina cola no sistema.
+      # Sem a chave, as mensagens continuam saindo pelo link do WhatsApp.
+      SECRETS_KEY: ${SECRETS_KEY:-}
     volumes:
       # as fotos do check-in e os anexos: entram no backup diário
       - storage:/app/storage

@@ -1,7 +1,7 @@
 import { formatBRL, type FinancialDirection, type FinancialListFilter } from '@oficinaos/shared';
 import { Plus, Wallet } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { useSearchParams } from 'react-router';
 import { Button } from '../../components/ui/button';
 import { Alert, Card, PageHeader, Skeleton } from '../../components/ui/display';
 import { EmptyState, Pagination, SearchInput } from '../../components/ui/list-parts';
@@ -12,6 +12,7 @@ import { useDebouncedValue } from '../../lib/use-debounced-value';
 import { useFinancialEntries } from './api';
 import { EntryDetailDialog } from './EntryDetailDialog';
 import { EntryFormDialog } from './EntryFormDialog';
+import { FinanceTabs } from './FinanceTabs';
 import { dataBR, origemDoLancamento, SituationBadge } from './status';
 
 const FILTROS: { valor: FinancialListFilter; rotulo: string }[] = [
@@ -86,9 +87,6 @@ function FinancePage({ direction }: { direction: FinancialDirection }) {
         description={texto.descricao}
         actions={
           <span className="flex flex-wrap gap-2">
-            <Button asChild variant="secondary">
-              <Link to="/financeiro/caixa">Fluxo de caixa</Link>
-            </Button>
             {podeMexer && (
               <Button onClick={() => setCriando(true)}>
                 <Plus />
@@ -98,6 +96,7 @@ function FinancePage({ direction }: { direction: FinancialDirection }) {
           </span>
         }
       />
+      <FinanceTabs />
 
       <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Resumo rotulo="Em aberto" valor={resumo?.openCents} carregando={consulta.isPending} />

@@ -12,3 +12,14 @@ createRoot(root).render(
     <App />
   </StrictMode>,
 );
+
+/**
+ * O que transforma o site em aplicativo instalável (E24). Só em produção: em
+ * desenvolvimento, um service worker guardando arquivo é a receita para
+ * "mudei o código e a tela continua a mesma".
+ */
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker.register('/sw.js');
+  });
+}

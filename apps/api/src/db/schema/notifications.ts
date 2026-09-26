@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { check, index, pgTable, text, uuid } from 'drizzle-orm/pg-core';
+import { check, index, pgTable, text, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { MESSAGE_CHANNELS, MESSAGE_DIRECTIONS, MESSAGE_STATUSES, NOTIFICATION_TYPES } from '@oficinaos/shared';
 import { id, timestamptz } from './_columns';
 import { organizations, users } from './tenancy';
@@ -62,12 +62,19 @@ export const messages = pgTable(
     workOrderId: uuid(),
     quoteId: uuid(),
     status: text({ enum: MESSAGE_STATUSES }).notNull(),
+    /** o id da mensagem no WhatsApp: é por ele que "entregue" e "lido" voltam */
+    providerMessageId: text(),
+    failureReason: text(),
+    /** o mesmo POST repetido não manda a mensagem duas vezes (D32) */
+    clientRequestId: uuid(),
     sentBy: uuid().references(() => users.id),
     createdAt: timestamptz().notNull().defaultNow(),
   },
   (t) => [
     index('messages_org_created_idx').on(t.organizationId, t.createdAt.desc()),
     index('messages_customer_idx').on(t.organizationId, t.customerId, t.createdAt.desc()),
+    uniqueIndex('messages_provider_id_unique').on(t.providerMessageId),
+    uniqueIndex('messages_client_request_unique').on(t.organizationId, t.clientRequestId),
     check('messages_channel_check', sql`${t.channel} in (${list(MESSAGE_CHANNELS)})`),
     check('messages_direction_check', sql`${t.direction} in (${list(MESSAGE_DIRECTIONS)})`),
     check('messages_status_check', sql`${t.status} in (${list(MESSAGE_STATUSES)})`),

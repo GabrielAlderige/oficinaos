@@ -283,6 +283,38 @@ export const workOrderListItemSchema = z.object({
   openedAt: z.string(),
 });
 
+/**
+ * O dia do mecânico no celular (E24): os carros que estão com ele e o
+ * cronômetro que ficou correndo. É uma resposta pequena de propósito — ela
+ * abre no 3G da oficina, e cada campo a mais é meio segundo a mais.
+ */
+export const myDaySchema = z.object({
+  runningTimer: z
+    .object({
+      workOrderId: z.uuid(),
+      workOrderNumber: z.number().int(),
+      itemId: z.uuid(),
+      itemDescription: z.string(),
+      startedAt: z.iso.datetime(),
+    })
+    .nullable(),
+  orders: z.array(
+    z.object({
+      id: z.uuid(),
+      number: z.number().int(),
+      status: z.enum(WORK_ORDER_STATUSES),
+      customerName: z.string(),
+      vehicleName: z.string(),
+      vehiclePlate: z.string().nullable(),
+      promisedAt: z.string().nullable(),
+      complaint: z.string().nullable(),
+      /** o cronômetro correndo é DESTA OS */
+      hasRunningTimer: z.boolean(),
+    }),
+  ),
+});
+export type MyDay = z.infer<typeof myDaySchema>;
+
 export const workOrderEventSchema = z.object({
   id: z.uuid(),
   type: z.enum(WORK_ORDER_EVENT_TYPES),

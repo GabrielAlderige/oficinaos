@@ -19,7 +19,8 @@ type ContextKey =
   | 'app.tracking_token'
   | 'app.charge_provider_ref'
   | 'app.subscription_provider_ref'
-  | 'app.job_runner';
+  | 'app.job_runner'
+  | 'app.phone_number_ref';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -138,6 +139,17 @@ export function withSubscriptionRef<T>(
  */
 export function withJobRunner<T>(db: Database, fn: (tx: Tx) => Promise<T>): Promise<T> {
   return withDbContext(db, { 'app.job_runner': 'on' }, fn);
+}
+
+/**
+ * Capacidade do aviso do WhatsApp (E22). O webhook da Meta chega sem oficina e
+ * sem pessoa: quem diz de quem é a conversa é o `phone_number_id`, o número da
+ * oficina que recebeu a mensagem. Com esta capacidade a API lê exatamente
+ * aquele canal, descobre a oficina e segue com contexto normal — o mesmo
+ * desenho do aviso do gateway.
+ */
+export function withPhoneRef<T>(db: Database, phoneNumberId: string, fn: (tx: Tx) => Promise<T>): Promise<T> {
+  return withDbContext(db, { 'app.phone_number_ref': phoneNumberId }, fn);
 }
 
 /** Tabelas globais (users, sessions, plans, password_reset_tokens): sem contexto de tenant. */

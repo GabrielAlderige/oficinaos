@@ -163,17 +163,30 @@ describe('pós-venda, avaliações e funil', () => {
 
   // ============================== avaliações =================================
 
-  it('a avaliação só é pedida depois da entrega, e o link abre sem sessão', async () => {
+  it('sem o link do Google cadastrado, o convite não sai — e diz onde configurar', async () => {
+    const os = await osEntregue('PVE4D56');
+    const semLink = await post(`/api/v1/work-orders/${os.id}/review-invite`);
+    expect(semLink.statusCode).toBe(422);
+    expect(semLink.json().title).toBe('Falta o link do Google');
+    expect(semLink.json().detail, 'a mensagem diz o caminho, não o código').toContain('Configurações');
+  });
+
+  it('a avaliação só é pedida depois da entrega, e o convite leva ao Google', async () => {
+    const salvou = await patch('/api/v1/organization/settings', {
+      googleReviewUrl: 'https://g.page/r/oficina-teste',
+    });
+    expect(salvou.statusCode, salvou.body).toBe(200);
+
     const aberta = await createWorkOrder(t.app, dono, {
       customerId: clienteId,
       vehicleId: (await createVehicle(t.app, dono, clienteId, { plate: 'PVE3C45', make: 'Fiat', model: 'Uno' })).id,
       items: [{ type: 'SERVICE', serviceId: servicoId }],
     });
     const cedoDemais = await post(`/api/v1/work-orders/${aberta.id}/review-invite`);
-    expect(cedoDemais.statusCode).toBe(422);
+    expect(cedoDemais.statusCode, 'a avaliação é do serviço pronto').toBe(422);
     expect(cedoDemais.json().code).toBe('INVALID_TRANSITION');
 
-    const os = await osEntregue('PVE4D56');
+    const os = await osEntregue('PVE5E67');
     const convite = await post(`/api/v1/work-orders/${os.id}/review-invite`);
     expect(convite.statusCode, convite.body).toBe(201);
     const { publicUrl, message, whatsappUrl } = convite.json() as {
@@ -181,47 +194,15 @@ describe('pós-venda, avaliações e funil', () => {
       message: string;
       whatsappUrl: string;
     };
+    expect(publicUrl, 'o link é o do Google da oficina, não um nosso').toBe('https://g.page/r/oficina-teste');
     expect(message).toContain(publicUrl);
     expect(whatsappUrl).toContain('wa.me/');
 
-    const token = publicUrl.slice(publicUrl.lastIndexOf('/') + 1);
-    const pagina = await publico(`/api/v1/public/reviews/${token}`);
-    expect(pagina.statusCode, pagina.body).toBe(200);
-    expect(pagina.json()).toMatchObject({ submitted: false, workOrderNumber: os.number, googleReviewUrl: null });
-
-    // a nota entra uma vez só
-    const enviou = await publico(`/api/v1/public/reviews/${token}`, { rating: 5, comment: 'Atendimento rápido' });
-    expect(enviou.statusCode, enviou.body).toBe(200);
-    expect(enviou.json()).toMatchObject({ submitted: true, rating: 5 });
-
-    const denovo = await publico(`/api/v1/public/reviews/${token}`, { rating: 1, comment: 'mudei de ideia' });
-    expect(denovo.statusCode).toBe(409);
-    expect((await publico(`/api/v1/public/reviews/${token}`)).json().rating).toBe(5);
-
-    // e o painel mostra a média
-    const resumo = (await get('/api/v1/reviews/summary')).json() as {
-      average: number;
-      total: number;
-      latest: { rating: number; comment: string | null }[];
+    // fica no histórico de comunicação, como todo contato com o cliente
+    const mensagens = (await get(`/api/v1/work-orders/${os.id}/timeline`)).json() as {
+      data: { type: string }[];
     };
-    expect(resumo.total).toBe(1);
-    expect(resumo.average).toBe(5);
-    expect(resumo.latest[0]).toMatchObject({ rating: 5, comment: 'Atendimento rápido' });
-  });
-
-  it('o link do Google aparece na página quando a oficina configura', async () => {
-    const os = await osEntregue('PVE5E67');
-    const { publicUrl } = (await post(`/api/v1/work-orders/${os.id}/review-invite`)).json() as { publicUrl: string };
-    const token = publicUrl.slice(publicUrl.lastIndexOf('/') + 1);
-
-    const salvou = await patch('/api/v1/organization/settings', { googleReviewUrl: 'https://g.page/r/oficina-teste' });
-    expect(salvou.statusCode, salvou.body).toBe(200);
-    expect((await publico(`/api/v1/public/reviews/${token}`)).json().googleReviewUrl).toBe('https://g.page/r/oficina-teste');
-  });
-
-  it('token inventado não abre avaliação nenhuma', async () => {
-    const res = await publico('/api/v1/public/reviews/naoexistemesmo-000000000000000000000');
-    expect(res.statusCode).toBe(404);
+    expect(mensagens.data.length).toBeGreaterThan(0);
   });
 
   // ================================= funil ===================================

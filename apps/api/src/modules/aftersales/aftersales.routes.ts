@@ -10,11 +10,8 @@ import {
   leadSchema,
   moveLeadSchema,
   pipelineSchema,
-  publicReviewSchema,
   publicTrackingSchema,
   reviewInviteResultSchema,
-  reviewSummarySchema,
-  submitReviewSchema,
   updateLeadSchema,
 } from '@oficinaos/shared';
 import { clientInfo, getAuth } from '../../core/auth-context';
@@ -61,17 +58,11 @@ export const followUpRoutes: FastifyPluginAsyncZod = async (app) => {
   );
 };
 
-export const reviewRoutes: FastifyPluginAsyncZod = async (app) => {
-  const service = app.services.reviews;
-
-  app.get(
-    '/summary',
-    { config: { auth: 'dashboard:view' }, schema: { response: { 200: reviewSummarySchema } } },
-    async (request) => service.summary(getAuth(request)),
-  );
-};
-
-/** O convite sai da ficha da OS, depois da entrega. */
+/**
+ * O convite para avaliar sai da ficha da OS, depois da entrega — e leva ao
+ * **Google** da oficina. Não há mais página de avaliação aqui dentro: nota
+ * guardada no nosso banco não aparece para quem procura oficina na internet.
+ */
 export const workOrderReviewRoutes: FastifyPluginAsyncZod = async (app) => {
   app.post(
     '/:id/review-invite',
@@ -83,33 +74,6 @@ export const workOrderReviewRoutes: FastifyPluginAsyncZod = async (app) => {
       reply.code(201);
       return app.services.reviews.invite(getAuth(request), request.params.id, clientInfo(request));
     },
-  );
-};
-
-/**
- * A página do cliente. Sem login: o token é a credencial, como no orçamento.
- * O limite por IP protege contra alguém varrer tokens.
- */
-export const publicReviewRoutes: FastifyPluginAsyncZod = async (app) => {
-  const service = app.services.reviews;
-  const tokenParam = z.object({ token: z.string().min(20).max(200) });
-
-  app.get(
-    '/reviews/:token',
-    {
-      config: { auth: 'public', rateLimit: { max: 60, timeWindow: '1 minute' } },
-      schema: { params: tokenParam, response: { 200: publicReviewSchema } },
-    },
-    async (request) => service.publicGet(request.params.token),
-  );
-
-  app.post(
-    '/reviews/:token',
-    {
-      config: { auth: 'public', rateLimit: { max: 20, timeWindow: '1 minute' } },
-      schema: { params: tokenParam, body: submitReviewSchema, response: { 200: publicReviewSchema } },
-    },
-    async (request) => service.submit(request.params.token, request.body, clientInfo(request)),
   );
 };
 

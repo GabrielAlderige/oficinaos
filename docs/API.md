@@ -150,6 +150,7 @@ Ninguém rebaixa nem remove o último OWNER.
 | Método | Rota | Permissão | Fase |
 |---|---|---|---|
 | GET | `/work-orders?status=&q=&mechanicId=&from=&to=&page=` | `work_orders:read` | 1 |
+| GET | `/work-orders/my-day` → `{{ runningTimer, orders }}`: os carros em que quem pede é o mecânico responsável, e o cronômetro que ficou correndo (com a OS e o item). Uma requisição só, porque é a tela que abre no 3G da oficina (E24) | `work_orders:read` | 3 |
 | GET | `/work-orders/board` (contagem por status, para o quadro) | `work_orders:read` | 1 |
 | POST | `/work-orders` (cliente, veículo, km, relato; aceita itens iniciais) | `work_orders:write` | 1 |
 | GET | `/work-orders/{number}` (agregado: OS + itens + orçamento atual + totais) | `work_orders:read` | 1 |
@@ -191,7 +192,6 @@ Ninguém rebaixa nem remove o último OWNER.
 | POST | `/public/quotes/{token}/approve` | `{ approvedItemIds, signerName, accepted: true, contentHash }` + `Idempotency-Key` | 1 |
 | POST | `/public/quotes/{token}/reject` | `{ reason? }` | 1 |
 | POST | `/public/quotes/{token}/questions` | `{ message }` → notifica a oficina | 1 |
-| GET / POST | `/public/reviews/{token}` | Avaliação de 1 a 5 estrelas + comentário | 2 |
 | GET | `/public/supplier-quotes/{token}` | Página do fornecedor (E11): peças, carro sem placa (chassi só se a oficina marcou), a resposta DELE. Token errado, substituído ou de fornecedor tirado da lista → 404. 60/min | 2 |
 | POST | `/public/supplier-quotes/{token}/responses` | `{ contentHash, responderName, shippingCents?, notes?, items[{ requestItemId, availability, unitPriceCents, brand?, leadTimeDays?, notes? }] }` — toda peça exatamente uma vez; cada envio é uma versão nova e imutável. Encerrada/vencida/cancelada → 422 `SUPPLIER_QUOTE_CLOSED`; hash diferente → 409 `SUPPLIER_QUOTE_OUTDATED`. 10/min | 2 |
 | GET | `/public/work-orders/{token}/status` | "Acompanhe seu veículo" | 2 |
@@ -208,6 +208,13 @@ Ninguém rebaixa nem remove o último OWNER.
 | GET | `/parts/{id}/availability` (em estoque, reservado, disponível, OS que reservaram) | `inventory:read` | 1 |
 | GET / POST / PATCH | `/part-categories[/{id}]` | `catalog:read` / `catalog:write` | 1 |
 | POST | `/parts/import` (CSV) | `catalog:write` | 2 |
+
+> **Sem tela no painel desde a E23.** Fornecedores, compras e contas a pagar
+> saíram do menu por decisão do dono do produto ("tá muito cheio"). As rotas
+> abaixo continuam existindo e testadas — o histórico de quem já comprou não
+> some, e `/purchase-orders/suggestions` alimenta a aba **Recomendações de
+> pedido** dentro de Peças e estoque. O que a oficina faz hoje: registra a
+> **entrada da peça** no estoque, com o custo, e o custo médio segue igual.
 
 ### Fornecedores — `/suppliers` (MVP 2, E10)
 
@@ -309,10 +316,14 @@ menor prazo (o estoque tem prazo zero) e ⭐ custo-benefício, que soma ao total
 
 ### Relatórios — `/reports` (MVP 2, E15)
 
+> A tela de relatórios virou um **popup** aberto por um botão no topo do painel
+> (E23): o relatório é consulta rápida no meio de outra tarefa, não um lugar
+> onde se fica. O de **fornecedores** saiu junto com a área de compras.
+
 | Método | Rota | Permissão | Fase |
 |---|---|---|---|
-| GET | `/reports` → a lista dos dez relatórios, cada um com a pergunta que responde | `reports:read` | 2 |
-| GET | `/reports/{{key}}?period=&from=&to=&limit=&format=json\|csv` — `key` é `revenue`, `profit`, `services`, `parts`, `customers`, `vehicles`, `mechanics`, `approval`, `inventory` ou `suppliers`. A resposta traz **colunas + linhas + totais + uma frase de leitura**: a tela desenha qualquer relatório com o mesmo componente. Com `format=csv` vem o arquivo pronto para o Excel em português (BOM, `;`, dinheiro como número com vírgula) | `reports:read` | 2 |
+| GET | `/reports` → a lista dos nove relatórios, cada um com a pergunta que responde | `reports:read` | 2 |
+| GET | `/reports/{{key}}?period=&from=&to=&limit=&format=json\|csv` — `key` é `revenue`, `profit`, `services`, `parts`, `customers`, `vehicles`, `mechanics`, `approval` ou `inventory`. A resposta traz **colunas + linhas + totais + uma frase de leitura**: a tela desenha qualquer relatório com o mesmo componente. Com `format=csv` vem o arquivo pronto para o Excel em português (BOM, `;`, dinheiro como número com vírgula) | `reports:read` | 2 |
 
 O `profit` é o mesmo lucro do financeiro (E13), com a mesma regra — dois
 números diferentes para "lucro" seria o pior resultado possível. O `inventory`
@@ -329,15 +340,13 @@ Cada volta é uma linha (`work_order_item_timers`): o almoço, a peça que não
 chegou, o dia seguinte. O tempo do item é a SOMA das voltas, e o item da OS
 devolve `actualMinutes`, `timerStartedAt` e `timerMechanicName`.
 
-### Pós-venda, avaliações e funil — `/follow-ups`, `/reviews`, `/leads` (MVP 2, E16)
+### Pós-venda, avaliações e funil — `/follow-ups`, `/leads` (MVP 2, E16; avaliação refeita na E23)
 
 | Método | Rota | Permissão | Fase |
 |---|---|---|---|
 | GET | `/follow-ups?filter=today\|week\|done\|all&type=` → a fila do dia, **recalculada na hora**: OS entregue há 7 dias, revisão vencendo (pelo km ou pelos meses do serviço, o que vier primeiro) e cliente sem voltar há 6 meses. Cada item já traz a mensagem escrita e o link `wa.me` | `customers:view_contact` | 2 |
 | POST | `/follow-ups/{{id}}/done` `{{ outcome? }}` · `/follow-ups/{{id}}/skip` — sai da fila e fica no histórico | `customers:write` | 2 |
-| POST | `/work-orders/{{id}}/review-invite` → `{{ publicUrl, message, whatsappUrl }}`. Só com o carro **entregue** (422 antes disso); reenviar gera um link novo e mata o anterior | `quotes:send` | 2 |
-| GET | `/public/reviews/{{token}}` · POST com `{{ rating, comment? }}` — a página do cliente, sem login. Responder duas vezes → 409 | pública (limite por IP) | 2 |
-| GET | `/reviews/summary` → média, total, distribuição por nota, convites sem resposta e as últimas com comentário | `dashboard:view` | 2 |
+| POST | `/work-orders/{{id}}/review-invite` → `{{ publicUrl, message, whatsappUrl }}`, onde `publicUrl` é o **link do Google** da oficina (`googleReviewUrl` em `/organization/settings`). Só com o carro **entregue** (422 antes disso); sem o link cadastrado, 422 dizendo onde configurar. O convite entra no histórico de comunicação | `quotes:send` | 2 |
 | GET | `/leads?q=` → o funil inteiro, por etapa, com valor em aberto e taxa de conversão | `customers:view_contact` | 2 |
 | POST | `/leads` · PATCH `/leads/{{id}}` — nome, telefone, origem, carro, o que precisa e valor estimado | `customers:write` | 2 |
 | POST | `/leads/{{id}}/stage` `{{ stage, lostReason? }}` — **perder exige motivo** (422 sem ele) | `customers:write` | 2 |
@@ -412,6 +421,39 @@ renova o período; vencido, põe em `PAST_DUE` e começa a carência.
 **402 `SUBSCRIPTION_BLOCKED`**; GET continua funcionando. O `/auth/me` devolve
 `emTeste`, `emCarencia`, `bloqueada` e `diasRestantes` para o painel avisar
 qualquer pessoa da equipe, não só quem administra o plano.
+
+### WhatsApp e conversas — `/messaging` (V3, E22)
+
+| Método | Rota | Permissão | Fase |
+|---|---|---|---|
+| GET | `/messaging/channel` → o canal (situação, número, `tokenHint` com os 4 últimos caracteres, URL do webhook, token de verificação, último erro) e os 8 modelos, cada um com o texto `{{1}}`, `{{2}}`… para colar na Meta | `organization:manage` | 3 |
+| POST | `/messaging/channel` `{{ phoneNumberId, wabaId?, accessToken, appSecret }}` — **usa** a credencial na Meta antes de guardar; se ela recusar, nada é salvo (422 com a mensagem da Meta). O token vai cifrado para o banco e nunca volta | `organization:manage` | 3 |
+| DELETE | `/messaging/channel` — **apaga** token e app secret; as mensagens voltam a sair pelo link | `organization:manage` | 3 |
+| PATCH | `/messaging/templates` `{{ key, status?, providerName? }}` — o que a Meta respondeu sobre aquele modelo | `organization:manage` | 3 |
+| PUT | `/messaging/auto-send` `{{ autoSend: [key] }}` — o que pode sair sozinho. Modelo de MARKETING é recusado com 422 (D51) | `organization:manage` | 3 |
+| GET | `/messaging/conversations` → a lista, do mais recente para o mais antigo, com não lidas e `windowOpen` | `messages:send` | 3 |
+| GET | `/messaging/conversations/{{customerId}}` → o fio, com `canSendFreeText`, `onlyTemplate` e `windowReason` (a frase que a tela mostra) | `messages:send` | 3 |
+| GET | `/messaging/conversations/{{customerId}}/templates` → `{{ templates, quickReplies }}`. `templates`: os modelos que dão para escrever só com o cliente na mão (pós-venda, revisão vencendo, cliente sem voltar), **já escritos**, com o que impede o envio em `blocker`. `quickReplies`: ~20 **respostas prontas** do dia a dia (abertura, agendamento, na oficina, orçamento, peça, retirada, pagamento, pós-venda), escritas com o nome e o carro do cliente — elas preenchem o campo de texto, não saem sozinhas | `messages:send` | 3 |
+| POST | `/messaging/conversations/{{customerId}}/messages` `{{ body \| templateKey, workOrderId?, clientRequestId }}` → `{{ conversation, whatsappUrl, via, repeated }}`. Texto livre só com a janela aberta (422 `WHATSAPP_WINDOW_CLOSED`); fora dela, modelo aprovado (422 `WHATSAPP_TEMPLATE_NOT_APPROVED`). Sem canal conectado, devolve o `wa.me` com o texto pronto | `messages:send` | 3 |
+| POST | `/messaging/conversations/{{customerId}}/read` — abrir a conversa é lê-la | `messages:send` | 3 |
+| GET | `/webhooks/whatsapp/{{organizationId}}` — a verificação da Meta: devolve `hub.challenge` cru quando o `hub.verify_token` confere (403 se não) | pública (limite por IP) | 3 |
+| POST | `/webhooks/whatsapp/{{organizationId}}` — o aviso da Meta. **Sem login**: a origem é provada pela assinatura HMAC do corpo CRU (`X-Hub-Signature-256`) contra o app secret daquela oficina; sem ela, 401. Responde 200 mesmo quando ignora o aviso, com `{{ handled, reason }}` | pública (limite por IP) | 3 |
+
+O texto que o cliente lê vem de dois lugares e tem de dizer a mesma coisa:
+dentro da janela de 24 h, dos construtores do `shared` (`whatsappPostSaleMessage`
+e companhia); fora dela, do **modelo aprovado na Meta**, que é o que
+`corpoDoModelo(key)` mostra para a oficina copiar. As variáveis vão na ordem do
+catálogo (`MODELOS_DE_MENSAGEM`), e há teste amarrando as duas formas.
+
+**As mensagens que nascem em outra tela** passam por aqui quando o canal está
+conectado: `POST /quotes/{{id}}/share` e `POST /work-orders/{{id}}/vehicle-ready`
+agora respondem `via: 'API' | 'LINK'`. Com `API`, a mensagem saiu do servidor e
+`whatsappUrl` vem nulo (não há aba para abrir); com `LINK`, nada mudou em
+relação ao que sempre foi. E **finalizar a OS** avisa o cliente sozinho quando
+a oficina ligou o automático para "veículo pronto" — se a Meta recusar, a OS é
+finalizada do mesmo jeito e a falha fica registrada na conversa.
+
+Cobrança, agendamento e convite para avaliar continuam saindo das telas deles.
 
 ### Automações — `/automations` (V3, E21)
 

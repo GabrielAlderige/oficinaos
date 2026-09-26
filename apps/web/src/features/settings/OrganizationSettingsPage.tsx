@@ -9,7 +9,7 @@ import {
   type Organization,
   type OrganizationForm,
 } from '@oficinaos/shared';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { Button } from '../../components/ui/button';
@@ -19,7 +19,12 @@ import { Field, fieldA11y, Select } from '../../components/ui/field';
 import { Input } from '../../components/ui/input';
 import { applyFieldErrors, errorMessage } from '../../lib/errors';
 import { useCan } from '../../lib/session';
-import { useOrganization, useUpdateOrganization } from './api';
+import {
+  useOrganization,
+  useOrganizationSettings,
+  useUpdateOrganization,
+  useUpdateOrganizationSettings,
+} from './api';
 import { BusinessHoursEditor } from './BusinessHoursEditor';
 
 function toFormValues(org: Organization): OrganizationForm {
@@ -61,7 +66,70 @@ export function OrganizationSettingsPage() {
     );
   }
   if (organization.isError) return <Alert variant="danger">{errorMessage(organization.error)}</Alert>;
-  return <OrganizationFormCard organization={organization.data} />;
+  return (
+    <div className="space-y-6">
+      <OrganizationFormCard organization={organization.data} />
+      <GoogleReviewCard />
+    </div>
+  );
+}
+
+/**
+ * O link de avaliação do Google. É para cá que o botão "pedir avaliação" da OS
+ * manda o cliente: a nota que muda a vida da oficina é a que aparece para quem
+ * procura "oficina perto de mim", não uma guardada aqui dentro.
+ */
+function GoogleReviewCard() {
+  const canEdit = useCan('organization:manage');
+  const settings = useOrganizationSettings();
+  const salvar = useUpdateOrganizationSettings();
+  const [url, setUrl] = useState<string | null>(null);
+  const valor = url ?? settings.data?.googleReviewUrl ?? '';
+
+  return (
+    <Card>
+      <div className="space-y-4 p-5 md:p-6">
+        <div>
+          <h2 className="text-sm font-semibold">Avaliações no Google</h2>
+          <p className="mt-1 text-sm text-muted">
+            Cole aqui o link de avaliação do Perfil da Empresa. É para lá que o convite manda o cliente quando você
+            aperta <strong>Pedir avaliação</strong> na OS entregue.
+          </p>
+        </div>
+        <Field
+          label="Link de avaliação do Google"
+          htmlFor="google-review-url"
+          hint="No Google Meu Negócio: Pedir avaliações → copiar o link. Começa com https://."
+        >
+          <Input
+            {...fieldA11y('google-review-url', undefined, true)}
+            type="url"
+            inputMode="url"
+            placeholder="https://g.page/r/..."
+            disabled={!canEdit || settings.isPending}
+            value={valor}
+            onChange={(event) => setUrl(event.target.value)}
+            onBlur={async () => {
+              const novo = valor.trim();
+              if (novo === (settings.data?.googleReviewUrl ?? '')) return;
+              try {
+                await salvar.mutateAsync({ googleReviewUrl: novo });
+                toast.success(novo ? 'Link do Google salvo.' : 'Link do Google removido.');
+              } catch (err) {
+                toast.error(errorMessage(err));
+                setUrl(null);
+              }
+            }}
+          />
+        </Field>
+        {!settings.isPending && !valor && (
+          <Alert variant="warning">
+            Sem esse link, o botão <strong>Pedir avaliação</strong> da OS avisa que falta configurar.
+          </Alert>
+        )}
+      </div>
+    </Card>
+  );
 }
 
 function Section({ title, description, children }: { title: string; description?: string; children: ReactNode }) {

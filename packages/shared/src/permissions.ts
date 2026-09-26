@@ -58,6 +58,11 @@ export const PERMISSIONS = [
    */
   'charges:create',
   'charges:refund',
+  /**
+   * WhatsApp (V3, E22): conversar com o cliente é trabalho de atendimento;
+   * conectar o número da oficina é configuração, e fica com `organization:manage`
+   */
+  'messages:send',
   'finance:read',
   'finance:write',
   'reports:read',
@@ -124,6 +129,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'invoices:cancel',
     'charges:create',
     'charges:refund',
+    'messages:send',
   ],
   ATTENDANT: [
     'dashboard:view',
@@ -153,6 +159,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'invoices:issue',
     // manda o Pix na hora de fechar a conta; estornar é de outro nível
     'charges:create',
+    // é quem fala com o cliente o dia inteiro
+    'messages:send',
   ],
   MECHANIC: [
     'dashboard:view',
@@ -187,6 +195,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'invoices:cancel',
     'charges:create',
     'charges:refund',
+    'messages:send',
   ],
 };
 

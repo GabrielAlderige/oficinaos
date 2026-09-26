@@ -984,6 +984,34 @@ A capacidade `app.job_runner` (policy `organizations_for_jobs`) deixa o
 trabalhador de fundo ler **a lista de oficinas** — e nada mais. O trabalho de
 cada oficina continua passando pelo RLS de sempre.
 
+### WhatsApp oficial e conversa (V3, E22, migrations 0050/0051)
+
+```
+messaging_channels            1:1 com a oficina (a PK é o organization_id): provider (LINK|CLOUD_API), status
+                              (DISCONNECTED|CONNECTED|ERROR), phone_number_id (UNIQUE **global**: é por ele
+                              que o aviso da Meta, que chega sem oficina, descobre de quem é a conversa),
+                              waba_id, display_phone, access_token_enc e app_secret_enc (AES-256-GCM, chave
+                              no ambiente — `core/secrets.ts`; NUNCA voltam para a tela), verify_token,
+                              connected_at, last_error. Desconectar **apaga** as credenciais, não só muda o
+                              status. Policy extra `channel_by_phone_ref`: com `app.phone_number_ref` no
+                              contexto, lê exatamente aquela linha (D49, D52)
+message_templates             o que a oficina informou sobre cada modelo NA META: key (UNIQUE por oficina),
+                              status (NOT_SUBMITTED|PENDING|APPROVED|REJECTED), provider_name (o nome de lá,
+                              quando diferente do padrão) e automatic. Linha ausente = não submetido e envio
+                              manual, que é onde todo mundo começa. Só modelo de UTILIDADE pode ter
+                              automatic = true, e quem recusa o resto é o serviço (D51)
+conversations                 uma por cliente (UNIQUE org+customer): last_message_at, **last_inbound_at** (é
+                              esta data que abre ou fecha a janela de 24 h da Meta), last_preview,
+                              last_direction e unread (CHECK >= 0). Existe para a lista abrir sem varrer o
+                              histórico inteiro
+```
+
+`messages` ganhou `provider_message_id` (UNIQUE global: é por ele que "entregue"
+e "lido" voltam, e é ele que impede o aviso reenviado de virar mensagem
+repetida), `failure_reason` (o motivo da Meta, que a tela mostra) e
+`client_request_id` (UNIQUE por oficina: o mesmo POST não manda duas vezes —
+D32). O canal `WHATSAPP_API` entrou no CHECK ao lado de `WHATSAPP_LINK`.
+
 ### Assinatura do SaaS (V3, E20, migrations 0045/0046/0047)
 
 ```

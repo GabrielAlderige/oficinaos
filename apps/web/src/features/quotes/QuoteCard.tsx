@@ -103,7 +103,12 @@ function QuoteDetail({ order, quote }: { order: WorkOrder; quote: Quote }) {
 
   async function enviarWhatsApp() {
     try {
-      const { whatsappUrl, message } = await share.mutateAsync('WHATSAPP_LINK');
+      const { whatsappUrl, message, via } = await share.mutateAsync('WHATSAPP_LINK');
+      // com o WhatsApp oficial conectado (E22) quem envia é o servidor
+      if (via === 'API') {
+        toast.success('Orçamento enviado pelo WhatsApp.');
+        return;
+      }
       if (whatsappUrl) {
         window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
         return;

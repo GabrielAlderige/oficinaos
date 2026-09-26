@@ -17,11 +17,22 @@ export function RequireAuth() {
   return <Outlet />;
 }
 
-/** Login e cadastro: quem já está logado segue direto para o painel. */
+/**
+ * Login e cadastro: quem já está logado segue direto para o painel.
+ *
+ * O mecânico começa em **Minhas OS** (E24). Ele trabalha no celular, e a
+ * primeira tela dele é a lista dos carros que estão com ele — o painel de
+ * números é do balcão. Quem chegou por um link (`?next=`) vai para onde
+ * queria ir, sempre.
+ */
 export function PublicOnly() {
   const { state } = useSession();
   const [params] = useSearchParams();
   if (state.status === 'loading') return <FullPageSpinner />;
-  if (state.status === 'authenticated') return <Navigate to={safeNext(params.get('next'))} replace />;
+  if (state.status === 'authenticated') {
+    const pedido = params.get('next');
+    const destino = pedido ? safeNext(pedido) : state.me.role === 'MECHANIC' ? '/minhas-os' : '/';
+    return <Navigate to={destino} replace />;
+  }
   return <Outlet />;
 }

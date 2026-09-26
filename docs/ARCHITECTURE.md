@@ -111,6 +111,13 @@ uma refatoração, não uma reescrita.
 | D46 | Fila de jobs no próprio Postgres (E21) | **pg-boss** no esquema `pgboss`, instalado pela DONA junto das migrations (`migrate: false` no runtime) | Redis + BullMQ, ou cron do sistema | Serviço novo é servidor novo para manter, e a oficina não paga por isso. E instalar a fila pela dona mantém a role que atende requisição sem poder de DDL: o isolamento continua sendo permissão, não disciplina |
 | D47 | O trabalhador acorda de hora em hora (E21) | Uma volta por hora; quem decide se roda é `deveRodarAgora`, com a hora LOCAL da oficina e a última execução | Um cron por oficina, ou uma volta diária às 3 da manhã | Uma volta diária num horário fixo entrega o resumo às 5 da manhã para quem está em Manaus. Com a volta de hora em hora, cada oficina recebe às 8 DELA — e a trava de "uma vez por dia" mora no registro de execução, não na memória do processo |
 | D48 | Automação não fala com o cliente (E21) | Ela deixa pronto: fila do dia, aviso no sino, resumo por e-mail para a OFICINA. Mensagem para o cliente continua saindo por `wa.me`, com uma pessoa apertando enviar | Disparo automático de WhatsApp | É a regra do briefing (nada de API não oficial), e é também o que evita o pior erro possível: mandar mensagem errada, em escala, em nome da oficina. Com a API oficial (E22) isso muda — com o consentimento explícito de cada oficina |
+| D49 | A conta da Meta é de cada oficina (E22) | Cada oficina cria o próprio app na Meta e cola `phone_number_id`, token e app secret; o token vai para o banco **cifrado** (AES-256-GCM, `SECRETS_KEY` no ambiente) e nunca volta para a tela | Uma conta nossa revendendo números, ou Embedded Signup | O número que fala com o cliente é o da oficina: o limite de envio, a qualidade e o bloqueio são dela, e se ela sair do OficinaOS o WhatsApp continua sendo dela. Guardar segredo de terceiro é o que evitamos sempre (D38); aqui não há saída, porque quem envia é o servidor — então guardamos cifrado, e vazar o banco não entrega o WhatsApp de ninguém |
+| D50 | A janela de 24 h decide o que sai (E22) | Dentro da janela, texto livre; fora dela, só modelo aprovado, com as variáveis na ordem do catálogo. A conta é uma função pura (`shared/messaging.ts`), lida pela tela, pela API e pelo teste | Tentar enviar e deixar a Meta recusar | Erro da Meta chega como código em inglês depois do clique; a regra na tela diz ANTES o que dá para fazer. E é a mesma conta nos três lugares, então não há tela prometendo o que a API recusa |
+| D51 | Automático só para mensagem de utilidade **com gatilho** (E22) | Duas condições, as duas no catálogo: `podeSerAutomatica` (só UTILIDADE) e `gatilho` (o evento que dispara — hoje só "veículo pronto", quando a OS é finalizada). A API recusa 422 nos dois casos, com motivos diferentes | Deixar a oficina escolher tudo, ou oferecer o interruptor e ligar o gatilho depois | Marketing disparado em massa é o caminho mais curto para o número ser bloqueado — e aí a oficina perde o WhatsApp com que trabalha. E interruptor sem gatilho é pior do que interruptor nenhum: a oficina liga, acha que avisou o cliente, e ninguém avisou |
+| D52 | O aviso da Meta entra pela assinatura do corpo CRU (E22) | `POST /webhooks/whatsapp/:organizationId` com HMAC-SHA256 conferido contra o app secret daquela oficina; o corpo não é reserializado (parser próprio no plugin), e o `phone_number_id` descobre a oficina pela capacidade `app.phone_number_ref` | Token na URL, como o gateway de pagamento | A Meta assina o texto exato: comparar o JSON remontado erra por um espaço. E a oficina no caminho existe porque a Meta usa um endereço só para a verificação (GET) e para os eventos (POST) — o GET chega sem nada que identifique quem é |
+| D53 | Menu curto, e o que sobrou saiu de vez (E23) | Fornecedores, compras, contas a pagar, avaliações internas e pesquisa de preço **saíram do painel**; a sugestão de compra virou a aba "Recomendações de pedido" dentro de Peças e estoque, e relatório virou botão no topo. A avaliação passou a ser **no Google**, com o link do Perfil da Empresa | Esconder do menu e deixar as telas acessíveis por link | Foi decisão do dono do produto depois de usar o sistema: "tá muito cheio". Tela que ninguém abre é tela que confunde quem está procurando outra coisa — e cada uma delas custava manutenção, teste e tradução. O que saiu não some do banco: o histórico continua lá, e a entrada de peça com custo (que era o que a compra fazia pelo estoque) já existia no próprio estoque |
+| D54 | O aplicativo do celular é o **próprio sistema instalado** (E24) | PWA: manifesto, service worker e ícones. O mecânico instala na tela inicial e abre em tela cheia; a barra de baixo troca o menu lateral; "Minhas OS" é a tela dele; tela larga demais **avisa** em vez de bloquear | App nativo com Expo/React Native nas lojas | Um app nativo seria um SEGUNDO sistema para manter, com contas de loja, revisão a cada versão e telas refeitas do zero — para entregar o que o mecânico precisa, que é abrir a OS e apertar dois botões. O PWA entrega isso hoje, com o mesmo código e o mesmo teste. Se um dia a loja virar exigência de venda, o Expo entra por cima da mesma API |
+| D55 | Nenhum dado da oficina vai para o cache do aplicativo (E24) | O service worker guarda só os arquivos do app (HTML/JS/CSS); toda resposta de `/api` passa direto. Sem conexão, o app abre e avisa | Cache de leitura offline das OS e do estoque | Saldo, estoque e OS de ontem mostrados como se fossem de agora é pior do que "sem conexão": ninguém confere o que parece certo. Leitura offline de verdade exige decidir o que fica velho e como avisar — e isso é etapa própria, não um efeito colateral do cache |
 | D29 | Gráficos do dashboard (E9) | **Componentes próprios** (colunas em HTML/CSS, uma série por vez) | Recharts | As cinco séries do MVP são um total por dia — barra e rótulo, nada que exija biblioteca. O Recharts custaria ~35 kB gzip (ele puxa vários módulos do d3) **no pedaço que carrega logo depois do login**, já que o dashboard é a tela de Início. O gráfico inteiro custou ~1 kB. Vale reavaliar quando chegarem os relatórios do MVP 2, com muitas séries |
 
 ---
@@ -596,12 +603,20 @@ interface PaymentProvider {
   parseWebhook(headers: Headers, rawBody: string): Promise<PaymentEvent>;   // valida a assinatura
 }
 
-// mensagens (V1: gera o link wa.me; V3: WhatsApp Business Platform oficial)
-interface MessagingProvider {
-  readonly delivery: 'user-assisted' | 'api';
-  send(input: { to: string; templateKey: string; variables: Record<string, string>;
-                body: string }): Promise<{ status: 'LINK_READY' | 'SENT' | 'FAILED'; url?: string }>;
+// mensagens (E22). Dois drivers para a MESMA mensagem: `link` (o wa.me de
+// sempre — devolve a URL e uma pessoa aperta enviar) e `cloud-api` (a API
+// oficial da Meta, com a credencial da própria oficina — D49). Nenhuma
+// biblioteca não oficial entra aqui, em nenhuma hipótese: número bloqueado é a
+// oficina sem o canal com que ela trabalha.
+interface WhatsAppProvider {
+  readonly driver: string;                                  // 'link' | 'cloud-api'
+  enviar(mensagem: { para: string; texto: string;
+                     modelo?: { nome: string; idioma: string; variaveis: string[] } | null }):
+    Promise<{ providerMessageId: string | null; status: MessageStatus;   // LINK_OPENED | SENT | FAILED
+              whatsappUrl: string | null; raw: Record<string, unknown> }>;
 }
+// e, fora da interface, as duas funções que tratam o aviso da Meta (D52):
+// assinaturaConfere(corpoCru, cabecalho, appSecret) e lerAviso(corpoCru)
 
 // nota fiscal de serviço (V3, E18). Hoje existe um driver só: `simulador`, que
 // NÃO emite nada e devolve environment 'SIMULATOR' — a tela carimba "simulação"
@@ -654,8 +669,14 @@ aceita. Com a IA desligada, a tela simplesmente não mostra a sugestão.
 | Área | Rotas |
 |---|---|
 | Autenticação | `/entrar`, `/criar-conta`, `/esqueci-senha`, `/redefinir-senha/:token`, `/convite/:token` |
-| Painel | `/` (Início: dashboard), `/agenda`, `/ordens`, `/ordens/nova`, `/ordens/:numero`, `/ordens/:numero/imprimir`, `/orcamentos`, `/clientes`, `/clientes/:id`, `/veiculos`, `/veiculos/:id`, `/servicos`, `/pecas`, `/pecas/:id`, `/fornecedores`, `/fornecedores/:id`, `/configuracoes/*` (conferido com `apps/web/src/app/router.tsx` em 14/09/2026) |
-| Público | `/orcamento/:token` (MVP 1), `/avaliacao/:token` e `/cotacao/:token` para fornecedor (MVP 2) |
+| Painel | `/` (Início: dashboard + atalhos), `/minhas-os` (a tela do mecânico no celular), `/agenda`, `/ordens`, `/ordens/nova`, `/ordens/:numero`, `/ordens/:numero/imprimir`, `/orcamentos`, `/conversas`, `/clientes`, `/clientes/:id`, `/veiculos`, `/veiculos/:id`, `/pos-venda`, `/funil`, `/servicos`, `/pecas`, `/pecas/recomendacoes`, `/pecas/:id`, `/financeiro/receber`, `/financeiro/caixa`, `/notas`, `/configuracoes/*` (conferido com `apps/web/src/app/router.tsx` em 25/09/2026) |
+| Público | `/orcamento/:token` (MVP 1), `/cotacao/:token` para fornecedor (MVP 2), `/acompanhar/:token` (E17) |
+
+**O menu é curto de propósito** (D53). Ele tem quatro blocos — o dia de
+trabalho, as pessoas, o catálogo e o dinheiro — e nada que a oficina use uma
+vez por mês. Relatório é um **botão no topo** que abre por cima, de qualquer
+tela: ninguém "vai aos relatórios", a pessoa está no meio de outra coisa e quer
+conferir um número.
 
 A OS usa o **número** na URL (`/ordens/182`), que é o que a equipe fala e digita.
 
@@ -674,8 +695,14 @@ A OS usa o **número** na URL (`/ordens/182`), que é o que a equipe fala e digi
   estados vazios que ensinam o próximo passo e confirmação antes de toda ação destrutiva.
 - **Modo escuro** por CSS variables (custo baixo com os tokens) e respeitando o
   sistema. A página pública do orçamento é sempre clara: é um documento.
-- **Celular**: a sidebar vira drawer, tabelas viram cartões e o mecânico tem a
-  visão **"Minhas OS"**, com botões grandes para foto, check-in e mudança de status.
+- **Celular** (E24): o sistema **instala** como aplicativo (manifesto + service
+  worker + ícones; `npm run pwa:check -w @oficinaos/web` prova que instala). A
+  sidebar vira gaveta, uma **barra de atalhos embaixo** troca o menu (alvos de
+  56 px, respeitando a `safe-area` do iPhone), e o mecânico entra direto em
+  **"Minhas OS"**: os carros dele, o cronômetro correndo no topo e um botão só
+  — a próxima ação do serviço. Tela larga demais (financeiro, nota fiscal,
+  importação, fiscal, WhatsApp) **avisa** que fica melhor no computador e deixa
+  abrir mesmo assim, pela rota (`handle.desktop`).
 - **Acessibilidade**: foco visível, navegação por teclado (Radix), contraste AA e
   alvos de toque de 44 px.
 

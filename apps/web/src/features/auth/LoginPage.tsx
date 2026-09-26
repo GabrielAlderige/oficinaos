@@ -34,6 +34,8 @@ export function LoginPage() {
     try {
       const response = await api<AuthResponse>('/auth/login', { method: 'POST', json: values });
       signIn(response);
+      // quem escolhe o destino é o guard (`PublicOnly`), que também trata o
+      // mecânico indo para "Minhas OS" — aqui só seguimos o `?next=`
       navigate(safeNext(params.get('next')), { replace: true });
     } catch (err) {
       if (!applyFieldErrors(err, setError)) setFormError(errorMessage(err));

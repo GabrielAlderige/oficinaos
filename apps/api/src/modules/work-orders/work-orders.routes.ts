@@ -6,6 +6,7 @@ import {
   createWorkOrderSchema,
   idParamSchema,
   inspectionSchema,
+  myDaySchema,
   paginated,
   reorderItemsSchema,
   updateWorkOrderItemSchema,
@@ -141,14 +142,35 @@ export const workOrderRoutes: FastifyPluginAsyncZod = async (app) => {
     async (request) => ({ data: await service.timeline(getAuth(request), request.params.id) }),
   );
 
-  /** Devolve a mensagem pronta e o link wa.me: quem envia é a pessoa (V1). */
+  /**
+   * O dia do mecânico (E24): os carros que estão com ele e o cronômetro que
+   * ficou correndo, em uma requisição só. É a tela inicial de quem trabalha
+   * pelo celular.
+   */
+  app.get(
+    '/my-day',
+    { config: { auth: 'work_orders:read' }, schema: { response: { 200: myDaySchema } } },
+    async (request) => service.myDay(getAuth(request)),
+  );
+
+  /**
+   * Avisa que o carro está pronto. Com o canal oficial conectado (E22) a
+   * mensagem sai pelo servidor (`via: 'API'`); sem ele, devolve o texto pronto
+   * e o link `wa.me`, e quem envia é a pessoa.
+   */
   app.post(
     '/:id/vehicle-ready',
     {
       config: { auth: 'work_orders:write' },
       schema: {
         params: idParamSchema,
-        response: { 200: z.object({ message: z.string(), whatsappUrl: z.string().nullable() }) },
+        response: {
+          200: z.object({
+            message: z.string(),
+            whatsappUrl: z.string().nullable(),
+            via: z.enum(['API', 'LINK']),
+          }),
+        },
       },
     },
     async (request) => service.vehicleReady(getAuth(request), request.params.id, clientInfo(request)),

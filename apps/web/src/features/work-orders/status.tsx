@@ -66,13 +66,13 @@ export function StatusActions({ order }: { order: WorkOrder }) {
     }
   }
 
-  /** O link da avaliação vai pelo WhatsApp; sem WhatsApp, fica na área de transferência. */
+  /** O convite leva ao GOOGLE da oficina; sem WhatsApp, fica na área de transferência. */
   async function convidarParaAvaliar() {
     try {
       const { message, whatsappUrl, publicUrl } = await pedirAvaliacao.mutateAsync();
       if (whatsappUrl) {
         window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
-        toast.success('Convite pronto para enviar.');
+        toast.success('Convite pronto para enviar, com o link do Google.');
         return;
       }
       await navigator.clipboard.writeText(`${message}
@@ -101,7 +101,13 @@ ${publicUrl}`);
 
   async function avisarPronto() {
     try {
-      const { message, whatsappUrl } = await vehicleReady.mutateAsync();
+      const { message, whatsappUrl, via } = await vehicleReady.mutateAsync();
+      // com o WhatsApp oficial conectado (E22), quem envia é o servidor: não há
+      // aba para abrir, e a tela precisa dizer que a mensagem foi
+      if (via === 'API') {
+        toast.success('Avisamos o cliente pelo WhatsApp.');
+        return;
+      }
       if (whatsappUrl) {
         window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
         return;

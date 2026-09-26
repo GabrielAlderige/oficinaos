@@ -39,6 +39,9 @@ export function testEnv(overrides: Partial<NodeJS.ProcessEnv> = {}): Env {
     // chamada na mão, para o efeito ser conferido na hora
     JOBS_ENABLED: 'false',
     APP_URL: 'http://localhost:5173',
+    // cifra o token do WhatsApp de cada oficina (E22); fixa, para o teste
+    // poder conferir que o que vai para o banco não é o token em claro
+    SECRETS_KEY: 'c2VncmVkby1kZS10ZXN0ZS1jb20tMzItYnl0ZXMhISE=',
     ...overrides,
   });
 }
@@ -49,10 +52,11 @@ export interface TestApp {
   storage: MemoryStorageProvider;
 }
 
-export async function createTestApp(): Promise<TestApp> {
+export async function createTestApp(overrides: Partial<NodeJS.ProcessEnv> = {}): Promise<TestApp> {
+  const env = testEnv(overrides);
   const email = new MemoryEmailProvider();
-  const storage = new MemoryStorageProvider(testEnv().JWT_SECRET);
-  const app = await buildApp({ env: testEnv(), db: testDb().db, email, storage });
+  const storage = new MemoryStorageProvider(env.JWT_SECRET);
+  const app = await buildApp({ env, db: testDb().db, email, storage });
   await app.ready();
   return { app, email, storage };
 }

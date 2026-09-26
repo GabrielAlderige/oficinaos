@@ -4,6 +4,7 @@ import type {
   Attachment,
   CreateUploadInput,
   Inspection,
+  MyDay,
   Page,
   UploadTicket,
   WorkOrder,
@@ -29,11 +30,25 @@ export const workOrderKeys = {
   all: ['work-orders'] as const,
   list: (params: WorkOrderListParams) => ['work-orders', 'list', params] as const,
   board: ['work-orders', 'board'] as const,
+  myDay: ['work-orders', 'my-day'] as const,
   detail: (number: number) => ['work-orders', 'detail', number] as const,
   timeline: (id: string) => ['work-orders', id, 'timeline'] as const,
   inspections: (id: string) => ['work-orders', id, 'inspections'] as const,
   attachments: (id: string) => ['work-orders', id, 'attachments'] as const,
 };
+
+/**
+ * O dia do mecânico (E24): os carros dele e o cronômetro correndo, numa
+ * requisição só. Atualiza sozinho de minuto em minuto — a tela fica aberta na
+ * bancada enquanto o carro é feito.
+ */
+export function useMyDay() {
+  return useQuery({
+    queryKey: workOrderKeys.myDay,
+    queryFn: () => api<MyDay>('/work-orders/my-day'),
+    refetchInterval: 60_000,
+  });
+}
 
 export function useWorkOrders(params: WorkOrderListParams, options: { enabled?: boolean } = {}) {
   return useQuery({
@@ -81,7 +96,10 @@ export function useVehicleReady(id: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () =>
-      api<{ message: string; whatsappUrl: string | null }>(`/work-orders/${id}/vehicle-ready`, { method: 'POST' }),
+      api<{ message: string; whatsappUrl: string | null; via: 'API' | 'LINK' }>(
+        `/work-orders/${id}/vehicle-ready`,
+        { method: 'POST' },
+      ),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: workOrderKeys.timeline(id) }),
   });
 }
@@ -116,6 +134,8 @@ function useWorkOrderMutation<V>(mutationFn: (variables: V) => Promise<WorkOrder
       void queryClient.invalidateQueries({ queryKey: workOrderKeys.timeline(order.id) });
       void queryClient.invalidateQueries({ queryKey: ['work-orders', 'list'] });
       void queryClient.invalidateQueries({ queryKey: workOrderKeys.board });
+      // "Minhas OS" mostra a mesma OS e o mesmo cronômetro (E24)
+      void queryClient.invalidateQueries({ queryKey: workOrderKeys.myDay });
     },
   });
 }

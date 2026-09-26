@@ -14,6 +14,8 @@ const TELAS = [
   { nome: 'agenda', caminho: '/agenda' },
   { nome: 'ordens de serviço', caminho: '/ordens' },
   { nome: 'clientes', caminho: '/clientes' },
+  { nome: 'peças e estoque', caminho: '/pecas' },
+  { nome: 'recomendações de pedido', caminho: '/pecas/recomendacoes' },
 ];
 
 test('as telas do painel passam na auditoria automática', async ({ page }) => {

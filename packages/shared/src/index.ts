@@ -73,3 +73,6 @@ export * from './schemas/billing';
 export * from './enums/automations';
 export * from './automations';
 export * from './schemas/automations';
+export * from './enums/messaging';
+export * from './messaging';
+export * from './schemas/messaging';

@@ -5,13 +5,18 @@ import {
   type CashFlowStep,
   type DashboardPeriod,
 } from '@oficinaos/shared';
-import { ArrowDownRight, ArrowUpRight } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Plus } from 'lucide-react';
 import { useState } from 'react';
+import { Button } from '../../components/ui/button';
 import { Alert, Card, CardHeader, PageHeader, Skeleton } from '../../components/ui/display';
 import { cn } from '../../lib/cn';
 import { errorMessage } from '../../lib/errors';
-import { useCashFlow, useProfit } from './api';
-import { dataBR } from './status';
+import { useCan } from '../../lib/session';
+import { useCashFlow, useFinancialEntries, useProfit } from './api';
+import { EntryDetailDialog } from './EntryDetailDialog';
+import { EntryFormDialog } from './EntryFormDialog';
+import { FinanceTabs } from './FinanceTabs';
+import { dataBR, SituationBadge } from './status';
 
 const PASSOS: { valor: CashFlowStep; rotulo: string }[] = [
   { valor: 'day', rotulo: 'Por dia' },
@@ -30,6 +35,8 @@ const PERIODOS = DASHBOARD_PERIODS.filter((p) => p !== 'custom');
  */
 export function CashFlowPage() {
   const [period, setPeriod] = useState<DashboardPeriod>('month');
+  const [lancando, setLancando] = useState(false);
+  const podeMexer = useCan('finance:write');
   const [step, setStep] = useState<CashFlowStep>('day');
   const fluxo = useCashFlow({ period, step });
   const lucro = useProfit({ period });
@@ -58,9 +65,18 @@ export function CashFlowPage() {
                 </option>
               ))}
             </select>
+            {/* a despesa se lança aqui, que é onde ela muda alguma coisa: sem
+                isso, o caixa só teria entradas e o "lucro" seria mentira */}
+            {podeMexer && (
+              <Button onClick={() => setLancando(true)}>
+                <Plus />
+                Lançar despesa
+              </Button>
+            )}
           </>
         }
       />
+      <FinanceTabs />
 
       <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Tile rotulo="Entrou" valor={dados?.inCents} tom="success" carregando={fluxo.isPending} />
@@ -238,6 +254,8 @@ export function CashFlowPage() {
           ) : null}
         </div>
       </Card>
+      <DespesasEmAberto podeMexer={podeMexer} />
+      <EntryFormDialog direction="PAYABLE" open={lancando} onOpenChange={setLancando} />
     </>
   );
 }
@@ -284,5 +302,62 @@ function Conta({ rotulo, valor, sinal }: { rotulo: string; valor: number; sinal:
         {formatBRL(valor)}
       </dd>
     </div>
+  );
+}
+
+/**
+ * As despesas que ainda não foram pagas, aqui mesmo no caixa.
+ *
+ * "A pagar" deixou de ser uma tela inteira (E23) — mas a despesa precisa de um
+ * lugar, senão o caixa só teria entradas e o lucro estimado seria mentira.
+ * Esta lista é curta de propósito: o que está em aberto, e o botão para dar
+ * baixa. O histórico do que já foi pago continua no fluxo, somado em "Saiu".
+ */
+function DespesasEmAberto({ podeMexer }: { podeMexer: boolean }) {
+  const consulta = useFinancialEntries({ direction: 'PAYABLE', filter: 'open', q: '', page: 1 });
+  const [aberto, setAberto] = useState<string | null>(null);
+  const contas = consulta.data?.data ?? [];
+
+  if (!contas.length) return null;
+
+  const total = contas.reduce((soma, conta) => soma + conta.remainingCents, 0);
+
+  return (
+    <Card className="mt-4">
+      <CardHeader
+        title="Despesas em aberto"
+        description="O que a oficina ainda tem para pagar. Dar baixa aqui entra no caixa na hora."
+        action={<span className="text-sm font-medium tabular text-danger">{formatBRL(total)}</span>}
+      />
+      <ul className="divide-y divide-border border-t border-border">
+        {contas.slice(0, 8).map((conta) => (
+          <li key={conta.id}>
+            <button
+              type="button"
+              disabled={!podeMexer}
+              onClick={() => setAberto(conta.id)}
+              className="flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-1 px-5 py-3 text-left hover:bg-surface-muted/60 disabled:cursor-default disabled:hover:bg-transparent"
+            >
+              <span className="min-w-0">
+                <span className="block truncate text-sm">{conta.description}</span>
+                <span className="block text-xs text-muted">
+                  {[conta.categoryName, `vence ${dataBR(conta.dueDate)}`].filter(Boolean).join(' · ')}
+                </span>
+              </span>
+              <span className="flex items-center gap-3">
+                <span className="text-sm font-medium tabular">{formatBRL(conta.remainingCents)}</span>
+                <SituationBadge situation={conta.situation} overdueDays={conta.overdueDays} />
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      {contas.length > 8 && (
+        <p className="border-t border-border px-5 py-2 text-xs text-muted">
+          e mais {contas.length - 8} em aberto.
+        </p>
+      )}
+      <EntryDetailDialog id={aberto} onClose={() => setAberto(null)} />
+    </Card>
   );
 }
