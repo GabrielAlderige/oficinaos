@@ -5,6 +5,8 @@ import {
   criarMecanico,
   criarOficina,
   entrarComoMecanico,
+  entrarNoPainel,
+  oficinaComMovimento,
   expect,
   test,
   textoDe,
@@ -97,6 +99,32 @@ test('o mecânico trabalha o dia inteiro pelo celular', async ({ page }) => {
     await expect(page.getByText('Finalizada').first()).toBeVisible();
     await captura(page, 'mecanico-04-finalizada');
   });
+});
+
+/**
+ * O painel de quem administra, no celular: a ordem de cima para baixo é a das
+ * perguntas do dia — o pátio primeiro, o que precisa de gente em seguida, e o
+ * dinheiro depois (E25).
+ */
+test('no celular, o painel começa pelo pátio e não pelo dinheiro', async ({ page }) => {
+  const oficina = await oficinaComMovimento();
+  await entrarNoPainel(page, oficina.email);
+
+  const patio = page.getByRole('region', { name: 'Agora na oficina' });
+  await expect(patio).toBeVisible();
+  const dinheiro = page.getByText(/^Dinheiro —/);
+  await expect(dinheiro).toBeVisible();
+
+  const posicaoDoPatio = await patio.evaluate((elemento) => elemento.getBoundingClientRect().top);
+  const posicaoDoDinheiro = await dinheiro.evaluate((elemento) => elemento.getBoundingClientRect().top);
+  expect(posicaoDoPatio, 'o pátio fica acima do dinheiro na tela do celular').toBeLessThan(posicaoDoDinheiro);
+
+  await captura(page, 'mecanico-06-painel-celular');
+
+  const auditoria = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+    .analyze();
+  expect(auditoria.violations.map((v) => `${v.id}: ${v.nodes.length}`), 'acessibilidade').toEqual([]);
 });
 
 /**

@@ -33,6 +33,10 @@ function tetoRedondo(maior: number): number {
  *
  * Os valores também vivem numa tabela escondida para leitor de tela: o passar do
  * mouse **acrescenta**, nunca é o único caminho para o número.
+ *
+ * No celular ele **encolhe** em vez de sumir (E25): a tendência do mês cabe em
+ * 112 px de altura, e quem está no telefone também quer saber se a semana
+ * fechou melhor que a anterior.
  */
 export function MetricChart({ periodo, podeVerDinheiro }: { periodo: Periodo; podeVerDinheiro: boolean }) {
   const [metric, setMetric] = useState<ChartMetric>(podeVerDinheiro ? 'revenue' : 'work_orders');
@@ -80,14 +84,14 @@ export function MetricChart({ periodo, podeVerDinheiro }: { periodo: Periodo; po
 
       <div className="border-t border-border px-5 pt-6 pb-4">
         {grafico.isPending ? (
-          <Skeleton className="h-44 w-full" />
+          <Skeleton className="h-28 w-full sm:h-44" />
         ) : !pontos.length ? (
           <p className="py-12 text-center text-sm text-muted">Sem movimento no período.</p>
         ) : (
           <>
             <div className="flex gap-3">
               {/* a régua carrega os valores que não foram rotulados direto */}
-              <div className="flex h-44 w-14 shrink-0 flex-col justify-between text-right text-xs text-muted tabular-nums">
+              <div className="flex h-28 w-12 shrink-0 flex-col justify-between text-right text-xs text-muted tabular-nums sm:h-44 sm:w-14">
                 <span>{formatarValor(teto, dados!.unit)}</span>
                 <span>{formatarValor(Math.round(teto / 2), dados!.unit)}</span>
                 <span>0</span>
@@ -102,7 +106,7 @@ export function MetricChart({ periodo, podeVerDinheiro }: { periodo: Periodo; po
                     aria-hidden="true"
                   />
                 ))}
-                <ol className="flex h-44 items-end gap-0.5" aria-hidden="true">
+                <ol className="flex h-28 items-end gap-0.5 sm:h-44" aria-hidden="true">
                   {pontos.map((ponto) => {
                     const altura = teto ? (ponto.value / teto) * 100 : 0;
                     return (

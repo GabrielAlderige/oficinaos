@@ -149,7 +149,8 @@ nota fiscal e pagamentos primeiro.
 | **E22. WhatsApp oficial e conversa** ✅ 24/09 | WhatsApp Business Platform com a credencial **da própria oficina** (token cifrado, nunca devolvido); conversa dentro do sistema, com a janela de 24 h explicada na tela; catálogo de 8 modelos com o texto pronto para colar na Meta; envio automático só para mensagem de utilidade; webhook com assinatura conferida trazendo resposta, entrega e leitura | Sem conectar nada, tudo continua como antes: a mensagem sai pelo `wa.me` com o texto pronto. Pós-venda **nunca** sai sozinho: o modelo aparece escrito e espera o botão. **Cumprido**: 61 testes novos (16 de regra pura e do contrato do driver, 6 do segredo cifrado, 29 de API, 10 do provedor), 1 cenário e2e com duas auditorias de acessibilidade, oito mutações provadas. Nenhuma biblioteca não oficial, em nenhum ponto |
 | **E23. Enxugar o painel** ✅ 25/09 | Menu em quatro blocos; fornecedores, compras, contas a pagar, avaliações internas e pesquisa de preço fora do painel; sugestão de compra virou a aba **Recomendações de pedido** em Peças e estoque; relatório virou **botão no topo** que abre por cima; avaliação passou a ser **no Google**; despesa se lança no fluxo de caixa; atalhos na tela inicial | O menu cabe na tela sem rolar; nada que sumiu deixou buraco: o histórico continua no banco, a entrada de peça com custo mantém o custo médio, e a despesa continua entrando no caixa (senão o lucro estimado seria mentira). **Cumprido**: suíte inteira verde, 3 cenários e2e reescritos, auditoria de acessibilidade nas telas novas |
 | **E24. O aplicativo no celular** ✅ 25/09 | O sistema **instala** no celular (PWA: manifesto, service worker, ícones, tela cheia); barra de atalhos embaixo; **"Minhas OS"** para o mecânico (carros dele, cronômetro no topo, um botão por carro); tela larga demais avisa que fica melhor no computador, sem bloquear; o mecânico entra e já cai na tela dele | O mecânico faz o dia inteiro pelo telefone sem abrir menu: 2 cenários de celular (390 px) com auditoria de acessibilidade, e `npm run pwa:check` provando manifesto, ícones e service worker no build de produção. **Nenhum dado da oficina vai para o cache** (D55) |
-| **E25 em diante** | Consulta veicular e catálogo licenciado; backoffice de plataforma; tempo real e PWA; multi-filial; API pública; IA assistida; marketplace | (a definir na etapa) |
+| **E25. O painel que se lê de relance** ✅ 26/09 | Dashboard refeito na ordem das perguntas do dia: **agora na oficina** (pátio, independe do período, cada número abre a lista dele), **o que precisa de você**, e só então o dinheiro — faturado e recebido em barras na mesma escala, sem virar porcentagem que não fecha. Produção virou lista de peso baixo; o gráfico encolhe no celular em vez de sumir; no computador, o que pede ação fica na coluna da direita | Eram oito cartões do mesmo tamanho, com o que pedia ação no fim da rolagem. Agora o celular lê pátio → atenção → dinheiro de cima para baixo, e isso é provado por cenário (posição na tela), com auditoria de acessibilidade nas duas larguras |
+| **E26 em diante** | Consulta veicular e catálogo licenciado; backoffice de plataforma; tempo real e PWA; multi-filial; API pública; IA assistida; marketplace | (a definir na etapa) |
 
 ### Blocos
 
@@ -246,6 +247,34 @@ dele, cronômetro, fotos e quilometragem.
   pessoa insistir. Bloquear seria decidir pela oficina numa hora em que só ela
   sabe se dá.
 - **O que o cache guarda**: os arquivos do aplicativo, e nada da oficina (D55).
+
+### O painel que se lê de relance (26/09)
+
+"Melhore o dashboard, facilite a visualização, foque em experiência boa de
+usuário — no mobile e no PC."
+
+O problema não era falta de número: era que todos tinham o mesmo tamanho. Oito
+cartões iguais não dizem por onde começar, e o único bloco com ação
+("Atenção necessária") estava depois de todos eles.
+
+A ordem agora é a das perguntas de quem abre a oficina de manhã:
+
+1. **Agora na oficina** — na oficina, aguardando aprovação, prontos para
+   entregar, agendados hoje. Não depende do período (e a tela diz isso), cada
+   número abre a lista dele, e os que pedem ação acendem: âmbar para orçamento
+   parado, verde para carro pronto esperando o cliente.
+2. **O que precisa de você** — o mesmo painel de sempre, agora em segundo, não
+   em último.
+3. **O dinheiro do período** — faturado e recebido em duas barras na mesma
+   escala. Não viram porcentagem de propósito: parte do recebido é de OS de
+   meses anteriores, e "78% do faturado foi recebido" seria uma conta que não
+   fecha. A comparação visual conta a história sem afirmar o que não dá.
+4. **Produção** virou lista de peso baixo (é para conferir, não para vigiar), e
+   o gráfico **encolhe** no celular em vez de sumir.
+
+No computador o layout vira duas colunas: números à esquerda, o que pede gente
+à direita, sem rolagem. No celular a ordem de cima para baixo é a de cima — e
+há um cenário que mede a posição na tela para isso não regredir.
 
 ---
 

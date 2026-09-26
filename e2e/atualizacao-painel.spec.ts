@@ -10,7 +10,7 @@ test('cancelar uma OS atualiza o painel na volta', async ({ page }) => {
   await entrarNoPainel(page, oficina.email);
 
   // o segundo carro está na oficina, com orçamento esperando resposta
-  const naOficina = page.getByRole('link', { name: /Veículos na oficina/ });
+  const naOficina = page.getByRole('link', { name: /^Na oficina/ });
   await expect(naOficina).toContainText('1');
   await expect(page.getByRole('link', { name: /Aguardando aprovação/ })).toContainText('1');
 

@@ -1,123 +1,46 @@
-import {
-  DASHBOARD_PERIOD_LABELS,
-  formatBRL,
-  WORK_ORDER_STATUS_LABELS,
-  type DashboardPeriod,
-  type DashboardSummary,
-} from '@oficinaos/shared';
+import { DASHBOARD_PERIOD_LABELS, type DashboardPeriod, type DashboardSummary } from '@oficinaos/shared';
 import { CalendarDays, ClipboardPlus, UserPlus } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router';
 import { Button } from '../../components/ui/button';
-import { Alert, Card, CardHeader, PageHeader, Skeleton } from '../../components/ui/display';
+import { Alert, Card, CardHeader, Skeleton } from '../../components/ui/display';
 import { cn } from '../../lib/cn';
 import { firstName } from '../../lib/format';
 import { useCan, useMe } from '../../lib/session';
-import { useIsPhone } from '../../lib/use-media-query';
 import { AttentionPanel } from '../dashboard/AttentionPanel';
 import { useDashboardSummary } from '../dashboard/api';
+import { DinheiroDoPeriodo } from '../dashboard/DinheiroDoPeriodo';
 import { MetricChart } from '../dashboard/MetricChart';
-import { HeroFigure, StatTile } from '../dashboard/StatTile';
+import { PatioAgora } from '../dashboard/PatioAgora';
+import { ProducaoDoPeriodo } from '../dashboard/ProducaoDoPeriodo';
 import { SetupChecklist } from './SetupChecklist';
 
 const PERIODOS: DashboardPeriod[] = ['today', 'week', 'month'];
 const ehPeriodo = (valor: string | null): valor is DashboardPeriod =>
   PERIODOS.includes(valor as DashboardPeriod);
 
-/** "8 de 10" vira "80%"; sem resposta nenhuma, não inventa porcentagem. */
-function taxa(dados: DashboardSummary): string {
-  if (!dados.approval.answered) return '—';
-  return `${Math.round((dados.approval.approved / dados.approval.answered) * 100)}%`;
-}
-
-function Numeros({ dados }: { dados: DashboardSummary }) {
-  const naOficina = dados.openByStatus.filter((linha) => linha.count > 0);
-  return (
-    <>
-      <div className="grid gap-3 sm:grid-cols-3">
-        <StatTile
-          label="Veículos na oficina"
-          value={dados.vehiclesInShop}
-          hint={naOficina
-            .slice(0, 2)
-            .map((linha) => `${linha.count} ${WORK_ORDER_STATUS_LABELS[linha.status].toLowerCase()}`)
-            .join(' · ')}
-          to="/ordens"
-        />
-        <StatTile
-          label="Aguardando aprovação"
-          value={dados.awaitingApproval}
-          hint={dados.approval.pending ? `${dados.approval.pending} orçamento(s) sem resposta` : undefined}
-          to="/orcamentos"
-          tone={dados.awaitingApproval > 0 ? 'accent' : 'neutral'}
-        />
-        <StatTile
-          label="Agendamentos de hoje"
-          value={dados.appointmentsToday}
-          to="/agenda?visao=dia"
-        />
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {dados.receivedCents !== null && (
-          <StatTile label="Recebido no período" value={formatBRL(dados.receivedCents)} />
-        )}
-        {dados.avgTicketCents !== null && (
-          <StatTile label="Ticket médio" value={formatBRL(dados.avgTicketCents)} />
-        )}
-        <StatTile
-          label="Serviços concluídos"
-          value={dados.completedServices}
-          hint={`${dados.completedOrders} OS · ${dados.vehiclesServed} veículo(s)`}
-        />
-        <StatTile
-          label="Taxa de aprovação"
-          value={taxa(dados)}
-          hint={dados.approval.answered ? `${dados.approval.approved} de ${dados.approval.answered} respondidos` : 'sem resposta no período'}
-        />
-      </div>
-    </>
-  );
-}
-
-/** Os dois mais usados do período, lado a lado. Lista curta: é resumo, não relatório. */
-function MaisUsados({ dados }: { dados: DashboardSummary }) {
-  if (!dados.topServices.length && !dados.topParts.length) return null;
-  const colunas = [
-    { titulo: 'Serviços mais feitos', linhas: dados.topServices.map((s) => ({ nome: s.name, valor: `${s.count}×` })) },
-    {
-      titulo: 'Peças mais usadas',
-      linhas: dados.topParts.map((p) => ({ nome: p.name, valor: `${p.quantity.toLocaleString('pt-BR')}` })),
-    },
-  ].filter((coluna) => coluna.linhas.length);
-
-  return (
-    <div className="grid gap-4 md:grid-cols-2">
-      {colunas.map((coluna) => (
-        <Card key={coluna.titulo}>
-          <CardHeader title={coluna.titulo} />
-          <ul className="divide-y divide-border border-t border-border">
-            {coluna.linhas.map((linha) => (
-              <li key={linha.nome} className="flex items-center justify-between gap-3 px-5 py-2.5 text-sm">
-                <span className="min-w-0 truncate">{linha.nome}</span>
-                <span className="shrink-0 tabular-nums text-muted">{linha.valor}</span>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      ))}
-    </div>
-  );
-}
+const diaDeHoje = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+const comMaiuscula = (texto: string) => texto.charAt(0).toUpperCase() + texto.slice(1);
 
 /**
- * O painel de Início (E9). A ordem é a da oficina: primeiro o que ela vendeu no
- * período, depois o pátio de hoje, e então **o que está travado**. Os primeiros
- * passos ficam por último e somem quando terminam.
+ * O painel de Início (E9, redesenhado na E25).
+ *
+ * A ordem é a das perguntas de quem abre a oficina de manhã:
+ *
+ * 1. **O que está aqui agora?** — o pátio, que não depende do período;
+ * 2. **O que precisa de mim?** — o que travou, com caminho para resolver;
+ * 3. **Como foi o período?** — dinheiro, gráfico e produção, nessa ordem de
+ *    peso visual.
+ *
+ * No celular essa é a ordem de cima para baixo (a pessoa lê os dois primeiros
+ * e já sabe o dia). No computador, o que exige ação fica na coluna da direita,
+ * sempre à vista, e os números ocupam a coluna larga.
+ *
+ * Antes eram oito cartões do mesmo tamanho: sem hierarquia, o olho não sabia
+ * onde pousar, e o que pedia ação estava no fim da rolagem.
  */
 export function HomePage() {
   const me = useMe();
   const podeVer = useCan('dashboard:view');
-  const celular = useIsPhone();
   const [params, setParams] = useSearchParams();
   const escolhido = params.get('periodo');
   const periodo: DashboardPeriod = ehPeriodo(escolhido) ? escolhido : 'month';
@@ -133,73 +56,86 @@ export function HomePage() {
 
   return (
     <>
-      <PageHeader
-        title={`Olá, ${firstName(me.user.name)}`}
-        description={`Você está no painel da ${me.organization.name}.`}
-        actions={
-          podeVer && (
-            <div className="flex rounded-md border border-border p-0.5" role="group" aria-label="Período">
-              {PERIODOS.map((opcao) => (
-                <button
-                  key={opcao}
-                  type="button"
-                  aria-pressed={periodo === opcao}
-                  onClick={() => trocarPeriodo(opcao)}
-                  className={cn(
-                    'rounded px-3 py-1 text-sm',
-                    periodo === opcao ? 'bg-surface-muted font-medium' : 'text-muted hover:text-fg',
-                  )}
-                >
-                  {DASHBOARD_PERIOD_LABELS[opcao]}
-                </button>
-              ))}
-            </div>
-          )
-        }
-      />
+      <header className="mb-4">
+        <h1 className="text-2xl font-semibold tracking-tight">Olá, {firstName(me.user.name)}</h1>
+        <p className="text-sm text-muted">
+          {comMaiuscula(diaDeHoje.format(new Date()))} · {me.organization.name}
+        </p>
+      </header>
 
       <AcoesRapidas />
 
-      <div className="space-y-4">
-        {podeVer && resumo.isError && (
-          <Alert variant="danger">Não deu para carregar os números. Atualize a página.</Alert>
-        )}
-        {podeVer && !dados && !resumo.isError && (
-          <>
-            <Skeleton className="h-28 w-full" />
-            <Skeleton className="h-20 w-full" />
-          </>
-        )}
-        {dados && (
-          <>
-            <Card className="px-5 py-4">
-              <HeroFigure
-                label={
-                  dados.billedCents !== null
-                    ? `Faturado — ${dados.period.label}`
-                    : `Veículos na oficina — ${dados.period.label}`
-                }
-                value={
-                  dados.billedCents !== null ? formatBRL(dados.billedCents) : String(dados.vehiclesInShop)
-                }
-                hint={
-                  dados.billedCents !== null
-                    ? `${dados.completedOrders} OS finalizada(s) no período · faturar não é receber`
-                    : `${dados.completedOrders} OS finalizada(s) no período`
-                }
-              />
-            </Card>
-            <Numeros dados={dados} />
-            <AttentionPanel />
-            {/* o gráfico é do computador: numa coluna de 390 px ele vira
-                risco, e o celular já custa uma requisição a mais (E24) */}
-            {!celular && <MetricChart periodo={{ period: periodo }} podeVerDinheiro={dados.billedCents !== null} />}
-            <MaisUsados dados={dados} />
-          </>
-        )}
-        <SetupChecklist />
-      </div>
+      {podeVer && resumo.isError && (
+        <Alert variant="danger">Não deu para carregar os números. Atualize a página.</Alert>
+      )}
+      {podeVer && !dados && !resumo.isError && (
+        <div className="space-y-4">
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-40 w-full" />
+        </div>
+      )}
+
+      {dados && (
+        <div className="space-y-4">
+          <PatioAgora dados={dados} />
+
+          {/*
+            No celular vale a ordem do DOM: o que pede ação vem logo depois do
+            pátio. No computador o `order` troca as colunas — os números à
+            esquerda, o que precisa de gente à direita, sem rolar.
+          */}
+          <div className="grid gap-4 lg:grid-cols-3 lg:items-start">
+            <div className="space-y-4 lg:order-2">
+              <AttentionPanel />
+            </div>
+
+            <div className="space-y-4 lg:order-1 lg:col-span-2">
+              <PeriodoEscolhido periodo={periodo} onTrocar={trocarPeriodo} />
+              <DinheiroDoPeriodo dados={dados} />
+              <MetricChart periodo={{ period: periodo }} podeVerDinheiro={dados.billedCents !== null} />
+              <ProducaoDoPeriodo dados={dados} />
+              <MaisUsados dados={dados} />
+              {/* os primeiros passos são de quem está começando: ficam no fim,
+                  e somem sozinhos quando a oficina termina a configuração */}
+              <SetupChecklist />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!dados && <SetupChecklist />}
     </>
+  );
+}
+
+/** O seletor de período, junto do que ele muda — e não perdido no cabeçalho. */
+function PeriodoEscolhido({
+  periodo,
+  onTrocar,
+}: {
+  periodo: DashboardPeriod;
+  onTrocar(valor: DashboardPeriod): void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-xs text-muted">Mostrando</span>
+      <div className="flex rounded-lg border border-border bg-surface p-0.5" role="group" aria-label="Período">
+        {PERIODOS.map((opcao) => (
+          <button
+            key={opcao}
+            type="button"
+            aria-pressed={periodo === opcao}
+            onClick={() => onTrocar(opcao)}
+            className={cn(
+              'rounded-md px-3 py-1 text-sm transition-colors',
+              periodo === opcao ? 'bg-accent-soft font-medium text-foreground' : 'text-muted hover:text-foreground',
+            )}
+          >
+            {DASHBOARD_PERIOD_LABELS[opcao]}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -230,6 +166,36 @@ function AcoesRapidas() {
             {acao.label}
           </Link>
         </Button>
+      ))}
+    </div>
+  );
+}
+
+/** Os dois mais usados do período, lado a lado. Lista curta: é resumo, não relatório. */
+function MaisUsados({ dados }: { dados: DashboardSummary }) {
+  if (!dados.topServices.length && !dados.topParts.length) return null;
+  const colunas = [
+    { titulo: 'Serviços mais feitos', linhas: dados.topServices.map((s) => ({ nome: s.name, valor: `${s.count}×` })) },
+    {
+      titulo: 'Peças mais usadas',
+      linhas: dados.topParts.map((p) => ({ nome: p.name, valor: `${p.quantity.toLocaleString('pt-BR')}` })),
+    },
+  ].filter((coluna) => coluna.linhas.length);
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      {colunas.map((coluna) => (
+        <Card key={coluna.titulo}>
+          <CardHeader title={coluna.titulo} />
+          <ul className="divide-y divide-border border-t border-border">
+            {coluna.linhas.map((linha) => (
+              <li key={linha.nome} className="flex items-center justify-between gap-3 px-5 py-2.5 text-sm">
+                <span className="min-w-0 truncate">{linha.nome}</span>
+                <span className="shrink-0 text-muted tabular-nums">{linha.valor}</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
       ))}
     </div>
   );
