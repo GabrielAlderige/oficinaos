@@ -4,20 +4,21 @@ import {
   Car,
   ClipboardList,
   FileText,
+  GraduationCap,
   House,
+  Landmark,
   Menu,
   MessageSquare,
   Package,
-  PhoneCall,
-  Target,
-  Landmark,
   PanelLeftClose,
-  ReceiptText,
   PanelLeftOpen,
+  PhoneCall,
+  ReceiptText,
   Settings,
+  Target,
+  type LucideIcon,
   Users,
   Wrench,
-  type LucideIcon,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Link, NavLink, Outlet, useMatches } from 'react-router';
@@ -114,7 +115,17 @@ const NAV: NavGroup[] = [
       { to: '/notas', label: 'Notas fiscais', icon: ReceiptText, permission: 'invoices:read' },
     ],
   },
-  { items: [{ to: '/configuracoes', label: 'Configurações', icon: Settings }] },
+  {
+    items: [
+      /**
+       * Tutoriais (E39). Sem permissão, como a ficha do carro: quem mais
+       * precisa de tutorial é quem chegou agora — e normalmente é o
+       * mecânico ou o atendente, não o dono.
+       */
+      { to: '/tutoriais', label: 'Tutoriais', icon: GraduationCap },
+      { to: '/configuracoes', label: 'Configurações', icon: Settings },
+    ],
+  },
 ];
 
 function SidebarContent({ collapsed, onToggle, onNavigate }: {

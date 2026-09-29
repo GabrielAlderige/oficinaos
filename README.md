@@ -13,7 +13,7 @@ O diferencial inicial é um fluxo:
 
 ## Status
 
-**MVP 1, MVP 2 e V3 entregues: E1 a E38.** O sistema faz o dia inteiro de uma
+**MVP 1, MVP 2 e V3 entregues: E1 a E39.** O sistema faz o dia inteiro de uma
 oficina — da placa na recepção ao dinheiro no caixa e à nota de serviço.
 
 O que ainda **não** é real, e está rotulado como tal dentro do produto:
@@ -79,6 +79,13 @@ sem exigir permissão, porque o mecânico usa tanto quanto o dono, e também abr
 > Chevrolet, Honda, Volkswagen, Renault, Nissan, Hyundai, Kia e Jeep. Cada valor
 > carrega manual, ano e página. Sem fonte, a oficina lê "Sem fonte — confirme
 > antes de aplicar".
+
+**Tutoriais.** Uma aba com vídeos curtos por funcionalidade, agrupados na
+ordem do dia de trabalho, com marcação de "já assisti" **por pessoa** — o dono
+ter visto não esconde a aula do mecânico. Fica no menu sem exigir permissão:
+quem mais precisa de tutorial é quem chegou agora. As aulas são cadastradas na
+área da plataforma; aula sem vídeo fica em rascunho e não aparece para a
+oficina.
 
 **No celular.** O sistema instala como aplicativo (PWA) e o mecânico tem a tela
 dele — "Minhas OS", com cronômetro no topo e um botão por carro. Nenhum dado da
@@ -152,9 +159,10 @@ mensagem para o cliente — ela deixa pronto.
 | E36. Ficha do carro tem aba própria | ✅ 28/09/2026 |
 | E37. Consultar a ficha de dentro da OS | ✅ 28/09/2026 |
 | E38. Planos Turbo, Supercharger e Nitro | ✅ 28/09/2026 |
+| E39. Tutoriais em vídeo | ✅ 29/09/2026 |
 
 O detalhe de cada etapa, com o critério de pronto e o que ficou de fora, está em
-[docs/ROADMAP.md](docs/ROADMAP.md). As decisões técnicas e de produto (D1 a D71),
+[docs/ROADMAP.md](docs/ROADMAP.md). As decisões técnicas e de produto (D1 a D72),
 com a alternativa descartada e o porquê, estão em
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -192,9 +200,9 @@ Toda etapa só fecha com `npm run check` verde. Além disso:
 
 | Camada | Números |
 |---|---|
-| Testes de unidade e de API | **853 testes em 80 arquivos**, verdes, contra um Postgres de teste recriado a cada execução |
+| Testes de unidade e de API | **860 testes em 81 arquivos**, verdes, contra um Postgres de teste recriado a cada execução |
 | Ponta a ponta | 24 cenários Playwright, do painel no desktop ao cliente aprovando num celular |
-| Banco | 62 migrations aplicadas em ordem, com isolamento por oficina (RLS forçado) |
+| Banco | 64 migrations aplicadas em ordem, com isolamento por oficina (RLS forçado) |
 
 ---
 
@@ -393,10 +401,10 @@ A regra de dependência entre camadas está em
 
 | Documento | Conteúdo |
 |---|---|
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Decisões D1–D71 com a alternativa descartada, pastas, multi-tenant, autenticação, permissões, fluxos, segurança, riscos |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Decisões D1–D72 com a alternativa descartada, pastas, multi-tenant, autenticação, permissões, fluxos, segurança, riscos |
 | [docs/DATABASE.md](docs/DATABASE.md) | Convenções, isolamento por RLS, ERD, tabelas, índices, seeds |
 | [docs/API.md](docs/API.md) | Convenções REST, erros, rate limits, endpoints por fase |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | Etapas E1–E38 com critério de pronto, integrações futuras, métricas |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | Etapas E1–E39 com critério de pronto, integrações futuras, métricas |
 | [docs/DEPLOY.md](docs/DEPLOY.md) | Servidor, DNS, segredos, backup, restore e rollback |
 
 ---

@@ -150,6 +150,18 @@ export const router = createBrowserRouter([
             handle: { crumb: 'Catálogo de veículos' },
           },
           {
+            path: 'plataforma/tutoriais',
+            lazy: page(() => import('../features/platform/TutorialAdminPage'), 'TutorialAdminPage'),
+            handle: { crumb: 'Tutoriais da plataforma' },
+          },
+          {
+            // sem permissão de propósito: quem mais precisa de tutorial é
+            // quem está começando, e normalmente não é o dono
+            path: 'tutoriais',
+            lazy: page(() => import('../features/tutorials/TutorialsPage'), 'TutorialsPage'),
+            handle: { crumb: 'Tutoriais' },
+          },
+          {
             path: 'pos-venda',
             lazy: page(() => import('../features/aftersales/FollowUpsPage'), 'FollowUpsPage'),
             handle: { crumb: 'Pós-venda' },

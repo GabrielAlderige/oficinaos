@@ -27,6 +27,8 @@ export * from './enums/billing';
 export * from './enums/vehicles';
 export * from './enums/vehicle-specs';
 export * from './schemas/vehicle-specs';
+export * from './enums/tutorials';
+export * from './schemas/tutorials';
 export * from './enums/catalog';
 export * from './br/phone';
 export * from './br/document';

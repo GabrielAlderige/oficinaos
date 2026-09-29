@@ -20,6 +20,9 @@ const GLOBAL_TABLES = new Set([
   // mesmo, e quem escreve é decidido na API, não por policy de tenant
   'catalog_vehicles',
   'catalog_vehicle_specs',
+  // as aulas do tutorial (E39) também são da PLATAFORMA: mesma aula para
+  // todas as oficinas. O PROGRESSO é de cada uma e tem organization_id.
+  'tutorial_lessons',
 ]);
 
 describe('guarda do RLS', () => {

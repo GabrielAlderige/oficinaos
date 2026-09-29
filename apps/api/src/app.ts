@@ -87,6 +87,8 @@ import { MembersService } from './modules/members/members.service';
 import { organizationRoutes } from './modules/organizations/organizations.routes';
 import { commissionRoutes } from './modules/commissions/commissions.routes';
 import { packageRoutes } from './modules/packages/packages.routes';
+import { tutorialsRoutes } from './modules/tutorials/tutorials.routes';
+import { TutorialsService } from './modules/tutorials/tutorials.service';
 import { vehicleCatalogRoutes } from './modules/vehicle-catalog/vehicle-catalog.routes';
 import { VehicleCatalogService } from './modules/vehicle-catalog/vehicle-catalog.service';
 import { PackagesService } from './modules/packages/packages.service';
@@ -130,6 +132,7 @@ export interface Services {
   messaging: MessagingService;
   commissions: CommissionsService;
   packages: PackagesService;
+  tutorials: TutorialsService;
   vehicleCatalog: VehicleCatalogService;
 }
 
@@ -203,6 +206,7 @@ export async function buildApp({
   // o canal de WhatsApp nasce antes de quem manda mensagem por ele (E22)
   const messaging = new MessagingService(deps);
   const packages = new PackagesService(deps);
+  const tutorials = new TutorialsService(deps);
   const vehicleCatalog = new VehicleCatalogService(deps);
   const workOrders = new WorkOrdersService(deps, messaging, packages);
   const payments = new PaymentsService(deps);
@@ -241,6 +245,7 @@ export async function buildApp({
     messaging,
     commissions: new CommissionsService(deps),
     packages,
+    tutorials,
     vehicleCatalog,
   };
 
@@ -310,6 +315,7 @@ export async function buildApp({
   await app.register(commissionRoutes, { prefix: '/api/v1/commissions' });
   await app.register(packageRoutes, { prefix: '/api/v1/service-packages' });
   await app.register(vehicleCatalogRoutes, { prefix: '/api/v1/vehicle-catalog' });
+  await app.register(tutorialsRoutes, { prefix: '/api/v1/tutorials' });
   await app.register(workOrderChargeRoutes, { prefix: '/api/v1/work-orders' });
   // sem login: quem prova a origem é o token que o gateway repete no aviso
   await app.register(paymentWebhookRoutes, { prefix: '/api/v1/webhooks' });
