@@ -1,5 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
-import { abrirOS, api, captura, criarOficina, entrarNoPainel, enviarOrcamento, expect, test, textoDe, type Oficina } from './helpers';
+import {
+  abrirAbaDaOS,
+  abrirOS, api, captura, criarOficina, entrarNoPainel, enviarOrcamento, expect, test, textoDe, type Oficina } from './helpers';
 
 /**
  * Nota fiscal de serviço (E18). O que este roteiro prova no navegador:
@@ -46,6 +48,7 @@ test('a oficina completa os dados fiscais, emite a nota do serviço e cancela a 
   await test.step('sem dado fiscal, a tela diz o que falta e onde resolver', async () => {
     await page.goto(`/ordens/${ordem.number}`);
     await expect(page.getByRole('heading', { name: new RegExp(`^OS ${ordem.number}`) })).toBeVisible();
+    await abrirAbaDaOS(page, 'Dinheiro');
     await page.getByRole('button', { name: 'Emitir nota' }).click();
 
     const dialogo = page.getByRole('dialog');
@@ -84,6 +87,7 @@ test('a oficina completa os dados fiscais, emite a nota do serviço e cancela a 
 
   await test.step('a nota sai com o ISS por dentro e a peça de fora', async () => {
     await page.goto(`/ordens/${ordem.number}`);
+    await abrirAbaDaOS(page, 'Dinheiro');
     await page.getByRole('button', { name: 'Emitir nota' }).click();
     const dialogo = page.getByRole('dialog');
     await expect(dialogo.getByText('Falta preencher para conseguir emitir:')).toBeHidden();

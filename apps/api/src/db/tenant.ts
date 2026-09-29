@@ -20,7 +20,8 @@ type ContextKey =
   | 'app.charge_provider_ref'
   | 'app.subscription_provider_ref'
   | 'app.job_runner'
-  | 'app.phone_number_ref';
+  | 'app.phone_number_ref'
+  | 'app.platform_admin';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -150,6 +151,19 @@ export function withJobRunner<T>(db: Database, fn: (tx: Tx) => Promise<T>): Prom
  */
 export function withPhoneRef<T>(db: Database, phoneNumberId: string, fn: (tx: Tx) => Promise<T>): Promise<T> {
   return withDbContext(db, { 'app.phone_number_ref': phoneNumberId }, fn);
+}
+
+/**
+ * Capacidade de administrador da PLATAFORMA (E31). Abre a fila de "não achei
+ * meu carro" de todas as oficinas, que é o que diz qual ficha preencher em
+ * seguida. Quem decide se a pessoa é administradora é a API (`users
+ * .is_platform_admin`); aqui só se declara a capacidade, e a policy
+ * `platform_reads_requests` faz o resto.
+ *
+ * Só LEITURA: o catálogo em si não tem RLS, e escrever nele é decisão da API.
+ */
+export function withPlatformAdmin<T>(db: Database, fn: (tx: Tx) => Promise<T>): Promise<T> {
+  return withDbContext(db, { 'app.platform_admin': 'on' }, fn);
 }
 
 /** Tabelas globais (users, sessions, plans, password_reset_tokens): sem contexto de tenant. */

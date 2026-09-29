@@ -155,7 +155,12 @@ export class MembersService {
         ((input.role !== undefined && input.role !== 'OWNER') || input.isActive === false);
       if (losesOwner) await this.assertNotLastOwner(tx, auth.organizationId);
 
-      const patch = { role: input.role, isActive: input.isActive, calendarColor: input.calendarColor };
+      const patch = {
+        role: input.role,
+        isActive: input.isActive,
+        calendarColor: input.calendarColor,
+        commissionBps: input.commissionBps,
+      };
       const changes = diffChanges(member, patch);
       let revoked: string[] = [];
       if (Object.keys(changes).length) {
@@ -193,6 +198,8 @@ export class MembersService {
       isActive: patch.isActive ?? member.isActive,
       // `??` cairia no valor antigo quando a pessoa LIMPA a cor (null explícito)
       calendarColor: patch.calendarColor !== undefined ? patch.calendarColor : member.calendarColor,
+      // mesma razão: limpar o percentual é voltar a herdar o da oficina
+      commissionBps: patch.commissionBps !== undefined ? patch.commissionBps : member.commissionBps,
       isCurrentUser: member.userId === auth.userId,
       joinedAt: member.joinedAt.toISOString(),
     };

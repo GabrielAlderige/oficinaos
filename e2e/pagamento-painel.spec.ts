@@ -1,4 +1,5 @@
 import {
+  abrirAbaDaOS,
   abrirOS,
   api,
   captura,
@@ -29,6 +30,8 @@ test('a oficina recebe em partes, fecha a conta e cancela um lançamento errado'
   await entrarNoPainel(page, oficina.email);
   await page.goto(`/ordens/${ordem.number}`);
   await expect(page.getByRole('heading', { name: new RegExp(`^OS ${ordem.number}`) })).toBeVisible();
+  // o roteiro inteiro é sobre dinheiro: a aba fica aberta desde já (E30)
+  await abrirAbaDaOS(page, 'Dinheiro');
 
   await test.step('o cartão mostra o que falta receber', async () => {
     const cartao = await textoDe(page.locator('main'));

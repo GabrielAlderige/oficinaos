@@ -150,7 +150,7 @@ Ninguém rebaixa nem remove o último OWNER.
 | Método | Rota | Permissão | Fase |
 |---|---|---|---|
 | GET | `/work-orders?status=&q=&mechanicId=&from=&to=&page=` | `work_orders:read` | 1 |
-| GET | `/work-orders/my-day` → `{{ runningTimer, orders }}`: os carros em que quem pede é o mecânico responsável, e o cronômetro que ficou correndo (com a OS e o item). Uma requisição só, porque é a tela que abre no 3G da oficina (E24) | `work_orders:read` | 3 |
+| GET | `/work-orders/my-day` → `{ runningTimer, orders }`: os carros em que quem pede é o mecânico responsável, e o cronômetro que ficou correndo (com a OS e o item). Uma requisição só, porque é a tela que abre no 3G da oficina (E24) | `work_orders:read` | 3 |
 | GET | `/work-orders/board` (contagem por status, para o quadro) | `work_orders:read` | 1 |
 | POST | `/work-orders` (cliente, veículo, km, relato; aceita itens iniciais) | `work_orders:write` | 1 |
 | GET | `/work-orders/{number}` (agregado: OS + itens + orçamento atual + totais) | `work_orders:read` | 1 |
@@ -208,6 +208,111 @@ Ninguém rebaixa nem remove o último OWNER.
 | GET | `/parts/{id}/availability` (em estoque, reservado, disponível, OS que reservaram) | `inventory:read` | 1 |
 | GET / POST / PATCH | `/part-categories[/{id}]` | `catalog:read` / `catalog:write` | 1 |
 | POST | `/parts/import` (CSV) | `catalog:write` | 2 |
+
+### Entrega do veículo — `/work-orders/{id}/deliver` (V3, E28)
+
+| Método | Rota | Permissão | Fase |
+|---|---|---|---|
+| POST | `/work-orders/{id}/deliver` `{ signerName?, signatureAttachmentId?, photoAttachmentIds?, odometerKm?, notes? }` | `work_orders:deliver` | 3 |
+
+Tudo no corpo é opcional. O que vier vira uma inspeção **`CHECK_OUT`** (D60),
+que sai em `GET /work-orders/{id}/inspections` com `signature`, `photos`,
+`signerName` e `customerAcknowledgedAt`. A assinatura e as fotos sobem antes,
+pela rota de sempre (`POST /uploads` → PUT na URL assinada → `/complete`), e o
+serviço só as prende na inspeção depois — anexo de outra oficina dá 400. Com
+`requireDeliverySignature` ligado nas configurações, entregar sem assinatura
+dá **422** e a OS continua onde estava. O `odometerKm` segue a regra do
+cadastro do veículo: km menor que o último registrado dá 422 `ODOMETER_DECREASE`.
+
+### Confirmação de e-mail — `/auth/verify-email` (V3, E29)
+
+| Método | Rota | Permissão | Fase |
+|---|---|---|---|
+| POST | `/auth/verify-email` `{ token }` | pública (20/h) | 3 |
+| POST | `/auth/resend-verification` | autenticado (5/h) | 3 |
+
+O `POST /auth/signup` passa a disparar o link sozinho (48 h, uso único). O
+`GET /auth/me` devolve `user.emailVerifiedAt` — é por ele que o painel decide
+mostrar o aviso. Pedir um link novo **apaga** os anteriores, e quem já
+confirmou recebe a mesma resposta 202 sem que e-mail nenhum saia (a resposta
+não pode virar sonda de contas). Link inválido, usado ou vencido: 400
+`TOKEN_INVALID`.
+
+### Executar sem orçamento — `/work-orders/{id}/skip-quote` (V3, E34)
+
+| Método | Rota | Permissão | Fase |
+|---|---|---|---|
+| POST | `/work-orders/{id}/skip-quote` — de `OPEN`/`DIAGNOSING`/`AWAITING_QUOTE` para `APPROVED` | `work_orders:change_status` | 3 |
+
+Era a saída que faltava: sem ela a OS ficava presa em "aguardando orçamento",
+porque `start` só sai de `APPROVED`. Não muda só o status — marca os itens
+`DRAFT`/`PENDING` como `APPROVED`, reserva a peça e grava `approvedAt`, senão a
+OS chegaria ao fim com total aprovado zero (D68). O evento entra na timeline
+com quem liberou. Fora do caminho feliz: nunca vira o botão em destaque.
+
+### Pix na hora (V3, E32)
+
+Não tem rota: o BR Code é **montado no navegador** a partir de
+`organization/settings.pixKey` e do saldo da OS (`brCode()` em
+`@oficinaos/shared`). Não há nada para consultar do outro lado — é um Pix
+estático, sem gateway (D66). `PATCH /organization/settings` ganhou `pixKey`;
+a cidade do recebedor sai do endereço da oficina, para não existirem dois
+campos "Cidade" na mesma tela.
+
+A conciliação continua sendo `POST /work-orders/{id}/payments`, na mão. O
+simulador de gateway **não** passou a forjar Pix: ele continua devolvendo um
+payload marcado como inválido, e quem gera código que paga é só a chave da
+própria oficina.
+
+### Ficha do carro — `/vehicle-catalog` (V3, E31)
+
+| Método | Rota | Permissão | Fase |
+|---|---|---|---|
+| GET | `/vehicle-catalog/coverage` → quantos carros publicados existem (a tela promete só o que pode cumprir) | autenticado | 3 |
+| GET | `/vehicle-catalog?q=&incluirRascunhos=` → busca por marca, modelo, versão e **ano dentro da faixa**; rascunho só sai para administrador da plataforma | autenticado | 3 |
+| GET | `/vehicle-catalog/{id}` → a ficha inteira, agrupada (motor, filtros, freios, suspensão, elétrica, fluidos, pneus) | autenticado | 3 |
+| POST | `/vehicle-catalog/requests` `{ make, model, year?, note? }` — "não achei o meu carro" | autenticado | 3 |
+| GET | `/vehicle-catalog/requests/queue` → a fila, agrupada, contando **oficinas** e não cliques | `platform-admin` | 3 |
+| POST / PATCH / DELETE | `/vehicle-catalog[/{id}]` | `platform-admin` | 3 |
+
+`platform-admin` é uma regra de rota nova, ao lado de `public` e `authenticated`:
+ela NÃO passa por `can()` porque não é papel de oficina — é a marca
+`users.is_platform_admin`, lida no login. A ficha nasce rascunho (D64); cada
+linha usa uma chave de `SPEC_ITEMS` (lista fixa) **ou** um rótulo próprio, e
+chave desconhecida dá 400.
+
+### Pacotes de serviço — `/service-packages` (V3, E27)
+
+| Método | Rota | Permissão | Fase |
+|---|---|---|---|
+| GET | `/service-packages?incluirInativos=` → cada pacote com os itens e o **preço de hoje**; sem o parâmetro, só os ativos | `catalog:read` | 3 |
+| GET | `/service-packages/{id}` | `catalog:read` | 3 |
+| POST | `/service-packages` `{ name, description?, items: [{ serviceId? | partId?, quantity }], isActive? }` — cada linha é um serviço **OU** uma peça, nunca os dois | `catalog:write` | 3 |
+| PATCH | `/service-packages/{id}` — mandar `items` **substitui a lista inteira** | `catalog:write` | 3 |
+| DELETE | `/service-packages/{id}` — sai da lista; as OS que já usaram não mudam | `catalog:write` | 3 |
+| POST | `/work-orders/{id}/packages` `{ packageId, clientRequestId }` → a OS inteira de volta, com as linhas do pacote somadas | `work_orders:write` | 3 |
+
+O pacote **não guarda preço** (D59): cada leitura resolve o valor no catálogo,
+e item que saiu de lá (peça excluída, serviço desativado) volta com
+`unavailable: true` e **fora do total**. Aplicar um pacote desativado dá 422.
+O `clientRequestId` é o mesmo mecanismo do pagamento (D32): rede ruim repete o
+POST e o segundo não duplica os itens.
+
+### Comissão do mecânico — `/commissions` (V3, E26)
+
+| Método | Rota | Permissão | Fase |
+|---|---|---|---|
+| GET | `/commissions?from=&to=` → por mecânico: mão de obra do período, **comissão cheia**, **ganho** (proporcional ao que o cliente pagou), o que já foi pago, e OS por OS | autenticado; **mecânico vê só a dele** | 3 |
+| GET | `/commissions/payouts` → os pagamentos registrados | autenticado | 3 |
+| POST | `/commissions/payouts` `{ mechanicUserId, periodFrom, periodTo, amountCents, notes? }` | `commissions:manage` | 3 |
+
+O percentual sai de três lugares, e o mais específico vence (D57): serviço >
+mecânico > oficina, configurados em `/services`, `/members` e
+`/organization/settings` (`commissionBps`, em **basis points**). Ele é
+**congelado no item** quando a OS é finalizada, junto do mecânico responsável —
+mudar o percentual hoje não reescreve o mês passado. O ganho acompanha o
+pagamento do cliente (D58), e `commission_payouts` registra só o que a oficina
+**pagou**, nunca um cálculo.
 
 > **Sem tela no painel desde a E23.** Fornecedores, compras e contas a pagar
 > saíram do menu por decisão do dono do produto ("tá muito cheio"). As rotas
@@ -273,17 +378,17 @@ escolha que já virou pedido vivo → 422 `SUPPLIER_QUOTE_ORDERED`.
 
 | Método | Rota | Permissão | Fase |
 |---|---|---|---|
-| GET | `/finance/entries?direction=RECEIVABLE\|PAYABLE&filter=open\|overdue\|due_soon\|paid\|canceled\|all&q=&categoryId=&customerId=&supplierId=&from=&to=&page=` → `{{ data, meta, summary }}`. `situation` já vem com **vencida** resolvida pelo dia de hoje na oficina; o resumo traz em aberto, vencido, vence em 7 dias e o recebido/pago no mês | `finance:read` | 2 |
-| POST | `/finance/entries` `{{ direction, categoryId, description, amountCents, dueDate, customerId?, supplierId?, notes?, installments? }}` → 201 `{{ data: [parcelas] }}`. Com `installments > 1` nasce o carnê inteiro: mensal, sem perder centavo (a sobra vai para a primeira) | `finance:write` | 2 |
-| GET | `/finance/entries/{{id}}` → lançamento + baixas | `finance:read` | 2 |
-| PATCH | `/finance/entries/{{id}}` — descrição, categoria, vencimento, observação e valor. Valor de conta de OS → 422 `FINANCE_ENTRY_MIRRORED` (ele vem da OS); abaixo do já baixado → 422 `FINANCE_EXCEEDS_BALANCE` | `finance:write` | 2 |
-| POST | `/finance/entries/{{id}}/settlements` `{{ clientRequestId, amountCents, method, paidAt?, notes? }}` → 201. **Conta de OS: a baixa é o pagamento do caixa** (vai para `payments`, a OS fica com o `payment_status` certo e as parcelas quitam da mais velha para a mais nova). Acima do saldo → 422; a mesma `clientRequestId` devolve o estado atual, sem baixar de novo | `finance:write` | 2 |
-| POST | `/finance/settlements/{{id}}/cancel` `{{ reason }}` — a baixa vira `CANCELED` e o saldo volta. Baixa que é pagamento de OS se estorna na ficha da OS | `finance:write` | 2 |
-| POST | `/finance/entries/{{id}}/installments` `{{ installments, firstDueDate? }}` → 201: o lançamento vira a parcela 1 e as outras nascem mensais. Numa conta de OS o que já foi pago é redistribuído | `finance:write` | 2 |
-| POST | `/finance/entries/{{id}}/cancel` `{{ reason }}` — com baixa confirmada → 422 `FINANCE_ENTRY_STATE` | `finance:write` | 2 |
+| GET | `/finance/entries?direction=RECEIVABLE\|PAYABLE&filter=open\|overdue\|due_soon\|paid\|canceled\|all&q=&categoryId=&customerId=&supplierId=&from=&to=&page=` → `{ data, meta, summary }`. `situation` já vem com **vencida** resolvida pelo dia de hoje na oficina; o resumo traz em aberto, vencido, vence em 7 dias e o recebido/pago no mês | `finance:read` | 2 |
+| POST | `/finance/entries` `{ direction, categoryId, description, amountCents, dueDate, customerId?, supplierId?, notes?, installments? }` → 201 `{ data: [parcelas] }`. Com `installments > 1` nasce o carnê inteiro: mensal, sem perder centavo (a sobra vai para a primeira) | `finance:write` | 2 |
+| GET | `/finance/entries/{id}` → lançamento + baixas | `finance:read` | 2 |
+| PATCH | `/finance/entries/{id}` — descrição, categoria, vencimento, observação e valor. Valor de conta de OS → 422 `FINANCE_ENTRY_MIRRORED` (ele vem da OS); abaixo do já baixado → 422 `FINANCE_EXCEEDS_BALANCE` | `finance:write` | 2 |
+| POST | `/finance/entries/{id}/settlements` `{ clientRequestId, amountCents, method, paidAt?, notes? }` → 201. **Conta de OS: a baixa é o pagamento do caixa** (vai para `payments`, a OS fica com o `payment_status` certo e as parcelas quitam da mais velha para a mais nova). Acima do saldo → 422; a mesma `clientRequestId` devolve o estado atual, sem baixar de novo | `finance:write` | 2 |
+| POST | `/finance/settlements/{id}/cancel` `{ reason }` — a baixa vira `CANCELED` e o saldo volta. Baixa que é pagamento de OS se estorna na ficha da OS | `finance:write` | 2 |
+| POST | `/finance/entries/{id}/installments` `{ installments, firstDueDate? }` → 201: o lançamento vira a parcela 1 e as outras nascem mensais. Numa conta de OS o que já foi pago é redistribuído | `finance:write` | 2 |
+| POST | `/finance/entries/{id}/cancel` `{ reason }` — com baixa confirmada → 422 `FINANCE_ENTRY_STATE` | `finance:write` | 2 |
 | GET | `/finance/cash-flow?period=&from=&to=&step=day\|week\|month` → baldes com entrou/saiu/acumulado no fuso da oficina, mais o **previsto** (o que ainda vence no período) | `finance:read` | 2 |
 | GET | `/finance/profit?period=&from=&to=` → faturado − custo das peças usadas − despesas pagas (a categoria "Peças" fica fora da despesa: já entrou pelo custo da peça), com a margem em basis points | `finance:read` | 2 |
-| GET/POST/PATCH/DELETE | `/finance/categories[/{{id}}]` — as nove do sistema nascem com a oficina; dá para renomear, não para apagar; categoria em uso não se apaga (422 `FINANCE_CATEGORY_IN_USE`) | `finance:read` / `finance:write` | 2 |
+| GET/POST/PATCH/DELETE | `/finance/categories[/{id}]` — as nove do sistema nascem com a oficina; dá para renomear, não para apagar; categoria em uso não se apaga (422 `FINANCE_CATEGORY_IN_USE`) | `finance:read` / `finance:write` | 2 |
 
 **A conta a receber espelha a OS.** Ela nasce ao finalizar (valor = o que o
 cliente aprovou), acompanha qualquer mudança de total, morre com a OS cancelada
@@ -295,11 +400,11 @@ devolução ao fornecedor, pelo custo com que a peça entrou.
 
 | Método | Rota | Permissão | Fase |
 |---|---|---|---|
-| POST | `/parts-search` `{{ q, vehicleId?, providers? }}` → `{{ queryId, markupBps, offers, providers }}`. É POST porque **grava**: a busca e as ofertas ficam com `fetchedAt`, e é isso que explica o custo de uma peça meses depois. Cada oferta já vem com o total (peça + frete), o preço sugerido pela margem da oficina, a diferença para a mais barata e os selos | `parts:view_cost` | 2 |
-| GET | `/parts-search/{{id}}` → a mesma busca, como foi gravada | `parts:view_cost` | 2 |
-| POST | `/parts-search/offers/{{id}}/add-to-work-order` `{{ workOrderId, quantity, unitPriceCents?, isOptional? }}` → 201 com a OS. Sem preço, vale o sugerido (custo + margem); oferta do estoque entra como "do estoque", as outras como "comprar". Oferta sem estoque → 422 | `work_orders:write` | 2 |
-| GET | `/suppliers/{{id}}/price-list?q=&page=` | `parts:view_cost` | 2 |
-| POST | `/suppliers/{{id}}/price-list` `{{ csv, replace? }}` → 201 `{{ imported, updated, removed, skipped, problems }}`. Aceita `;` ou `,`, com ou sem BOM, e acha as colunas pelo nome sem acento (código, descrição, marca, preço, unidade). Linha ruim **não derruba o arquivo**: volta em `problems` com o número da linha e o motivo. `replace` troca a lista inteira | `suppliers:write` | 2 |
+| POST | `/parts-search` `{ q, vehicleId?, providers? }` → `{ queryId, markupBps, offers, providers }`. É POST porque **grava**: a busca e as ofertas ficam com `fetchedAt`, e é isso que explica o custo de uma peça meses depois. Cada oferta já vem com o total (peça + frete), o preço sugerido pela margem da oficina, a diferença para a mais barata e os selos | `parts:view_cost` | 2 |
+| GET | `/parts-search/{id}` → a mesma busca, como foi gravada | `parts:view_cost` | 2 |
+| POST | `/parts-search/offers/{id}/add-to-work-order` `{ workOrderId, quantity, unitPriceCents?, isOptional? }` → 201 com a OS. Sem preço, vale o sugerido (custo + margem); oferta do estoque entra como "do estoque", as outras como "comprar". Oferta sem estoque → 422 | `work_orders:write` | 2 |
+| GET | `/suppliers/{id}/price-list?q=&page=` | `parts:view_cost` | 2 |
+| POST | `/suppliers/{id}/price-list` `{ csv, replace? }` → 201 `{ imported, updated, removed, skipped, problems }`. Aceita `;` ou `,`, com ou sem BOM, e acha as colunas pelo nome sem acento (código, descrição, marca, preço, unidade). Linha ruim **não derruba o arquivo**: volta em `problems` com o número da linha e o motivo. `replace` troca a lista inteira | `suppliers:write` | 2 |
 
 **Os providers** (ARCHITECTURE §12) são três: `internal` (estoque da oficina,
 pelo custo médio, prazo zero), `price_list` (a planilha importada do
@@ -323,7 +428,7 @@ menor prazo (o estoque tem prazo zero) e ⭐ custo-benefício, que soma ao total
 | Método | Rota | Permissão | Fase |
 |---|---|---|---|
 | GET | `/reports` → a lista dos nove relatórios, cada um com a pergunta que responde | `reports:read` | 2 |
-| GET | `/reports/{{key}}?period=&from=&to=&limit=&format=json\|csv` — `key` é `revenue`, `profit`, `services`, `parts`, `customers`, `vehicles`, `mechanics`, `approval` ou `inventory`. A resposta traz **colunas + linhas + totais + uma frase de leitura**: a tela desenha qualquer relatório com o mesmo componente. Com `format=csv` vem o arquivo pronto para o Excel em português (BOM, `;`, dinheiro como número com vírgula) | `reports:read` | 2 |
+| GET | `/reports/{key}?period=&from=&to=&limit=&format=json\|csv` — `key` é `revenue`, `profit`, `services`, `parts`, `customers`, `vehicles`, `mechanics`, `approval` ou `inventory`. A resposta traz **colunas + linhas + totais + uma frase de leitura**: a tela desenha qualquer relatório com o mesmo componente. Com `format=csv` vem o arquivo pronto para o Excel em português (BOM, `;`, dinheiro como número com vírgula) | `reports:read` | 2 |
 
 O `profit` é o mesmo lucro do financeiro (E13), com a mesma regra — dois
 números diferentes para "lucro" seria o pior resultado possível. O `inventory`
@@ -333,8 +438,8 @@ números diferentes para "lucro" seria o pior resultado possível. O `inventory`
 
 | Método | Rota | Permissão | Fase |
 |---|---|---|---|
-| POST | `/work-orders/{{id}}/items/{{itemId}}/timer/start` → a OS. Só em item de SERVIÇO e em OS que não foi entregue nem cancelada. **Uma volta aberta por pessoa em toda a oficina**: começar em outro item para o anterior sozinho | `work_orders:change_status` | 2 |
-| POST | `/work-orders/{{id}}/items/{{itemId}}/timer/stop` → a OS, com os minutos somados ao item. Minuto arredondado para cima, mínimo de 1 | `work_orders:change_status` | 2 |
+| POST | `/work-orders/{id}/items/{itemId}/timer/start` → a OS. Só em item de SERVIÇO e em OS que não foi entregue nem cancelada. **Uma volta aberta por pessoa em toda a oficina**: começar em outro item para o anterior sozinho | `work_orders:change_status` | 2 |
+| POST | `/work-orders/{id}/items/{itemId}/timer/stop` → a OS, com os minutos somados ao item. Minuto arredondado para cima, mínimo de 1 | `work_orders:change_status` | 2 |
 
 Cada volta é uma linha (`work_order_item_timers`): o almoço, a peça que não
 chegou, o dia seguinte. O tempo do item é a SOMA das voltas, e o item da OS
@@ -345,12 +450,12 @@ devolve `actualMinutes`, `timerStartedAt` e `timerMechanicName`.
 | Método | Rota | Permissão | Fase |
 |---|---|---|---|
 | GET | `/follow-ups?filter=today\|week\|done\|all&type=` → a fila do dia, **recalculada na hora**: OS entregue há 7 dias, revisão vencendo (pelo km ou pelos meses do serviço, o que vier primeiro) e cliente sem voltar há 6 meses. Cada item já traz a mensagem escrita e o link `wa.me` | `customers:view_contact` | 2 |
-| POST | `/follow-ups/{{id}}/done` `{{ outcome? }}` · `/follow-ups/{{id}}/skip` — sai da fila e fica no histórico | `customers:write` | 2 |
-| POST | `/work-orders/{{id}}/review-invite` → `{{ publicUrl, message, whatsappUrl }}`, onde `publicUrl` é o **link do Google** da oficina (`googleReviewUrl` em `/organization/settings`). Só com o carro **entregue** (422 antes disso); sem o link cadastrado, 422 dizendo onde configurar. O convite entra no histórico de comunicação | `quotes:send` | 2 |
+| POST | `/follow-ups/{id}/done` `{ outcome? }` · `/follow-ups/{id}/skip` — sai da fila e fica no histórico | `customers:write` | 2 |
+| POST | `/work-orders/{id}/review-invite` → `{ publicUrl, message, whatsappUrl }`, onde `publicUrl` é o **link do Google** da oficina (`googleReviewUrl` em `/organization/settings`). Só com o carro **entregue** (422 antes disso); sem o link cadastrado, 422 dizendo onde configurar. O convite entra no histórico de comunicação | `quotes:send` | 2 |
 | GET | `/leads?q=` → o funil inteiro, por etapa, com valor em aberto e taxa de conversão | `customers:view_contact` | 2 |
-| POST | `/leads` · PATCH `/leads/{{id}}` — nome, telefone, origem, carro, o que precisa e valor estimado | `customers:write` | 2 |
-| POST | `/leads/{{id}}/stage` `{{ stage, lostReason? }}` — **perder exige motivo** (422 sem ele) | `customers:write` | 2 |
-| POST | `/leads/{{id}}/convert` `{{ customerId? }}` — fecha e vira cliente; sem `customerId`, cria o cadastro com o nome e o telefone do lead. Duas vezes → 409 | `customers:write` | 2 |
+| POST | `/leads` · PATCH `/leads/{id}` — nome, telefone, origem, carro, o que precisa e valor estimado | `customers:write` | 2 |
+| POST | `/leads/{id}/stage` `{ stage, lostReason? }` — **perder exige motivo** (422 sem ele) | `customers:write` | 2 |
+| POST | `/leads/{id}/convert` `{ customerId? }` — fecha e vira cliente; sem `customerId`, cria o cadastro com o nome e o telefone do lead. Duas vezes → 409 | `customers:write` | 2 |
 
 **Nada é enviado sozinho.** A fila escreve a mensagem e abre o WhatsApp; quem
 aperta enviar é uma pessoa — é o que o briefing pede e o que dá para fazer sem
@@ -364,9 +469,9 @@ DECIDIDO (ganhos ÷ (ganhos + perdidos)) — lead novo não conta como perda.
 | Método | Rota | Permissão | Fase |
 |---|---|---|---|
 | GET | `/imports` → o que cada importação aceita (colunas obrigatórias e opcionais) | `customers:read` | 2 |
-| POST | `/imports/customers` · `/imports/vehicles` · `/imports/parts` `{{ csv, dryRun }}` → `{{ total, created, updated, skipped, problems, preview }}`. **`dryRun` é o padrão**: a conferência roda a importação inteira numa transação e a desfaz — não grava nem auditoria. Linha ruim volta com o número da linha e o motivo; o arquivo inteiro não é recusado. Cliente com o mesmo CPF/CNPJ e peça com o mesmo SKU são ATUALIZADOS, não duplicados; o veículo acha o dono pelo documento, pelo telefone ou pelo nome exato. Teto de 5.000 linhas por vez | `customers:write` (peças: `catalog:write`) | 2 |
-| POST | `/work-orders/{{id}}/tracking-link` → `{{ publicUrl, message, whatsappUrl }}`. O token nasce na primeira vez e não muda: o cliente guarda o link | `quotes:send` | 2 |
-| GET | `/public/tracking/{{token}}` → em que passo o carro está, previsão, o que foi aprovado e quanto falta pagar. Sem login, sem custo de peça e sem observação interna | pública (limite por IP) | 2 |
+| POST | `/imports/customers` · `/imports/vehicles` · `/imports/parts` `{ csv, dryRun }` → `{ total, created, updated, skipped, problems, preview }`. **`dryRun` é o padrão**: a conferência roda a importação inteira numa transação e a desfaz — não grava nem auditoria. Linha ruim volta com o número da linha e o motivo; o arquivo inteiro não é recusado. Cliente com o mesmo CPF/CNPJ e peça com o mesmo SKU são ATUALIZADOS, não duplicados; o veículo acha o dono pelo documento, pelo telefone ou pelo nome exato. Teto de 5.000 linhas por vez | `customers:write` (peças: `catalog:write`) | 2 |
+| POST | `/work-orders/{id}/tracking-link` → `{ publicUrl, message, whatsappUrl }`. O token nasce na primeira vez e não muda: o cliente guarda o link | `quotes:send` | 2 |
+| GET | `/public/tracking/{token}` → em que passo o carro está, previsão, o que foi aprovado e quanto falta pagar. Sem login, sem custo de peça e sem observação interna | pública (limite por IP) | 2 |
 
 ### Nota fiscal de serviço — `/invoices`, `/fiscal-settings` (V3, E18)
 
@@ -374,11 +479,11 @@ DECIDIDO (ganhos ÷ (ganhos + perdidos)) — lead novo não conta como perda.
 |---|---|---|---|
 | GET | `/fiscal-settings` → inscrição municipal, regime, item da lista (LC 116), alíquota de ISS, série do RPS, driver e ambiente do emissor | `invoices:read` | 3 |
 | PUT | `/fiscal-settings` — o **ambiente e o driver não vêm da tela**: saem da configuração do servidor, para ninguém "virar produção" num campo do painel | `organization:manage` | 3 |
-| GET | `/work-orders/{{id}}/invoices/preview` → os números antes de emitir (serviços, desconto rateado, base, ISS, total), o texto que o cliente lê, o valor das PEÇAS que ficam de fora, e `pending[]`: o que falta, com `onde` (oficina, cliente ou OS) para a tela linkar | `invoices:read` | 3 |
-| POST | `/work-orders/{{id}}/invoices` `{{ clientRequestId, issRetained?, deductionsCents?, retenções federais? }}` → 201 com a nota. Só de OS **finalizada ou entregue**; dado faltando volta 422 com a lista; OS que já tem nota viva volta 409; o mesmo `clientRequestId` devolve a mesma nota (D32) | `invoices:issue` | 3 |
-| GET | `/work-orders/{{id}}/invoices` → as notas daquela OS | `invoices:read` | 3 |
-| GET | `/invoices?status=&from=&to=&q=&page=` · `GET /invoices/{{id}}` | `invoices:read` | 3 |
-| POST | `/invoices/{{id}}/cancel` `{{ reason }}` (mínimo 5 letras) — só nota `AUTHORIZED`; cancelar de novo volta 409 | `invoices:cancel` | 3 |
+| GET | `/work-orders/{id}/invoices/preview` → os números antes de emitir (serviços, desconto rateado, base, ISS, total), o texto que o cliente lê, o valor das PEÇAS que ficam de fora, e `pending[]`: o que falta, com `onde` (oficina, cliente ou OS) para a tela linkar | `invoices:read` | 3 |
+| POST | `/work-orders/{id}/invoices` `{ clientRequestId, issRetained?, deductionsCents?, retenções federais? }` → 201 com a nota. Só de OS **finalizada ou entregue**; dado faltando volta 422 com a lista; OS que já tem nota viva volta 409; o mesmo `clientRequestId` devolve a mesma nota (D32) | `invoices:issue` | 3 |
+| GET | `/work-orders/{id}/invoices` → as notas daquela OS | `invoices:read` | 3 |
+| GET | `/invoices?status=&from=&to=&q=&page=` · `GET /invoices/{id}` | `invoices:read` | 3 |
+| POST | `/invoices/{id}/cancel` `{ reason }` (mínimo 5 letras) — só nota `AUTHORIZED`; cancelar de novo volta 409 | `invoices:cancel` | 3 |
 
 Hoje o emissor é o **simulador** (D37): nenhuma nota é enviada a prefeitura
 nenhuma, a resposta vem com `environment: 'SIMULATOR'` e sem XML nem PDF, e a
@@ -389,11 +494,11 @@ fora da transação, que é como um emissor real se comporta.
 
 | Método | Rota | Permissão | Fase |
 |---|---|---|---|
-| GET | `/work-orders/{{id}}/charges` → cobranças da OS, saldo, o que já está pendurado em cobrança aberta, o teto de uma nova, e a mensagem + link de WhatsApp da cobrança aberta | `payments:record` | 3 |
-| POST | `/work-orders/{{id}}/charges` `{{ clientRequestId, method: PIX\|BOLETO\|CREDIT_CARD\|LINK, amountCents, dueDate?, description? }}` → 201 com o resumo. Valor acima do teto volta 422 `PAYMENT_EXCEEDS_BALANCE`; OS cancelada, 422; o mesmo `clientRequestId` devolve a mesma cobrança (D32) | `charges:create` | 3 |
-| POST | `/charges/{{id}}/cancel` `{{ reason }}` — só antes de pagar; cobrança paga volta 422 (o caminho é estornar) | `charges:create` | 3 |
-| POST | `/charges/{{id}}/refund` — só cobrança paga. Estorna no gateway, cancela o pagamento no caixa e a OS volta a dever | `charges:refund` | 3 |
-| POST | `/webhooks/payments/{{provider}}` — o aviso do gateway. **Sem login**: a origem é provada pelo token que o gateway repete no aviso (sem ele, 401), e o `provider_charge_id` diz de qual oficina é o dinheiro. Responde 200 mesmo quando ignora o aviso, com `{{ handled, reason }}` | pública (limite por IP) | 3 |
+| GET | `/work-orders/{id}/charges` → cobranças da OS, saldo, o que já está pendurado em cobrança aberta, o teto de uma nova, e a mensagem + link de WhatsApp da cobrança aberta | `payments:record` | 3 |
+| POST | `/work-orders/{id}/charges` `{ clientRequestId, method: PIX\|BOLETO\|CREDIT_CARD\|LINK, amountCents, dueDate?, description? }` → 201 com o resumo. Valor acima do teto volta 422 `PAYMENT_EXCEEDS_BALANCE`; OS cancelada, 422; o mesmo `clientRequestId` devolve a mesma cobrança (D32) | `charges:create` | 3 |
+| POST | `/charges/{id}/cancel` `{ reason }` — só antes de pagar; cobrança paga volta 422 (o caminho é estornar) | `charges:create` | 3 |
+| POST | `/charges/{id}/refund` — só cobrança paga. Estorna no gateway, cancela o pagamento no caixa e a OS volta a dever | `charges:refund` | 3 |
+| POST | `/webhooks/payments/{provider}` — o aviso do gateway. **Sem login**: a origem é provada pelo token que o gateway repete no aviso (sem ele, 401), e o `provider_charge_id` diz de qual oficina é o dinheiro. Responde 200 mesmo quando ignora o aviso, com `{ handled, reason }` | pública (limite por IP) | 3 |
 
 O dinheiro só é dado como recebido pelo **aviso do gateway**, nunca pela tela:
 ele cria um `payment` normal na OS (D40), com `provider` preenchido. Aviso
@@ -407,9 +512,9 @@ foi exercitado contra a API real.
 | Método | Rota | Permissão | Fase |
 |---|---|---|---|
 | GET | `/billing` → plano, situação calculada (em teste, em carência, bloqueada, dias restantes), uso contra os limites, planos disponíveis e histórico de pagamento | `billing:manage` | 3 |
-| POST | `/billing/subscribe` `{{ clientRequestId, plan, cycle }}` — cria a assinatura no gateway. Quem está em teste só começa a pagar quando o teste acabar. Assinar de novo volta 409 | `billing:manage` | 3 |
-| POST | `/billing/change-plan` `{{ plan, cycle }}` — limite novo vale na hora, preço na próxima cobrança. Ciclo sem preço cadastrado volta 422 | `billing:manage` | 3 |
-| POST | `/billing/cancel` `{{ reason? }}` — a oficina trabalha até o fim do período já pago | `billing:manage` | 3 |
+| POST | `/billing/subscribe` `{ clientRequestId, plan, cycle }` — cria a assinatura no gateway. Quem está em teste só começa a pagar quando o teste acabar. Assinar de novo volta 409 | `billing:manage` | 3 |
+| POST | `/billing/change-plan` `{ plan, cycle }` — limite novo vale na hora, preço na próxima cobrança. Ciclo sem preço cadastrado volta 422 | `billing:manage` | 3 |
+| POST | `/billing/cancel` `{ reason? }` — a oficina trabalha até o fim do período já pago | `billing:manage` | 3 |
 | POST | `/billing/resume` — desistiu de cancelar | `billing:manage` | 3 |
 
 Todas declaram `allowBlocked`: são exatamente as telas de que a oficina
@@ -426,18 +531,18 @@ qualquer pessoa da equipe, não só quem administra o plano.
 
 | Método | Rota | Permissão | Fase |
 |---|---|---|---|
-| GET | `/messaging/channel` → o canal (situação, número, `tokenHint` com os 4 últimos caracteres, URL do webhook, token de verificação, último erro) e os 8 modelos, cada um com o texto `{{1}}`, `{{2}}`… para colar na Meta | `organization:manage` | 3 |
-| POST | `/messaging/channel` `{{ phoneNumberId, wabaId?, accessToken, appSecret }}` — **usa** a credencial na Meta antes de guardar; se ela recusar, nada é salvo (422 com a mensagem da Meta). O token vai cifrado para o banco e nunca volta | `organization:manage` | 3 |
+| GET | `/messaging/channel` → o canal (situação, número, `tokenHint` com os 4 últimos caracteres, URL do webhook, token de verificação, último erro) e os 8 modelos, cada um com o texto `{1}`, `{2}`… para colar na Meta | `organization:manage` | 3 |
+| POST | `/messaging/channel` `{ phoneNumberId, wabaId?, accessToken, appSecret }` — **usa** a credencial na Meta antes de guardar; se ela recusar, nada é salvo (422 com a mensagem da Meta). O token vai cifrado para o banco e nunca volta | `organization:manage` | 3 |
 | DELETE | `/messaging/channel` — **apaga** token e app secret; as mensagens voltam a sair pelo link | `organization:manage` | 3 |
-| PATCH | `/messaging/templates` `{{ key, status?, providerName? }}` — o que a Meta respondeu sobre aquele modelo | `organization:manage` | 3 |
-| PUT | `/messaging/auto-send` `{{ autoSend: [key] }}` — o que pode sair sozinho. Modelo de MARKETING é recusado com 422 (D51) | `organization:manage` | 3 |
+| PATCH | `/messaging/templates` `{ key, status?, providerName? }` — o que a Meta respondeu sobre aquele modelo | `organization:manage` | 3 |
+| PUT | `/messaging/auto-send` `{ autoSend: [key] }` — o que pode sair sozinho. Modelo de MARKETING é recusado com 422 (D51) | `organization:manage` | 3 |
 | GET | `/messaging/conversations` → a lista, do mais recente para o mais antigo, com não lidas e `windowOpen` | `messages:send` | 3 |
-| GET | `/messaging/conversations/{{customerId}}` → o fio, com `canSendFreeText`, `onlyTemplate` e `windowReason` (a frase que a tela mostra) | `messages:send` | 3 |
-| GET | `/messaging/conversations/{{customerId}}/templates` → `{{ templates, quickReplies }}`. `templates`: os modelos que dão para escrever só com o cliente na mão (pós-venda, revisão vencendo, cliente sem voltar), **já escritos**, com o que impede o envio em `blocker`. `quickReplies`: ~20 **respostas prontas** do dia a dia (abertura, agendamento, na oficina, orçamento, peça, retirada, pagamento, pós-venda), escritas com o nome e o carro do cliente — elas preenchem o campo de texto, não saem sozinhas | `messages:send` | 3 |
-| POST | `/messaging/conversations/{{customerId}}/messages` `{{ body \| templateKey, workOrderId?, clientRequestId }}` → `{{ conversation, whatsappUrl, via, repeated }}`. Texto livre só com a janela aberta (422 `WHATSAPP_WINDOW_CLOSED`); fora dela, modelo aprovado (422 `WHATSAPP_TEMPLATE_NOT_APPROVED`). Sem canal conectado, devolve o `wa.me` com o texto pronto | `messages:send` | 3 |
-| POST | `/messaging/conversations/{{customerId}}/read` — abrir a conversa é lê-la | `messages:send` | 3 |
-| GET | `/webhooks/whatsapp/{{organizationId}}` — a verificação da Meta: devolve `hub.challenge` cru quando o `hub.verify_token` confere (403 se não) | pública (limite por IP) | 3 |
-| POST | `/webhooks/whatsapp/{{organizationId}}` — o aviso da Meta. **Sem login**: a origem é provada pela assinatura HMAC do corpo CRU (`X-Hub-Signature-256`) contra o app secret daquela oficina; sem ela, 401. Responde 200 mesmo quando ignora o aviso, com `{{ handled, reason }}` | pública (limite por IP) | 3 |
+| GET | `/messaging/conversations/{customerId}` → o fio, com `canSendFreeText`, `onlyTemplate` e `windowReason` (a frase que a tela mostra) | `messages:send` | 3 |
+| GET | `/messaging/conversations/{customerId}/templates` → `{ templates, quickReplies }`. `templates`: os modelos que dão para escrever só com o cliente na mão (pós-venda, revisão vencendo, cliente sem voltar), **já escritos**, com o que impede o envio em `blocker`. `quickReplies`: ~20 **respostas prontas** do dia a dia (abertura, agendamento, na oficina, orçamento, peça, retirada, pagamento, pós-venda), escritas com o nome e o carro do cliente — elas preenchem o campo de texto, não saem sozinhas | `messages:send` | 3 |
+| POST | `/messaging/conversations/{customerId}/messages` `{ body \| templateKey, workOrderId?, clientRequestId }` → `{ conversation, whatsappUrl, via, repeated }`. Texto livre só com a janela aberta (422 `WHATSAPP_WINDOW_CLOSED`); fora dela, modelo aprovado (422 `WHATSAPP_TEMPLATE_NOT_APPROVED`). Sem canal conectado, devolve o `wa.me` com o texto pronto | `messages:send` | 3 |
+| POST | `/messaging/conversations/{customerId}/read` — abrir a conversa é lê-la | `messages:send` | 3 |
+| GET | `/webhooks/whatsapp/{organizationId}` — a verificação da Meta: devolve `hub.challenge` cru quando o `hub.verify_token` confere (403 se não) | pública (limite por IP) | 3 |
+| POST | `/webhooks/whatsapp/{organizationId}` — o aviso da Meta. **Sem login**: a origem é provada pela assinatura HMAC do corpo CRU (`X-Hub-Signature-256`) contra o app secret daquela oficina; sem ela, 401. Responde 200 mesmo quando ignora o aviso, com `{ handled, reason }` | pública (limite por IP) | 3 |
 
 O texto que o cliente lê vem de dois lugares e tem de dizer a mesma coisa:
 dentro da janela de 24 h, dos construtores do `shared` (`whatsappPostSaleMessage`
@@ -446,7 +551,7 @@ e companhia); fora dela, do **modelo aprovado na Meta**, que é o que
 catálogo (`MODELOS_DE_MENSAGEM`), e há teste amarrando as duas formas.
 
 **As mensagens que nascem em outra tela** passam por aqui quando o canal está
-conectado: `POST /quotes/{{id}}/share` e `POST /work-orders/{{id}}/vehicle-ready`
+conectado: `POST /quotes/{id}/share` e `POST /work-orders/{id}/vehicle-ready`
 agora respondem `via: 'API' | 'LINK'`. Com `API`, a mensagem saiu do servidor e
 `whatsappUrl` vem nulo (não há aba para abrir); com `LINK`, nada mudou em
 relação ao que sempre foi. E **finalizar a OS** avisa o cliente sozinho quando
@@ -460,8 +565,8 @@ Cobrança, agendamento e convite para avaliar continuam saindo das telas deles.
 | Método | Rota | Permissão | Fase |
 |---|---|---|---|
 | GET | `/automations` → o que está ligado, a hora escolhida, o prazo do orçamento parado, o e-mail do resumo, se o trabalhador de fundo está no ar, e a última execução de cada automação (com o que foi criado e o erro, se houve) | `organization:manage` | 3 |
-| PUT | `/automations` `{{ followUpQueue?, appointmentReminder?, quoteNoAnswer?, dailyDigest?, runHour? (0..23), quoteNoAnswerDays? (1..30), digestEmail? }}` | `organization:manage` | 3 |
-| POST | `/automations/run` `{{ key }}` — roda **aquela** automação agora, ignorando hora e "uma vez por dia". Existe para a oficina ver o efeito sem esperar o amanhecer | `organization:manage` | 3 |
+| PUT | `/automations` `{ followUpQueue?, appointmentReminder?, quoteNoAnswer?, dailyDigest?, runHour? (0..23), quoteNoAnswerDays? (1..30), digestEmail? }` | `organization:manage` | 3 |
+| POST | `/automations/run` `{ key }` — roda **aquela** automação agora, ignorando hora e "uma vez por dia". Existe para a oficina ver o efeito sem esperar o amanhecer | `organization:manage` | 3 |
 
 As quatro automações: **fila de pós-venda** (a mesma `sincronizarFilaDePosVenda`
 que a tela chama, D34), **lembrete de agendamento** (amanhã, sem confirmação),

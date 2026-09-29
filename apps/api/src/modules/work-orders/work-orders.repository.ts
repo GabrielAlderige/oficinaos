@@ -1,8 +1,9 @@
-import { and, asc, count, desc, eq, gte, inArray, lte, or, sql, type SQL } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gte, inArray, isNull, lte, or, sql, type SQL } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { ACTIVE_WORK_ORDER_STATUSES, type WorkOrderStatus } from '@oficinaos/shared';
 import { likeContains } from '../../core/normalize';
 import {
+  attachments,
   customers,
   messages,
   odometerReadings,
@@ -255,6 +256,32 @@ export async function findCurrentQuote(tx: Tx, organizationId: string, workOrder
 
 // ------------------------- timeline e inspeções -------------------------
 
+/**
+ * O mesmo POST repetido pela rede não pode jogar o pacote duas vezes na OS
+ * (D32). A marca fica no próprio evento da timeline — não há tabela de
+ * requisição para item de OS, e criar uma para isto seria tabela nova para
+ * guardar um uuid.
+ */
+export async function findEventByClientRequest(
+  tx: Tx,
+  organizationId: string,
+  workOrderId: string,
+  clientRequestId: string,
+) {
+  const [row] = await tx
+    .select({ id: workOrderEvents.id })
+    .from(workOrderEvents)
+    .where(
+      and(
+        eq(workOrderEvents.organizationId, organizationId),
+        eq(workOrderEvents.workOrderId, workOrderId),
+        sql`${workOrderEvents.data}->>'clientRequestId' = ${clientRequestId}`,
+      ),
+    )
+    .limit(1);
+  return row;
+}
+
 export async function insertEvent(tx: Tx, values: typeof workOrderEvents.$inferInsert) {
   const [row] = await tx.insert(workOrderEvents).values(values).returning();
   return row!;
@@ -289,6 +316,60 @@ export function listInspections(tx: Tx, organizationId: string, workOrderId: str
     .leftJoin(users, eq(users.id, vehicleInspections.performedBy))
     .where(and(eq(vehicleInspections.organizationId, organizationId), eq(vehicleInspections.workOrderId, workOrderId)))
     .orderBy(asc(vehicleInspections.performedAt));
+}
+
+/**
+ * Os anexos de uma inspeção (E28): a assinatura e as fotos da entrega. Só o
+ * que terminou de subir — anexo pendente é arquivo que ainda não existe.
+ */
+export function listInspectionAttachments(tx: Tx, organizationId: string, inspectionIds: string[]) {
+  return tx
+    .select()
+    .from(attachments)
+    .where(
+      and(
+        eq(attachments.organizationId, organizationId),
+        inArray(attachments.inspectionId, inspectionIds),
+        eq(attachments.status, 'READY'),
+        isNull(attachments.deletedAt),
+      ),
+    )
+    .orderBy(asc(attachments.createdAt));
+}
+
+/** Pendura anexos já enviados na inspeção que acabou de nascer. */
+export async function attachToInspection(
+  tx: Tx,
+  organizationId: string,
+  inspectionId: string,
+  attachmentIds: string[],
+) {
+  if (!attachmentIds.length) return [];
+  return tx
+    .update(attachments)
+    .set({ inspectionId })
+    .where(
+      and(
+        eq(attachments.organizationId, organizationId),
+        inArray(attachments.id, attachmentIds),
+        isNull(attachments.deletedAt),
+      ),
+    )
+    .returning({ id: attachments.id });
+}
+
+/** Marca a aprovação de itens da OS. Usado ao pular o orçamento (E34). */
+export async function setItemsApproval(
+  tx: Tx,
+  organizationId: string,
+  itemIds: string[],
+  approvalStatus: 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED',
+) {
+  if (!itemIds.length) return;
+  await tx
+    .update(workOrderItems)
+    .set({ approvalStatus })
+    .where(and(eq(workOrderItems.organizationId, organizationId), inArray(workOrderItems.id, itemIds)));
 }
 
 // --------------------------- catálogo (preço) ---------------------------

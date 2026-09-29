@@ -15,7 +15,7 @@ test('a oficina vê o teste correndo, assina, troca de plano e cancela', async (
   await test.step('o painel mostra o teste correndo, com o caminho para o plano', async () => {
     await expect(page.getByText(/em teste/i).first()).toBeVisible();
     await page.getByRole('link', { name: 'Ver planos' }).click();
-    await expect(page.getByRole('heading', { name: /^Plano Professional/ })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /^Plano Supercharger/ })).toBeVisible();
     const tela = await textoDe(page.locator('main'));
     expect(tela, 'a simulação é declarada').toContain('Cobrança em simulação');
     expect(tela, 'o uso do plano aparece').toContain('Pessoas na equipe');
@@ -33,7 +33,7 @@ test('a oficina vê o teste correndo, assina, troca de plano e cancela', async (
 
     await page.getByRole('button', { name: 'Mudar para este' }).last().click();
     await expect(page.getByText(/Plano alterado para/)).toBeVisible();
-    await expect(page.getByRole('heading', { name: /^Plano Business/ })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /^Plano Nitro/ })).toBeVisible();
     await captura(page, 'plano-02-assinado');
   });
 

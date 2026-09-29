@@ -28,6 +28,8 @@ export const memberSchema = z.object({
   isCurrentUser: z.boolean(),
   /** cor na agenda; nulo = a agenda escolhe uma pelo id */
   calendarColor: z.string().nullable(),
+  /** comissão desta pessoa (basis points); null = usa o padrão da oficina (E26) */
+  commissionBps: z.number().int().nullable(),
   joinedAt: z.string(),
 });
 
@@ -53,9 +55,14 @@ export const updateMemberSchema = z
     role: z.enum(ROLES).optional(),
     isActive: z.boolean().optional(),
     calendarColor: z.enum(CALENDAR_COLORS).nullable().optional(),
+    commissionBps: z.number().int().min(0).max(10_000).nullable().optional(),
   })
   .refine(
-    (v) => v.role !== undefined || v.isActive !== undefined || v.calendarColor !== undefined,
+    (v) =>
+      v.role !== undefined ||
+      v.isActive !== undefined ||
+      v.calendarColor !== undefined ||
+      v.commissionBps !== undefined,
     'Nada para alterar',
   );
 

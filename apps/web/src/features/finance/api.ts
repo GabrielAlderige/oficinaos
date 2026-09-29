@@ -1,5 +1,8 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
+  CommissionPayout,
+  CommissionReport,
+  CreateCommissionPayoutInput,
   CashFlow,
   CashFlowStep,
   CreateFinancialEntryInput,
@@ -170,5 +173,27 @@ export function useCancelSettlement() {
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
       api<FinancialEntryDetail>(`/finance/settlements/${id}/cancel`, { method: 'POST', json: { reason } }),
     onSuccess: (detalhe) => refresh(detalhe),
+  });
+}
+
+// ----------------------------- comissões (E26) -----------------------------
+
+export const commissionKeys = {
+  report: (params: { from: string; to: string }) => ['commissions', 'report', params] as const,
+};
+
+export function useCommissionReport(params: { from: string; to: string }) {
+  return useQuery({
+    queryKey: commissionKeys.report(params),
+    queryFn: () => api<CommissionReport>(`/commissions?from=${params.from}&to=${params.to}`),
+  });
+}
+
+export function usePayCommission() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: CreateCommissionPayoutInput) =>
+      api<CommissionPayout>('/commissions/payouts', { method: 'POST', json: body }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['commissions'] }),
   });
 }

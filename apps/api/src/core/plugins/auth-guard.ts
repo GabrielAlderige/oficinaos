@@ -2,7 +2,7 @@ import type { FastifyRequest } from 'fastify';
 import { bloqueiaEscrita, can, ErrorCode, situacaoDaAssinatura } from '@oficinaos/shared';
 import { withoutTenant } from '../../db/tenant';
 import type { Database } from '../../db/client';
-import { sessions } from '../../db/schema';
+import { sessions, users } from '../../db/schema';
 import { eq } from 'drizzle-orm';
 import type { AccessTokens } from '../../modules/auth/tokens';
 import type { AuthService } from '../../modules/auth/auth.service';
@@ -27,8 +27,14 @@ export function createAuthGuard({ db, tokens, caches, auth }: GuardDeps) {
     if (cached) return cached;
     const [row] = await withoutTenant(db, (tx) =>
       tx
-        .select({ userId: sessions.userId, revokedAt: sessions.revokedAt, expiresAt: sessions.expiresAt })
+        .select({
+          userId: sessions.userId,
+          revokedAt: sessions.revokedAt,
+          expiresAt: sessions.expiresAt,
+          isPlatformAdmin: users.isPlatformAdmin,
+        })
         .from(sessions)
+        .innerJoin(users, eq(users.id, sessions.userId))
         .where(eq(sessions.id, sessionId))
         .limit(1),
     );
@@ -58,6 +64,7 @@ export function createAuthGuard({ db, tokens, caches, auth }: GuardDeps) {
       organizationId: claims.organizationId,
       sessionId: claims.sessionId,
       role: membership.role,
+      isPlatformAdmin: session.isPlatformAdmin,
     };
   }
 
@@ -93,7 +100,17 @@ export function createAuthGuard({ db, tokens, caches, auth }: GuardDeps) {
     if (rule === 'public') return;
 
     request.auth = await authenticate(request);
-    if (rule !== 'authenticated' && !can(request.auth.role, rule)) throw forbidden();
+
+    /**
+     * Administrador da plataforma (E31) não é papel dentro da oficina: é
+     * marca na conta. Por isso não passa por `can()` — nenhum papel de
+     * oficina, nem o dono, dá acesso ao catálogo que todas elas leem.
+     */
+    if (rule === 'platform-admin') {
+      if (!request.auth.isPlatformAdmin) throw forbidden();
+    } else if (rule !== 'authenticated' && !can(request.auth.role, rule)) {
+      throw forbidden();
+    }
     await assertNaoBloqueada(request, request.auth.organizationId);
   };
 }

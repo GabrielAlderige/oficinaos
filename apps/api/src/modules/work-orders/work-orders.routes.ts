@@ -1,7 +1,9 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import {
+  applyPackageSchema,
   cancelWorkOrderSchema,
+  deliverWorkOrderSchema,
   createInspectionSchema,
   createWorkOrderSchema,
   idParamSchema,
@@ -36,9 +38,10 @@ const STATUS_ACTIONS: { path: string; action: WorkOrderAction }[] = [
   { path: '/:id/start-diagnosis', action: 'start-diagnosis' },
   { path: '/:id/finish-diagnosis', action: 'finish-diagnosis' },
   { path: '/:id/start', action: 'start' },
+  // executar sem orçamento (E34): a saída que faltava para a OS combinada de boca
+  { path: '/:id/skip-quote', action: 'skip-quote' },
   { path: '/:id/wait-parts', action: 'wait-parts' },
   { path: '/:id/complete', action: 'complete' },
-  { path: '/:id/deliver', action: 'deliver' },
   { path: '/:id/reopen', action: 'reopen' },
 ];
 
@@ -86,6 +89,19 @@ export const workOrderRoutes: FastifyPluginAsyncZod = async (app) => {
   );
 
   // ------------------------------------------------------------- itens
+
+  /** Joga o pacote inteiro na OS; cada linha continua editável depois (E27). */
+  app.post(
+    '/:id/packages',
+    {
+      config: { auth: 'work_orders:write' },
+      schema: { params: idParamSchema, body: applyPackageSchema, response: { 201: workOrderSchema } },
+    },
+    async (request, reply) => {
+      reply.code(201);
+      return service.applyPackage(getAuth(request), request.params.id, request.body, clientInfo(request));
+    },
+  );
 
   app.post(
     '/:id/items',
@@ -258,6 +274,22 @@ export const workOrderRoutes: FastifyPluginAsyncZod = async (app) => {
       async (request) => service.runAction(getAuth(request), request.params.id, action, {}, clientInfo(request)),
     );
   }
+
+  /**
+   * Entregar o veículo (E28). Ganhou corpo próprio porque a entrega é o único
+   * momento em que a oficina colhe prova: assinatura de quem recebeu, fotos do
+   * carro saindo e o km. Tudo opcional — a não ser que a oficina tenha ligado
+   * "exigir assinatura" nas configurações.
+   */
+  app.post(
+    '/:id/deliver',
+    {
+      config: { auth: WORK_ORDER_TRANSITIONS.deliver.permission },
+      schema: { params: idParamSchema, body: deliverWorkOrderSchema, response: { 200: workOrderSchema } },
+    },
+    async (request) =>
+      service.runAction(getAuth(request), request.params.id, 'deliver', { delivery: request.body }, clientInfo(request)),
+  );
 
   // cancelar é a única ação com motivo obrigatório
   app.post(

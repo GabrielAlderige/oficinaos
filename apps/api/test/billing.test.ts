@@ -94,9 +94,9 @@ describe('assinatura do SaaS', () => {
 
   // ------------------------------- leitura -------------------------------
 
-  it('a oficina nasce em teste, no plano Professional, e vê o uso do plano', async () => {
+  it('a oficina nasce em teste, no plano Supercharger, e vê o uso do plano', async () => {
     const dados = await visao();
-    expect(dados.plan).toBe('PROFESSIONAL');
+    expect(dados.plan).toBe('SUPERCHARGER');
     expect(dados.status).toBe('TRIALING');
     expect(dados.emTeste).toBe(true);
     expect(dados.bloqueada).toBe(false);
@@ -104,7 +104,7 @@ describe('assinatura do SaaS', () => {
     expect(dados.environment, 'o simulador não cobra ninguém').toBe('SIMULATOR');
     expect(dados.usage.users, 'dono + gerente').toBe(2);
     expect(dados.usage.maxUsers).toBe(8);
-    expect(dados.plans.find((plano) => plano.current)?.code).toBe('PROFESSIONAL');
+    expect(dados.plans.find((plano) => plano.current)?.code).toBe('SUPERCHARGER');
   });
 
   it('plano é coisa do dono: nem o gerente vê', async () => {
@@ -117,12 +117,12 @@ describe('assinatura do SaaS', () => {
   it('assinar guarda o preço congelado e a referência do gateway', async () => {
     const res = await post('/api/v1/billing/subscribe', {
       clientRequestId: randomUUID(),
-      plan: 'PROFESSIONAL',
+      plan: 'SUPERCHARGER',
       cycle: 'MONTHLY',
     });
     expect(res.statusCode, res.body).toBe(200);
     const dados = res.json() as Visao;
-    expect(dados.priceCents).toBe(19_900);
+    expect(dados.priceCents).toBe(27_900);
     expect(dados.cycle).toBe('MONTHLY');
     expect(dados.provider).toBe('simulador');
     expect(dados.status, 'continua em teste até a primeira cobrança cair').toBe('TRIALING');
@@ -130,27 +130,36 @@ describe('assinatura do SaaS', () => {
     // assinar duas vezes não cria duas assinaturas no gateway
     const denovo = await post('/api/v1/billing/subscribe', {
       clientRequestId: randomUUID(),
-      plan: 'PROFESSIONAL',
+      plan: 'SUPERCHARGER',
       cycle: 'MONTHLY',
     });
     expect(denovo.statusCode).toBe(409);
   });
 
   it('o ciclo anual não é oferecido enquanto não houver preço anual cadastrado', async () => {
-    const res = await post('/api/v1/billing/change-plan', { plan: 'BUSINESS', cycle: 'YEARLY' });
-    expect(res.statusCode, res.body).toBe(422);
-    expect((res.json() as { detail: string }).detail, 'nada de inventar desconto').toContain('preço anual');
+    // hoje os três planos têm preço anual (E38). O guard continua valendo para
+    // um plano novo que entre sem ele, então o cenário tira o preço, prova que
+    // a porta fecha, e devolve — senão o teste passaria a não cobrir nada
+    const semAnual = (valor: string) => db.execute(sql.raw(`update plans set price_yearly_cents = ${valor} where code = 'NITRO'`));
+    await semAnual('null');
+    try {
+      const res = await post('/api/v1/billing/change-plan', { plan: 'NITRO', cycle: 'YEARLY' });
+      expect(res.statusCode, res.body).toBe(422);
+      expect((res.json() as { detail: string }).detail, 'nada de inventar desconto').toContain('preço anual');
+    } finally {
+      await semAnual('499000');
+    }
   });
 
   it('trocar de plano muda limite e preço na hora', async () => {
-    const res = await post('/api/v1/billing/change-plan', { plan: 'BUSINESS', cycle: 'MONTHLY' });
+    const res = await post('/api/v1/billing/change-plan', { plan: 'NITRO', cycle: 'MONTHLY' });
     expect(res.statusCode, res.body).toBe(200);
     const dados = res.json() as Visao;
-    expect(dados.plan).toBe('BUSINESS');
-    expect(dados.priceCents).toBe(39_900);
-    expect(dados.usage.maxUsers, 'Business não tem teto de usuários').toBeNull();
+    expect(dados.plan).toBe('NITRO');
+    expect(dados.priceCents).toBe(49_900);
+    expect(dados.usage.maxUsers, 'Nitro não tem teto de usuários').toBeNull();
 
-    expect((await post('/api/v1/billing/change-plan', { plan: 'BUSINESS', cycle: 'MONTHLY' })).statusCode).toBe(409);
+    expect((await post('/api/v1/billing/change-plan', { plan: 'NITRO', cycle: 'MONTHLY' })).statusCode).toBe(409);
   });
 
   // ----------------------------- conciliação ------------------------------
@@ -218,7 +227,7 @@ describe('assinatura do SaaS', () => {
     expect((await get('/api/v1/auth/sessions')).statusCode).toBe(200);
 
     // e a porta de pagar nunca fecha
-    const voltou = await post('/api/v1/billing/change-plan', { plan: 'PROFESSIONAL', cycle: 'MONTHLY' });
+    const voltou = await post('/api/v1/billing/change-plan', { plan: 'SUPERCHARGER', cycle: 'MONTHLY' });
     expect(voltou.statusCode, voltou.body).toBe(200);
 
     // o aviso de pagamento destrava na hora (o cache da assinatura é invalidado)

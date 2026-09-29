@@ -1,7 +1,9 @@
 import {
   can,
   type CreateInspectionInput,
+  type AttachmentStatus,
   type CreateWorkOrderInput,
+  type DeliverWorkOrderInput,
   effectiveQuoteStatus,
   isQuoteAnswerable,
   discountCentsFor,
@@ -35,13 +37,20 @@ import { diffChanges, recordActivity } from '../../core/audit';
 import { cancelWorkOrderEntries, ensureWorkOrderReceivable } from '../finance/finance.sync';
 import { findRunningTimer, listItemTimers, readItemTimes, readRunningTimer, startTimer, stopTimer } from './timers';
 import type { AuthContext, ClientInfo, ServiceDeps } from '../../core/auth-context';
+import { freezeCommissions } from '../../core/commissions';
 import { COUNTER_WORK_ORDER, nextNumber } from '../../core/counters';
 import { AppError, notFound, validationFailed } from '../../core/errors';
 import { blankToNull, isoOrNull } from '../../core/normalize';
 import { assertOdometerNotDecreasing } from '../../core/odometer';
 import { readOrganizationSettings } from '../../core/org-settings';
 import { formatBRL, saldoCents, whatsappLink, whatsappVehicleReadyMessage } from '@oficinaos/shared';
-import { consumeApprovedItems, releaseReservations, returnConsumedItem, type ConsumptionSummary } from '../../core/reservations';
+import {
+  consumeApprovedItems,
+  releaseReservations,
+  reserveApprovedItems,
+  returnConsumedItem,
+  type ConsumptionSummary,
+} from '../../core/reservations';
 import { revokeOpenForWorkOrder as revokeOpenQuotes } from '../quotes/quotes.repository';
 import { cancelOpenForWorkOrder as cancelOpenSupplierQuotes } from '../supplier-quotes/supplier-quotes.repository';
 import { applyWorkOrderChange, pricingLinesOf } from './totals';
@@ -49,6 +58,7 @@ import type { workOrderItems, workOrders } from '../../db/schema';
 import type { Tx } from '../../db/tenant';
 import { withTenant } from '../../db/tenant';
 import type { MessagingService } from '../messaging/messaging.service';
+import type { PackagesService } from '../packages/packages.service';
 import * as repo from './work-orders.repository';
 
 type OrderPatch = Partial<typeof workOrders.$inferInsert>;
@@ -84,6 +94,8 @@ export class WorkOrdersService {
     private readonly deps: ServiceDeps,
     /** o canal de WhatsApp (E22); sem ele, a mensagem sai pelo link, como antes */
     private readonly messaging?: MessagingService,
+    /** os pacotes de serviço (E27) */
+    private readonly packages?: PackagesService,
   ) {}
 
   // ------------------------------------------------------------- leitura
@@ -209,23 +221,69 @@ export class WorkOrdersService {
     return withTenant(this.deps.db, auth, async (tx) => {
       await this.mustExist(tx, auth, id);
       const rows = await repo.listInspections(tx, auth.organizationId, id);
-      return rows.map(({ inspection, performedByName }) => ({
-        id: inspection.id,
-        type: inspection.type,
-        odometerKm: inspection.odometerKm,
-        fuelLevel: inspection.fuelLevel,
-        checklist: inspection.checklist.map((entry) => ({ ...entry, note: entry.note ?? '' })),
-        damages: inspection.damages.map((damage) => ({
-          ...damage,
-          note: damage.note ?? '',
-          attachmentId: damage.attachmentId ?? null,
-        })),
-        accessories: inspection.accessories,
-        notes: inspection.notes ?? '',
-        performedByName,
-        performedAt: inspection.performedAt.toISOString(),
-      }));
+      if (!rows.length) return [];
+
+      // a assinatura e as fotos da entrega (E28) vêm em UMA consulta para as
+      // inspeções todas: uma por inspeção transformaria o check-in do dia em
+      // uma dúzia de idas ao banco
+      const anexos = await repo.listInspectionAttachments(
+        tx,
+        auth.organizationId,
+        rows.map(({ inspection }) => inspection.id),
+      );
+
+      return rows.map(({ inspection, performedByName }) => {
+        const meus = anexos.filter((anexo) => anexo.inspectionId === inspection.id);
+        const assinatura = meus.find((anexo) => anexo.id === inspection.signatureAttachmentId) ?? null;
+        return {
+          id: inspection.id,
+          type: inspection.type,
+          odometerKm: inspection.odometerKm,
+          fuelLevel: inspection.fuelLevel,
+          checklist: inspection.checklist.map((entry) => ({ ...entry, note: entry.note ?? '' })),
+          damages: inspection.damages.map((damage) => ({
+            ...damage,
+            note: damage.note ?? '',
+            attachmentId: damage.attachmentId ?? null,
+          })),
+          accessories: inspection.accessories,
+          notes: inspection.notes ?? '',
+          performedByName,
+          performedAt: inspection.performedAt.toISOString(),
+          customerAcknowledgedAt: isoOrNull(inspection.customerAcknowledgedAt),
+          signerName: inspection.signerName,
+          signature: assinatura ? this.anexoDto(assinatura) : null,
+          photos: meus.filter((anexo) => anexo.id !== inspection.signatureAttachmentId).map((a) => this.anexoDto(a)),
+        };
+      });
     });
+  }
+
+  /** O anexo como a tela precisa: com a URL assinada, que é a credencial (E5). */
+  private anexoDto(row: {
+    id: string;
+    kind: 'PHOTO' | 'VIDEO' | 'DOCUMENT';
+    fileName: string | null;
+    mimeType: string;
+    sizeBytes: number;
+    caption: string | null;
+    visibleToCustomer: boolean;
+    status: AttachmentStatus;
+    storageKey: string;
+    createdAt: Date;
+  }) {
+    return {
+      id: row.id,
+      kind: row.kind,
+      fileName: row.fileName,
+      mimeType: row.mimeType,
+      sizeBytes: row.sizeBytes,
+      caption: row.caption,
+      visibleToCustomer: row.visibleToCustomer,
+      status: row.status,
+      url: this.deps.storage.signDownload(row.storageKey).url,
+      createdAt: row.createdAt.toISOString(),
+    };
   }
 
   // ------------------------------------------------------------- escrita
@@ -341,6 +399,61 @@ export class WorkOrdersService {
       const item = await this.insertItem(tx, auth, id, input, position);
       await this.applyChange(tx, order);
       await this.itemsChanged(tx, auth, order, { added: item.description }, client);
+      return this.load(tx, auth, id);
+    });
+  }
+
+  /**
+   * Joga um pacote inteiro na OS (E27): cada linha vira um item normal, com o
+   * preço de HOJE, e continua editável depois. O pacote adianta a digitação —
+   * ele não amarra o orçamento.
+   *
+   * O mesmo POST repetido não duplica os itens: a aplicação fica registrada na
+   * timeline com o `clientRequestId`, e a segunda passa direto (D32).
+   */
+  async applyPackage(
+    auth: AuthContext,
+    id: string,
+    input: { packageId: string; clientRequestId: string },
+    client: ClientInfo,
+  ): Promise<WorkOrder> {
+    if (!this.packages) throw notFound('Pacotes não estão disponíveis.');
+    return withTenant(this.deps.db, auth, async (tx) => {
+      const order = await this.lockEditable(tx, auth, id);
+
+      if (await repo.findEventByClientRequest(tx, auth.organizationId, id, input.clientRequestId)) {
+        return this.load(tx, auth, id);
+      }
+
+      const { pacote, linhas } = await this.packages!.itemsForWorkOrder(tx, auth.organizationId, input.packageId);
+      let position = await repo.nextItemPosition(tx, auth.organizationId, id);
+      const adicionados: string[] = [];
+
+      for (const linha of linhas) {
+        const item = await this.insertItem(
+          tx,
+          auth,
+          id,
+          {
+            type: linha.serviceId ? 'SERVICE' : 'PART',
+            serviceId: linha.serviceId ?? undefined,
+            partId: linha.partId ?? undefined,
+            quantity: Number(linha.quantity),
+          } as WorkOrderItemInput,
+          position++,
+        );
+        adicionados.push(item.description);
+      }
+
+      await repo.insertEvent(tx, {
+        organizationId: auth.organizationId,
+        workOrderId: id,
+        type: 'NOTE',
+        data: { pacote: pacote.name, itens: adicionados.length, clientRequestId: input.clientRequestId },
+        actorUserId: auth.userId,
+      });
+      await this.applyChange(tx, order);
+      await this.itemsChanged(tx, auth, order, { added: `pacote ${pacote.name}` }, client);
       return this.load(tx, auth, id);
     });
   }
@@ -605,12 +718,98 @@ export class WorkOrdersService {
     };
   }
 
+  /**
+   * Comprovante de entrega (E28): a assinatura de quem recebeu e as fotos do
+   * carro saindo. É um **check-out** — a tabela de inspeção já existe para
+   * isso desde a E5, e assim o comprovante aparece na mesma lista do check-in.
+   *
+   * Tudo é opcional por padrão. Só a oficina que liga "exigir assinatura" nas
+   * configurações é que tem a entrega recusada sem ela: travar quem não pediu
+   * seria transformar melhoria em obstáculo.
+   */
+  private async registrarEntrega(
+    tx: Tx,
+    auth: AuthContext,
+    order: repo.WorkOrderRow,
+    entrega: DeliverWorkOrderInput | undefined,
+    now: Date,
+  ): Promise<{ odometerKm: number | null } | null> {
+    const settings = await readOrganizationSettings(tx, auth.organizationId);
+    const assinou = Boolean(entrega?.signatureAttachmentId);
+
+    if (settings.requireDeliverySignature && !assinou) {
+      throw new AppError(
+        422,
+        ErrorCode.VALIDATION_FAILED,
+        'Assinatura obrigatória',
+        'Esta oficina exige a assinatura de quem recebe o veículo. Colha a assinatura na tela para entregar.',
+      );
+    }
+    // sem assinatura, sem foto e sem km não há comprovante nenhum para guardar
+    if (!entrega || (!assinou && !entrega.photoAttachmentIds.length && entrega.odometerKm === null && !entrega.notes)) {
+      return null;
+    }
+
+    if (entrega.odometerKm !== null) {
+      const vehicle = await repo.lockVehicleOdometer(tx, auth.organizationId, order.vehicleId);
+      assertOdometerNotDecreasing({
+        previousKm: vehicle?.odometerKm ?? null,
+        nextKm: entrega.odometerKm,
+        // o km da SAÍDA nunca pode ser menor: o carro rodou na oficina, não voltou no tempo
+        confirmed: false,
+        field: 'body.odometerKm',
+      });
+    }
+
+    const inspecao = await repo.insertInspection(tx, {
+      organizationId: auth.organizationId,
+      workOrderId: order.id,
+      vehicleId: order.vehicleId,
+      type: 'CHECK_OUT',
+      odometerKm: entrega.odometerKm,
+      fuelLevel: null,
+      checklist: [],
+      damages: [],
+      accessories: [],
+      notes: blankToNull(entrega.notes),
+      customerAcknowledgedAt: assinou ? now : null,
+      signatureAttachmentId: entrega.signatureAttachmentId,
+      signerName: assinou ? blankToNull(entrega.signerName) : null,
+      performedBy: auth.userId,
+    });
+
+    const anexos = [
+      ...(entrega.signatureAttachmentId ? [entrega.signatureAttachmentId] : []),
+      ...entrega.photoAttachmentIds,
+    ];
+    // o anexo subiu preso na OS; agora vira parte do comprovante. A consulta é
+    // filtrada pela oficina, então id de outra oficina simplesmente não muda nada
+    const presos = await repo.attachToInspection(tx, auth.organizationId, inspecao.id, anexos);
+    if (assinou && !presos.some((anexo) => anexo.id === entrega.signatureAttachmentId)) {
+      throw validationFailed([{ path: 'body.signatureAttachmentId', message: 'Assinatura não encontrada' }]);
+    }
+
+    if (entrega.odometerKm !== null) {
+      await repo.updateVehicleOdometer(tx, order.vehicleId, entrega.odometerKm);
+      await repo.insertOdometerReading(tx, {
+        organizationId: auth.organizationId,
+        vehicleId: order.vehicleId,
+        km: entrega.odometerKm,
+        source: 'WORK_ORDER',
+        workOrderId: order.id,
+        recordedBy: auth.userId,
+      });
+    }
+
+    return { odometerKm: entrega.odometerKm };
+  }
+
   /** Ação de status: quem valida a transição é a máquina de estados do shared. */
   async runAction(
     auth: AuthContext,
     id: string,
     action: WorkOrderAction,
-    input: { reason?: string },
+    input: { reason?: string; delivery?: DeliverWorkOrderInput },
     client: ClientInfo,
   ): Promise<WorkOrder> {
     const ordem = await withTenant(this.deps.db, auth, async (tx) => {
@@ -637,7 +836,28 @@ export class WorkOrdersService {
         // peça não trava — o saldo fica negativo e a oficina é avisada.
         baixa = await consumeApprovedItems(tx, auth.organizationId, id, auth.userId);
       }
-      if (action === 'deliver') patch.deliveredAt = now;
+      /**
+       * Executar sem orçamento (E34). Não basta mudar o status: sem aprovar os
+       * itens, a OS "executaria" com total aprovado zero — nada sairia do
+       * estoque na finalização e nenhuma conta a receber nasceria. O combinado
+       * de boca vale como aprovação, e é isso que esta ação registra.
+       */
+      if (action === 'skip-quote') {
+        patch.approvedAt = now;
+        const itens = await repo.listItems(tx, auth.organizationId, id);
+        const rascunhos = itens
+          .filter(({ item }) => item.approvalStatus === 'DRAFT' || item.approvalStatus === 'PENDING')
+          .map(({ item }) => item.id);
+        if (rascunhos.length) {
+          await repo.setItemsApproval(tx, auth.organizationId, rascunhos, 'APPROVED');
+          await reserveApprovedItems(tx, auth.organizationId, rascunhos);
+        }
+      }
+      if (action === 'deliver') {
+        patch.deliveredAt = now;
+        const comprovante = await this.registrarEntrega(tx, auth, order, input.delivery, now);
+        if (comprovante?.odometerKm != null) patch.odometerKm = comprovante.odometerKm;
+      }
       // reabrir NÃO estorna a baixa: a peça já está montada no carro
       if (action === 'reopen') patch.completedAt = null;
       if (action === 'cancel') {
@@ -662,6 +882,9 @@ export class WorkOrdersService {
       // tipo de erro que a oficina só descobre discutindo com o cliente
       if (action === 'complete') {
         await ensureWorkOrderReceivable(tx, auth.organizationId, updated, auth.userId);
+        // a comissão do mecânico congela aqui (E26): o serviço foi feito, e o
+        // percentual que valia hoje é o que vale para esta OS para sempre
+        await freezeCommissions(tx, auth.organizationId, id);
       }
       if (action === 'cancel') {
         await cancelWorkOrderEntries(tx, auth.organizationId, id, 'OS cancelada', auth.userId);
@@ -902,6 +1125,10 @@ export class WorkOrdersService {
         notes: row.notes ?? '',
         performedByName: null,
         performedAt: row.performedAt.toISOString(),
+        customerAcknowledgedAt: isoOrNull(row.customerAcknowledgedAt),
+        signerName: row.signerName,
+        signature: null,
+        photos: [],
       };
     });
   }

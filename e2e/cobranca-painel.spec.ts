@@ -1,6 +1,8 @@
 import AxeBuilder from '@axe-core/playwright';
-import { createHash } from 'node:crypto';
-import { abrirOS, api, captura, criarOficina, entrarNoPainel, enviarOrcamento, expect, test, textoDe, type Oficina } from './helpers';
+import {
+  createHash } from 'node:crypto';
+import {
+  abrirAbaDaOS, abrirOS, api, captura, criarOficina, entrarNoPainel, enviarOrcamento, expect, test, textoDe, type Oficina } from './helpers';
 
 /**
  * Cobrança online (E19). O que este roteiro prova no navegador:
@@ -29,6 +31,8 @@ test('a oficina cobra o saldo por Pix e o aviso do gateway dá baixa sozinho', a
   await expect(page.getByRole('heading', { name: new RegExp(`^OS ${ordem.number}`) })).toBeVisible();
 
   await test.step('a OS oferece cobrar exatamente o que falta', async () => {
+    // cobrança mora na aba do dinheiro desde a E30
+    await abrirAbaDaOS(page, 'Dinheiro');
     // a aprovação por telefone aprovou tudo: serviço (R$ 180) + 2 peças (R$ 500)
     await expect(page.getByRole('button', { name: /Cobrar R\$\s?680,00/ })).toBeVisible();
     await captura(page, 'cobranca-01-cartao');
@@ -61,6 +65,8 @@ test('a oficina cobra o saldo por Pix e o aviso do gateway dá baixa sozinho', a
     });
 
     await page.reload();
+    // recarregar volta para a aba do serviço: o dinheiro é um clique
+    await abrirAbaDaOS(page, 'Dinheiro');
     await expect(page.getByText('Pago', { exact: true }).first()).toBeVisible();
     const cartao = await textoDe(page.locator('main'));
     expect(cartao, 'o caixa da OS recebeu o dinheiro').toContain('Recebido');

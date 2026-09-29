@@ -69,7 +69,9 @@ export function OrganizationSettingsPage() {
   return (
     <div className="space-y-6">
       <OrganizationFormCard organization={organization.data} />
+      <PixCard />
       <GoogleReviewCard />
+      <DeliveryCard />
     </div>
   );
 }
@@ -127,6 +129,127 @@ function GoogleReviewCard() {
             Sem esse link, o botão <strong>Pedir avaliação</strong> da OS avisa que falta configurar.
           </Alert>
         )}
+      </div>
+    </Card>
+  );
+}
+
+/**
+ * A chave Pix da oficina (E32).
+ *
+ * Com ela a OS gera o QR e o copia-e-cola na hora, sem gateway: o dinheiro vai
+ * direto para a conta da oficina. O preço disso é que **o banco não avisa o
+ * sistema** — a baixa continua sendo no botão, e a tela diz isso aqui e lá.
+ */
+function PixCard() {
+  const canEdit = useCan('organization:manage');
+  const settings = useOrganizationSettings();
+  const salvar = useUpdateOrganizationSettings();
+  const [chave, setChave] = useState<string | null>(null);
+  const chaveAtual = chave ?? settings.data?.pixKey ?? '';
+
+  async function gravar(campos: { pixKey?: string }, oQue: string) {
+    try {
+      await salvar.mutateAsync(campos);
+      toast.success(oQue);
+    } catch (err) {
+      toast.error(errorMessage(err));
+      setChave(null);
+    }
+  }
+
+  return (
+    <Card>
+      <div className="space-y-4 p-5 md:p-6">
+        <div>
+          <h2 className="text-sm font-semibold">Pix da oficina</h2>
+          <p className="mt-1 text-sm text-muted">
+            Cadastre a chave e a OS passa a gerar o <strong>QR Code e o copia-e-cola</strong> com o valor já preenchido —
+            para o cliente pagar na hora, ali no balcão. A cidade que aparece no app do cliente é a do endereço da
+            oficina, ali em cima.
+          </p>
+        </div>
+
+        <Field label="Chave Pix" htmlFor="pix-key" hint="CPF, CNPJ, telefone, e-mail ou chave aleatória.">
+          <Input
+            {...fieldA11y('pix-key', undefined, true)}
+            placeholder="oficina@email.com"
+            disabled={!canEdit || settings.isPending}
+            value={chaveAtual}
+            onChange={(evento) => setChave(evento.target.value)}
+            onBlur={() => {
+              const nova = chaveAtual.trim();
+              if (nova === (settings.data?.pixKey ?? '')) return;
+              void gravar({ pixKey: nova }, nova ? 'Chave Pix salva.' : 'Chave Pix removida.');
+            }}
+          />
+        </Field>
+
+        {chaveAtual.trim() ? (
+          <Alert variant="warning">
+            O dinheiro cai direto na sua conta, e <strong>o banco não avisa o sistema</strong>. Confira no seu banco
+            antes de liberar o carro — a baixa na OS continua sendo você que dá.
+          </Alert>
+        ) : (
+          <Alert variant="info">
+            Sem a chave, a OS não oferece Pix na hora. Nada de QR inventado: um código que não paga é pior que nenhum.
+          </Alert>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+/**
+ * Assinatura na entrega (E28). Desligado por padrão de propósito: a maioria
+ * das oficinas entrega com um aperto de mão, e travar quem não pediu isso é
+ * transformar melhoria em obstáculo. Quem vive de discussão sobre "estava
+ * assim quando entreguei" liga, e aí a entrega sem assinatura é recusada.
+ */
+function DeliveryCard() {
+  const canEdit = useCan('organization:manage');
+  const settings = useOrganizationSettings();
+  const salvar = useUpdateOrganizationSettings();
+  // a caixa marca na hora, como qualquer caixa: esperar a resposta do servidor
+  // para mostrar o que a pessoa acabou de clicar parece que o clique não pegou
+  const [escolha, setEscolha] = useState<boolean | null>(null);
+  const exigir = escolha ?? settings.data?.requireDeliverySignature ?? false;
+
+  return (
+    <Card>
+      <div className="space-y-4 p-5 md:p-6">
+        <div>
+          <h2 className="text-sm font-semibold">Entrega do veículo</h2>
+          <p className="mt-1 text-sm text-muted">
+            Na hora de entregar, a OS oferece assinatura na tela, fotos do carro e o km da saída. Tudo opcional — a não
+            ser que você marque abaixo.
+          </p>
+        </div>
+        <label className="flex items-start gap-2.5 text-sm">
+          <input
+            type="checkbox"
+            className="mt-0.5 size-4"
+            disabled={!canEdit || settings.isPending}
+            checked={exigir}
+            onChange={async (event) => {
+              const novo = event.target.checked;
+              setEscolha(novo);
+              try {
+                await salvar.mutateAsync({ requireDeliverySignature: novo });
+                toast.success(novo ? 'A entrega passa a exigir assinatura.' : 'A assinatura voltou a ser opcional.');
+              } catch (err) {
+                toast.error(errorMessage(err));
+                setEscolha(null);
+              }
+            }}
+          />
+          <span>
+            Exigir a assinatura de quem recebe o veículo
+            <span className="block text-xs text-muted">
+              Com isto ligado, não dá para entregar sem colher a assinatura na tela.
+            </span>
+          </span>
+        </label>
       </div>
     </Card>
   );

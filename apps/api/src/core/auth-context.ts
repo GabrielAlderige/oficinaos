@@ -16,6 +16,8 @@ export interface AuthContext {
   organizationId: string;
   sessionId: string;
   role: Role;
+  /** administrador da PLATAFORMA (E31): mexe no catálogo que todas as oficinas leem */
+  isPlatformAdmin: boolean;
 }
 
 export interface ClientInfo {
@@ -27,7 +29,7 @@ export interface ClientInfo {
  * Regra de acesso da rota, declarada em `config.auth`. Sem declaração, a rota
  * exige login: esquecer de marcar nunca deixa uma rota aberta.
  */
-export type RouteAuth = 'public' | 'authenticated' | Permission;
+export type RouteAuth = 'public' | 'authenticated' | 'platform-admin' | Permission;
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -48,6 +50,8 @@ export interface SessionState {
   userId: string;
   revokedAt: Date | null;
   expiresAt: Date;
+  /** marca da CONTA, não da oficina: administrador da plataforma (E31) */
+  isPlatformAdmin: boolean;
 }
 
 export interface MembershipState {

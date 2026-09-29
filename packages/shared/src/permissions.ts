@@ -63,6 +63,8 @@ export const PERMISSIONS = [
    * conectar o número da oficina é configuração, e fica com `organization:manage`
    */
   'messages:send',
+  /** ver a comissão de TODO MUNDO e registrar o pagamento dela (E26) */
+  'commissions:manage',
   'finance:read',
   'finance:write',
   'reports:read',
@@ -123,6 +125,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'inventory:adjust',
     'payments:record',
     'finance:read',
+    'commissions:manage',
     'reports:read',
     'invoices:read',
     'invoices:issue',
@@ -189,6 +192,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'payments:cancel',
     'finance:read',
     'finance:write',
+    'commissions:manage',
     'reports:read',
     'invoices:read',
     'invoices:issue',

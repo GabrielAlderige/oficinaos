@@ -3,6 +3,7 @@ import {
   effectiveServicePrice,
   formatBRL,
   formatBRLInput,
+  formatPercentInput,
   parseQuantity,
   PRICING_MODE_LABELS,
   PRICING_MODES,
@@ -39,6 +40,7 @@ function toFormValues(service?: Service): ServiceForm {
     estimatedHours: service?.estimatedMinutes ? hoursFormat.format(service.estimatedMinutes / 60) : '',
     intervalKm: service?.intervalKm ? String(service.intervalKm) : '',
     intervalMonths: service?.intervalMonths ? String(service.intervalMonths) : '',
+    commission: service?.commissionBps != null ? formatPercentInput(service.commissionBps) : '',
     isActive: service?.isActive ?? true,
   };
 }
@@ -182,6 +184,27 @@ function ServiceFormBody({ service, onDone }: { service?: Service; onDone(): voi
             </Field>
             <Field label="Ou a cada (meses)" htmlFor="s-months" error={e.intervalMonths?.message}>
               <AdornedInput trailing="meses" className="pr-16" {...fieldA11y('s-months', e.intervalMonths?.message)} inputMode="numeric" placeholder="12" {...register('intervalMonths')} />
+            </Field>
+          </div>
+        </details>
+
+        <details className="group rounded-lg border border-border" open={service?.commissionBps != null}>
+          <summary className="cursor-pointer list-none px-3 py-2.5 text-sm font-medium select-none marker:hidden">
+            Comissão deste serviço <span className="font-normal text-muted">(opcional)</span>
+          </summary>
+          <div className="grid gap-3 border-t border-border p-3 sm:grid-cols-2">
+            <p className="text-xs text-muted sm:col-span-2">
+              Vazio = vale o percentual do mecânico, ou o padrão da oficina. Preencha só quando este serviço pagar
+              diferente — e <strong>0</strong> quando ele não pagar comissão nenhuma.
+            </p>
+            <Field label="Comissão do mecânico" htmlFor="s-commission" error={e.commission?.message}>
+              <AdornedInput
+                trailing="%"
+                {...fieldA11y('s-commission', e.commission?.message)}
+                inputMode="decimal"
+                placeholder="herda"
+                {...register('commission')}
+              />
             </Field>
           </div>
         </details>

@@ -35,12 +35,14 @@ import {
 import { revokeSessions } from '../../core/sessions';
 import { withInviteToken, withoutTenant, withTenant, withUser } from '../../db/tenant';
 import {
+  EMAIL_VERIFICATION_TTL_MS,
   PASSWORD_RESET_TTL_MS,
   REFRESH_REUSE_GRACE_MS,
   REFRESH_TOKEN_TTL_MS,
 } from './auth.constants';
 import * as repo from './auth.repository';
 import { burnPasswordCheck, hashPassword, verifyPassword } from './password';
+import { isoOrNull } from '../../core/normalize';
 import { randomToken, sha256 } from './tokens';
 
 /** Resposta de login + o refresh token, que só vai para o cookie (nunca no corpo). */
@@ -127,7 +129,76 @@ export class AuthService {
       throw err;
     }
 
+    // o e-mail de confirmação sai DEPOIS da transação e não derruba o cadastro:
+    // quem acabou de se cadastrar entra no sistema mesmo se o SMTP estiver fora
+    await this.enviarConfirmacao(userId, input.email, input.name, client);
+
     return this.startSession(userId, organizationId, client);
+  }
+
+  // ------------------------------------------------- confirmação de e-mail (E29)
+
+  /**
+   * Manda o link de confirmação. O e-mail confirmado é o que garante que a
+   * recuperação de senha chega em algum lugar — sem ele, a conta fica presa
+   * ao primeiro aparelho que logou.
+   */
+  private async enviarConfirmacao(userId: string, email: string, name: string, client: ClientInfo): Promise<void> {
+    const { db, env } = this.deps;
+    const token = randomToken();
+    await withoutTenant(db, async (tx) => {
+      await repo.deleteUnusedEmailVerifications(tx, userId);
+      await repo.insertEmailVerification(tx, {
+        userId,
+        email,
+        tokenHash: sha256(token),
+        expiresAt: new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS),
+        requestedIp: client.ip,
+      });
+    });
+
+    await this.sendEmail({
+      to: email,
+      subject: 'Confirme seu e-mail: OficinaOS',
+      text:
+        `Olá, ${firstName(name)}.\n\n` +
+        'Falta um passo para a sua conta no OficinaOS ficar completa: confirmar este e-mail.\n' +
+        'É por ele que você recupera a senha se um dia precisar.\n\n' +
+        'Abra o link abaixo (vale por 48 horas):\n\n' +
+        `${env.APP_URL}/confirmar-email/${token}\n\n` +
+        'Se não foi você que se cadastrou, ignore este e-mail.',
+    });
+  }
+
+  /** Reenvia o link para quem está logado e ainda não confirmou. */
+  async resendEmailVerification(ref: SessionRef, client: ClientInfo): Promise<void> {
+    const { db } = this.deps;
+    const user = await withoutTenant(db, (tx) => repo.findUserById(tx, ref.userId));
+    if (!user || user.emailVerifiedAt) return;
+    await this.enviarConfirmacao(user.id, user.email, user.name, client);
+  }
+
+  /**
+   * Confirma o e-mail pelo link. Queima o token e marca a data — e recusa se
+   * a pessoa trocou de e-mail depois de pedir o link, porque aí o link antigo
+   * confirmaria um endereço que não é mais dela.
+   */
+  async verifyEmail(token: string): Promise<void> {
+    const { db } = this.deps;
+    const ok = await withoutTenant(db, async (tx) => {
+      const pedido = await repo.findUsableEmailVerification(tx, sha256(token), new Date());
+      if (!pedido) return false;
+      await repo.markEmailVerificationUsed(tx, pedido.id);
+      return repo.markEmailVerified(tx, pedido.userId, pedido.email, new Date());
+    });
+    if (!ok) {
+      throw new AppError(
+        400,
+        ErrorCode.TOKEN_INVALID,
+        'Link inválido',
+        'Este link de confirmação é inválido, já foi usado ou expirou. Peça um novo pelo aviso no painel.',
+      );
+    }
   }
 
   // ------------------------------------------------------------------- login
@@ -319,7 +390,13 @@ export class AuthService {
       const subscription = await repo.getSubscriptionSummary(tx, ref.organizationId);
 
       return {
-        user: { id: user.id, name: user.name, email: user.email },
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          emailVerifiedAt: isoOrNull(user.emailVerifiedAt),
+          isPlatformAdmin: user.isPlatformAdmin,
+        },
         organization: { id: current.organizationId, name: current.organizationName, timezone: current.timezone },
         role: current.role,
         permissions: permissionsFor(current.role),
@@ -486,6 +563,12 @@ export class AuthService {
     }
 
     caches.memberships.delete(membershipKey(organizationId, userId));
+
+    // quem entrou por convite também precisa do e-mail confirmado (E29): é por
+    // ele que o mecânico recupera a senha sem depender do dono da oficina.
+    // Conta que já existia não recebe nada: ela já passou por isto
+    if (newUser) await this.enviarConfirmacao(userId, invitation.email, newUser.name, client);
+
     return this.startSession(userId, organizationId, client);
   }
 

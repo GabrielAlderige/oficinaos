@@ -34,7 +34,14 @@ import { CommandMenu } from './CommandMenu';
 import { DesktopHint } from './DesktopHint';
 import { InstallPrompt } from './InstallPrompt';
 import { CrumbProvider } from './crumbs';
-import { Breadcrumbs, OrganizationSwitcher, ThemeToggle, TrialNotice, UserMenu } from './shell-parts';
+import {
+  Breadcrumbs,
+  EmailVerificationNotice,
+  OrganizationSwitcher,
+  ThemeToggle,
+  TrialNotice,
+  UserMenu,
+} from './shell-parts';
 
 /** O que uma rota pode declarar no `handle` (ver `app/router.tsx`). */
 interface Handle {
@@ -91,6 +98,13 @@ const NAV: NavGroup[] = [
     items: [
       { to: '/servicos', label: 'Serviços', icon: Wrench, permission: 'catalog:read' },
       { to: '/pecas', label: 'Peças e estoque', icon: Package, permission: 'catalog:read' },
+      /**
+       * Ficha do carro no primeiro nível (E36). Estava como terceira aba
+       * dentro de Peças e estoque: três toques para uma consulta que o
+       * mecânico faz com a peça na mão. Sem permissão de propósito — quem
+       * está de macacão precisa disto mais do que o dono.
+       */
+      { to: '/ficha-do-carro', label: 'Ficha do carro', icon: Car },
     ],
   },
   {
@@ -221,6 +235,7 @@ export function AppShell() {
               : 'mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:py-8',
           )}
         >
+          {!telaCheia && <EmailVerificationNotice />}
           {avisoDeDesktop ? (
             <DesktopHint titulo={avisoDeDesktop}>
               <Outlet />

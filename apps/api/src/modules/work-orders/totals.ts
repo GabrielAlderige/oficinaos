@@ -46,7 +46,18 @@ export async function applyWorkOrderChange(
   order: repo.WorkOrderRow,
   patch: OrderPatch = {},
 ): Promise<repo.WorkOrderRow> {
-  const merged = { ...order, ...patch };
+  /**
+   * Chave com `undefined` NÃO pode apagar o que está gravado. Quem monta
+   * patch costuma listar todos os campos (`discountMode: input.discountMode`),
+   * e o que não veio no corpo chega aqui como `undefined` — espalhar isso por
+   * cima da OS zerava o desconto no recálculo, mantendo-o no banco: a tela
+   * mostrava "−R$ 100" e o total cobrava os R$ 100. Filtrar aqui protege
+   * todos os caminhos, e não só o que descobrimos.
+   */
+  const informados = Object.fromEntries(
+    Object.entries(patch).filter(([, valor]) => valor !== undefined),
+  ) as OrderPatch;
+  const merged = { ...order, ...informados };
   const rows = await repo.listItems(tx, order.organizationId, order.id);
   const lines: PricingLine[] = rows.map(({ item }) => ({
     type: item.type,
@@ -71,7 +82,7 @@ export async function applyWorkOrderChange(
   }
 
   const updated = await repo.updateWorkOrder(tx, order.id, {
-    ...patch,
+    ...informados,
     partsSubtotalCents: totals.partsSubtotalCents,
     servicesSubtotalCents: totals.servicesSubtotalCents,
     discountCents: totals.discountCents,

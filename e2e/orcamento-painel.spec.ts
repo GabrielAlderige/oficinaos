@@ -1,4 +1,5 @@
 import {
+  abrirAbaDaOS,
   abrirOS,
   captura,
   criarOficina,
@@ -23,6 +24,7 @@ test('a oficina envia o orçamento, acompanha e registra a resposta', async ({ p
     await page.goto(`/ordens/${ordem.number}`);
     await expect(page.getByRole('heading', { name: new RegExp(`^OS ${ordem.number}`) })).toBeVisible();
 
+    // orçar mora na aba que abre por padrão (D67): nada de clicar em aba
     const antes = await textoDe(page.locator('main'));
     expect(antes).toContain('Mande o link e deixe o cliente aprovar pelo celular');
     expect(antes).toContain('2 itens prontos para orçar');
@@ -111,17 +113,26 @@ test('a oficina envia o orçamento, acompanha e registra a resposta', async ({ p
     await captura(page, 'painel-08-escuro');
   });
 
-  await test.step('no celular o orçamento vem antes dos itens', async () => {
+  await test.step('no celular o orçamento está a um toque, e o carro vem antes dos itens', async () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.getByRole('button', { name: 'Usar tema claro', exact: true }).click();
     await captura(page, 'painel-09-celular');
 
+    // desde a E30 o orçamento mora na aba do dinheiro: ele não compete mais por
+    // espaço com os itens, mas continua a UM toque — e a aba avisa com um ponto
+    // quando falta receber
+    await abrirAbaDaOS(page, 'Serviço');
     // comparar TEXTO não serve: `order-first` é CSS e não mexe na ordem do DOM,
     // que é o que innerText percorre. Quem decide é a posição na tela.
-    const orcamento = await page.getByRole('heading', { name: /^Orçamento 1/ }).boundingBox();
+    const mecanico = await page.getByRole('heading', { name: 'Quem está com o carro' }).boundingBox();
     const itens = await page.getByRole('heading', { name: 'Itens', exact: true }).boundingBox();
-    expect(orcamento && itens).toBeTruthy();
-    expect(orcamento?.y, 'o orçamento é a ação do dia: não pode ficar abaixo dos itens').toBeLessThan(itens?.y ?? 0);
+    expect(mecanico && itens).toBeTruthy();
+    expect(mecanico?.y, 'quem está com o carro é a pergunta do dia no celular').toBeLessThan(itens?.y ?? 0);
+
+    await expect(
+      page.getByRole('heading', { name: /^Orçamento 1/ }),
+      'e o orçamento está na mesma aba dos itens',
+    ).toBeVisible();
   });
 
   await test.step('a lista de orçamentos filtra por situação', async () => {

@@ -157,6 +157,70 @@ describe('ordem de serviço', () => {
     });
   });
 
+  /**
+   * Executar sem orçamento (E34).
+   *
+   * A oficina real faz serviço pequeno no combinado de boca, e sem esta saída
+   * a OS ficava PRESA em "aguardando orçamento". O que precisa ficar provado é
+   * que pular NÃO é só mudar a etiqueta: sem aprovar os itens, a OS chegaria
+   * ao fim com total aprovado zero, sem baixa de estoque e sem conta a receber.
+   */
+  describe('executar sem orçamento', () => {
+    it('destrava a OS, aprova os itens e reserva a peça', async () => {
+      const peca = await createPart(t.app, owner, { name: 'Correia', salePriceCents: 8_000, initialQuantity: 5 });
+      const os = await createWorkOrder(t.app, owner, {
+        ...base(),
+        items: [{ type: 'SERVICE', serviceId, unitPriceCents: 20_000 }, { type: 'PART', partId: peca.id, quantity: 2 }],
+      });
+
+      // o buraco: sem orçamento não havia caminho nenhum para a execução
+      const direto = await post(`/api/v1/work-orders/${os.id}/start`, {});
+      expect(direto.statusCode, 'executar direto continua proibido').toBe(409);
+
+      const pulado = await post(`/api/v1/work-orders/${os.id}/skip-quote`, {});
+      expect(pulado.statusCode, pulado.body).toBe(200);
+      const depois = pulado.json();
+      expect(depois.status).toBe('APPROVED');
+      expect(depois.approvedAt, 'ficou a data de quando foi liberado').not.toBeNull();
+      expect(
+        depois.items.every((item: { approvalStatus: string }) => item.approvalStatus === 'APPROVED'),
+        'o combinado de boca vale como aprovação dos itens',
+      ).toBe(true);
+      expect(depois.totals.approvedTotalCents, 'e o total aprovado deixa de ser zero').toBe(36_000);
+      expect(depois.items[1].reservedQuantity, 'a peça fica reservada, como em qualquer aprovação').toBe(2);
+
+      // e o caminho segue normal até o fim
+      expect((await post(`/api/v1/work-orders/${os.id}/start`, {})).statusCode).toBe(200);
+      const finalizada = await post(`/api/v1/work-orders/${os.id}/complete`, {});
+      expect(finalizada.statusCode, finalizada.body).toBe(200);
+      expect(finalizada.json().totals.totalCents).toBe(36_000);
+    });
+
+    it('fica na timeline quem liberou sem orçamento', async () => {
+      const os = await createWorkOrder(t.app, owner, {
+        ...base(),
+        items: [{ type: 'SERVICE', serviceId, unitPriceCents: 10_000 }],
+      });
+      await post(`/api/v1/work-orders/${os.id}/skip-quote`, {});
+
+      const timeline = await get(`/api/v1/work-orders/${os.id}/timeline`);
+      const evento = (timeline.json().data as { type: string; data?: { to?: string } }[]).find(
+        (linha) => linha.data?.to === 'APPROVED',
+      );
+      expect(evento, 'a decisão de liberar sem orçamento não pode ser invisível').toBeDefined();
+    });
+
+    it('depois de aprovada não há o que pular', async () => {
+      const os = await createWorkOrder(t.app, owner, {
+        ...base(),
+        items: [{ type: 'SERVICE', serviceId, unitPriceCents: 10_000 }],
+      });
+      await post(`/api/v1/work-orders/${os.id}/skip-quote`, {});
+      const denovo = await post(`/api/v1/work-orders/${os.id}/skip-quote`, {});
+      expect(denovo.statusCode).toBe(409);
+    });
+  });
+
   describe('desconto', () => {
     const withSubtotal = async (s: TestSession = owner): Promise<TestWorkOrder> =>
       createWorkOrder(t.app, s, { ...base(), items: [{ type: 'SERVICE', serviceId, unitPriceCents: 100000 }] });
@@ -172,6 +236,40 @@ describe('ordem de serviço', () => {
         discountValue: 500000,
       });
       expect(exagerado.json().totals).toMatchObject({ discountCents: 100000, totalCents: 0 });
+    });
+
+    it('o desconto sobrevive a qualquer outra edição da OS', async () => {
+      const os = await withSubtotal();
+      const comDesconto = await patch(`/api/v1/work-orders/${os.id}`, {
+        version: os.version,
+        discountMode: 'AMOUNT',
+        discountValue: 10000,
+      });
+      expect(comDesconto.json().totals).toMatchObject({ discountCents: 10000, totalCents: 90000 });
+
+      // mexer em QUALQUER outro campo recalculava o total sem o desconto — que
+      // continuava gravado. A tela mostrava "−R$ 100" e a OS cobrava os R$ 100
+      const outraCoisa = await patch(`/api/v1/work-orders/${os.id}`, {
+        version: comDesconto.json().version,
+        diagnosis: 'Pastilha gasta',
+      });
+      expect(outraCoisa.json().discountMode, 'o desconto continua guardado').toBe('AMOUNT');
+      expect(outraCoisa.json().totals, 'e continua valendo na conta').toMatchObject({
+        discountCents: 10000,
+        totalCents: 90000,
+      });
+
+      // e o mesmo vale para o acréscimo
+      const comAcrescimo = await patch(`/api/v1/work-orders/${os.id}`, {
+        version: outraCoisa.json().version,
+        surchargeCents: 5000,
+      });
+      expect(comAcrescimo.json().totals).toMatchObject({ totalCents: 95000 });
+      const depois = await patch(`/api/v1/work-orders/${os.id}`, {
+        version: comAcrescimo.json().version,
+        internalNotes: 'cliente avisado',
+      });
+      expect(depois.json().totals, 'acréscimo também não pode evaporar').toMatchObject({ totalCents: 95000 });
     });
 
     it('atendente não passa do limite da oficina; gerente não tem limite', async () => {

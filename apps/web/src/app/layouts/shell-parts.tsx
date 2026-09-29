@@ -13,6 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../components/ui/overlays';
+import { api } from '../../lib/api-client';
 import { cn } from '../../lib/cn';
 import { errorMessage } from '../../lib/errors';
 import { formatDate, initials } from '../../lib/format';
@@ -161,6 +162,50 @@ export function UserMenu() {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+/**
+ * Falta confirmar o e-mail (E29).
+ *
+ * Fica no topo do conteúdo, e não na barra lateral, porque no celular a barra
+ * não existe — e é justamente quem trabalha pelo celular que costuma nunca
+ * abrir o e-mail. O aviso não bloqueia nada: só diz o que está em jogo (a
+ * recuperação de senha) e oferece o reenvio.
+ */
+export function EmailVerificationNotice() {
+  const { user } = useMe();
+  const [enviando, setEnviando] = useState(false);
+  const [enviado, setEnviado] = useState(false);
+
+  if (user.emailVerifiedAt || enviado) return null;
+
+  return (
+    <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-warning/40 bg-warning-soft px-4 py-3 text-sm">
+      <p className="min-w-0 flex-1">
+        <strong>Falta confirmar seu e-mail.</strong> Mandamos um link para {user.email} — é por ele que você
+        recupera a senha se um dia esquecer.
+      </p>
+      <Button
+        size="sm"
+        variant="secondary"
+        loading={enviando}
+        onClick={async () => {
+          setEnviando(true);
+          try {
+            await api('/auth/resend-verification', { method: 'POST' });
+            setEnviado(true);
+            toast.success(`Link novo enviado para ${user.email}.`);
+          } catch (erro) {
+            toast.error(errorMessage(erro));
+          } finally {
+            setEnviando(false);
+          }
+        }}
+      >
+        Reenviar link
+      </Button>
+    </div>
   );
 }
 

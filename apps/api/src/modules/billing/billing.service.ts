@@ -72,7 +72,7 @@ export class BillingService {
     }));
 
     return {
-      plan: planoAtual?.code ?? 'STARTER',
+      plan: planoAtual?.code ?? 'TURBO',
       planName: planoAtual?.name ?? 'Plano',
       status: assinatura.status,
       cycle: assinatura.billingCycle,

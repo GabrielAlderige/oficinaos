@@ -1,5 +1,5 @@
-import { formatBRL, formatDuration, type WorkOrderItemInput } from '@oficinaos/shared';
-import { Package, Plus, Wrench } from 'lucide-react';
+import { formatBRL, formatDuration, type ServicePackage, type WorkOrderItemInput } from '@oficinaos/shared';
+import { Boxes, Package, Plus, Wrench } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '../../components/ui/button';
 import { Field, fieldA11y } from '../../components/ui/field';
@@ -8,15 +8,16 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader } from '../../compone
 import { cn } from '../../lib/cn';
 import { SearchInput } from '../../components/ui/list-parts';
 import { useDebouncedValue } from '../../lib/use-debounced-value';
-import { useParts, useServices } from '../catalog/api';
+import { useParts, useServices, useServicePackages } from '../catalog/api';
 import { formatQty } from '../catalog/stock';
 import { parseBRL, parseQuantity } from '@oficinaos/shared';
 
-type Tab = 'SERVICE' | 'PART' | 'FREE';
+type Tab = 'SERVICE' | 'PART' | 'PACKAGE' | 'FREE';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'SERVICE', label: 'Serviços' },
   { key: 'PART', label: 'Peças' },
+  { key: 'PACKAGE', label: 'Pacotes' },
   { key: 'FREE', label: 'Item avulso' },
 ];
 
@@ -25,24 +26,27 @@ const TABS: { key: Tab; label: string }[] = [
  * item avulso cobre o que a oficina comprou fora ou não tem cadastrado — sem
  * isso, a pessoa abandona a tela e volta pro papel.
  */
-export function ItemPicker({ open, onOpenChange, onPick, busy }: {
+export function ItemPicker({ open, onOpenChange, onPick, onPickPackage, busy }: {
   open: boolean;
   onOpenChange(open: boolean): void;
   /** `label` é o nome legível: no assistente a OS ainda não existe para devolvê-lo */
   onPick(item: WorkOrderItemInput, label: string): Promise<unknown> | void;
+  /** o pacote inteiro de uma vez (E27); sem isto, a aba de pacotes não aparece */
+  onPickPackage?(pacote: ServicePackage): Promise<unknown> | void;
   busy?: boolean;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
-        <PickerBody onPick={onPick} onDone={() => onOpenChange(false)} busy={busy} />
+        <PickerBody onPick={onPick} onPickPackage={onPickPackage} onDone={() => onOpenChange(false)} busy={busy} />
       </DialogContent>
     </Dialog>
   );
 }
 
-function PickerBody({ onPick, onDone, busy }: {
+function PickerBody({ onPick, onPickPackage, onDone, busy }: {
   onPick(item: WorkOrderItemInput, label: string): Promise<unknown> | void;
+  onPickPackage?(pacote: ServicePackage): Promise<unknown> | void;
   onDone(): void;
   busy?: boolean;
 }) {
@@ -52,6 +56,8 @@ function PickerBody({ onPick, onDone, busy }: {
 
   const services = useServices({ q, status: 'active', page: 1, pageSize: 8 }, { enabled: tab === 'SERVICE' });
   const parts = useParts({ q, attention: false, page: 1, pageSize: 8 }, { enabled: tab === 'PART' });
+  const packages = useServicePackages();
+  const abas = TABS.filter((option) => option.key !== 'PACKAGE' || Boolean(onPickPackage));
 
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
@@ -66,10 +72,17 @@ function PickerBody({ onPick, onDone, busy }: {
 
   return (
     <>
-      <DialogHeader title="Adicionar à OS" description="Busque no catálogo ou lance um item avulso." />
+      <DialogHeader
+        title="Adicionar à OS"
+        description={
+          onPickPackage
+            ? 'Busque no catálogo, use um pacote pronto ou lance um item avulso.'
+            : 'Busque no catálogo ou lance um item avulso.'
+        }
+      />
       <div className="space-y-4">
         <div role="tablist" aria-label="Tipo de item" className="inline-flex rounded-lg border border-border p-0.5">
-          {TABS.map((option) => (
+          {abas.map((option) => (
             <button
               key={option.key}
               type="button"
@@ -86,7 +99,46 @@ function PickerBody({ onPick, onDone, busy }: {
           ))}
         </div>
 
-        {tab === 'FREE' ? (
+        {tab === 'PACKAGE' ? (
+          <div className="space-y-3">
+            <ul className="max-h-80 divide-y divide-border overflow-y-auto rounded-lg border border-border">
+              {(packages.data ?? []).map((pacote) => (
+                <li key={pacote.id}>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    className="flex w-full items-start justify-between gap-3 px-3 py-2.5 text-left hover:bg-surface-muted disabled:opacity-50"
+                    onClick={async () => {
+                      await onPickPackage?.(pacote);
+                      onDone();
+                    }}
+                  >
+                    <span className="min-w-0">
+                      <span className="flex items-center gap-2 text-sm font-medium">
+                        <Boxes className="size-3.5 text-muted" aria-hidden="true" />
+                        <span className="truncate">{pacote.name}</span>
+                      </span>
+                      <span className="block truncate text-xs text-muted">
+                        {pacote.items
+                          .map((item) => (item.quantity > 1 ? `${item.quantity}× ${item.name}` : item.name))
+                          .join(' · ')}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-sm font-medium tabular">{formatBRL(pacote.totalCents)}</span>
+                  </button>
+                </li>
+              ))}
+              {!packages.data?.length && (
+                <li className="px-3 py-4 text-center text-sm text-muted">
+                  Nenhum pacote cadastrado. Monte um em Serviços → Pacotes.
+                </li>
+              )}
+            </ul>
+            <p className="text-xs text-muted">
+              O pacote entra como linhas normais: dá para mudar quantidade, preço e apagar o que não foi usado.
+            </p>
+          </div>
+        ) : tab === 'FREE' ? (
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Descrição" htmlFor="free-description" className="sm:col-span-2">
               <Input

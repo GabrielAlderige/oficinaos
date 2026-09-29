@@ -85,6 +85,12 @@ import { WorkOrdersService } from './modules/work-orders/work-orders.service';
 import { memberRoutes } from './modules/members/members.routes';
 import { MembersService } from './modules/members/members.service';
 import { organizationRoutes } from './modules/organizations/organizations.routes';
+import { commissionRoutes } from './modules/commissions/commissions.routes';
+import { packageRoutes } from './modules/packages/packages.routes';
+import { vehicleCatalogRoutes } from './modules/vehicle-catalog/vehicle-catalog.routes';
+import { VehicleCatalogService } from './modules/vehicle-catalog/vehicle-catalog.service';
+import { PackagesService } from './modules/packages/packages.service';
+import { CommissionsService } from './modules/commissions/commissions.service';
 import { messagingRoutes, whatsappWebhookRoutes } from './modules/messaging/messaging.routes';
 import { MessagingService } from './modules/messaging/messaging.service';
 import { OrganizationsService } from './modules/organizations/organizations.service';
@@ -122,6 +128,9 @@ export interface Services {
   billing: BillingService;
   automations: AutomationsService;
   messaging: MessagingService;
+  commissions: CommissionsService;
+  packages: PackagesService;
+  vehicleCatalog: VehicleCatalogService;
 }
 
 declare module 'fastify' {
@@ -193,7 +202,9 @@ export async function buildApp({
   const deps: ServiceDeps = { db, env, email, storage, nfse, gateway, tokens, caches, log: app.log };
   // o canal de WhatsApp nasce antes de quem manda mensagem por ele (E22)
   const messaging = new MessagingService(deps);
-  const workOrders = new WorkOrdersService(deps, messaging);
+  const packages = new PackagesService(deps);
+  const vehicleCatalog = new VehicleCatalogService(deps);
+  const workOrders = new WorkOrdersService(deps, messaging, packages);
   const payments = new PaymentsService(deps);
   const services: Services = {
     auth: new AuthService(deps),
@@ -228,6 +239,9 @@ export async function buildApp({
     billing: new BillingService(deps),
     automations: new AutomationsService(deps),
     messaging,
+    commissions: new CommissionsService(deps),
+    packages,
+    vehicleCatalog,
   };
 
   app.decorate('db', db);
@@ -293,6 +307,9 @@ export async function buildApp({
   await app.register(billingRoutes, { prefix: '/api/v1/billing' });
   await app.register(automationRoutes, { prefix: '/api/v1/automations' });
   await app.register(messagingRoutes, { prefix: '/api/v1/messaging' });
+  await app.register(commissionRoutes, { prefix: '/api/v1/commissions' });
+  await app.register(packageRoutes, { prefix: '/api/v1/service-packages' });
+  await app.register(vehicleCatalogRoutes, { prefix: '/api/v1/vehicle-catalog' });
   await app.register(workOrderChargeRoutes, { prefix: '/api/v1/work-orders' });
   // sem login: quem prova a origem é o token que o gateway repete no aviso
   await app.register(paymentWebhookRoutes, { prefix: '/api/v1/webhooks' });

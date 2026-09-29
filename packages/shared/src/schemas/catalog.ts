@@ -19,6 +19,25 @@ const percentText = z
   .refine((v) => v === '' || parsePercent(v) !== null, 'Percentual inválido. Ex.: 30 ou 12,5')
   .transform((v) => (v === '' ? null : parsePercent(v)));
 
+/**
+ * Percentual de COMISSÃO: até 100%, diferente da margem da peça (que pode
+ * passar de 100%). Vazio = herda o nível de cima (E26).
+ */
+const commissionText = z
+  .string()
+  .default('')
+  .pipe(
+    z
+      .string()
+      .trim()
+      .refine((v) => {
+        if (v === '') return true;
+        const bps = parsePercent(v);
+        return bps !== null && bps <= 10_000;
+      }, 'Percentual inválido. Ex.: 10 ou 12,5')
+      .transform((v) => (v === '' ? null : parsePercent(v)!)),
+  );
+
 const quantityText = z
   .string()
   .trim()
@@ -62,6 +81,12 @@ const serviceFields = {
   /** a cada X km / Y meses: base de "próxima troca de óleo" (E5) */
   intervalKm: z.number().int().min(100).max(300_000).nullable(),
   intervalMonths: z.number().int().min(1).max(120).nullable(),
+  /**
+   * Comissão do mecânico neste serviço (basis points). `null` = usa o
+   * percentual do mecânico, ou o da oficina — o mais específico vence (E26).
+   * Zero é escolha: serviço que a oficina decidiu não comissionar.
+   */
+  commissionBps: z.number().int().min(0).max(10_000).nullable(),
   isActive: z.boolean(),
 };
 
@@ -87,6 +112,7 @@ export const createServiceSchema = z
     estimatedMinutes: serviceFields.estimatedMinutes.default(null),
     intervalKm: serviceFields.intervalKm.default(null),
     intervalMonths: serviceFields.intervalMonths.default(null),
+    commissionBps: serviceFields.commissionBps.default(null),
     isActive: serviceFields.isActive.default(true),
   })
   .superRefine(servicePricingIsComplete);
@@ -104,6 +130,8 @@ export const serviceFormSchema = z
     estimatedHours: hoursText,
     intervalKm: intText(300_000, 'Intervalo inválido'),
     intervalMonths: intText(120, 'Intervalo inválido'),
+    /** "12,5" na tela; vazio (ou ausente) = herda do mecânico ou da oficina */
+    commission: commissionText,
     isActive: z.boolean(),
   })
   .superRefine((v, ctx) => {
@@ -123,6 +151,7 @@ export const serviceFormSchema = z
     estimatedMinutes: v.estimatedHours,
     intervalKm: v.intervalKm,
     intervalMonths: v.intervalMonths,
+    commissionBps: v.commission,
     isActive: v.isActive,
   }));
 
@@ -138,6 +167,7 @@ export const serviceSchema = z.object({
   effectivePriceCents: z.number().int().nullable(),
   intervalKm: z.number().int().nullable(),
   intervalMonths: z.number().int().nullable(),
+  commissionBps: z.number().int().nullable(),
   isActive: z.boolean(),
   createdAt: z.string(),
   updatedAt: z.string().nullable(),
@@ -425,8 +455,14 @@ export const pricingSettingsFormSchema = z
         return bps !== null && bps <= 100_000;
       }, 'Percentual inválido. Ex.: 30 ou 12,5')
       .transform((v) => parsePercent(v)!),
+    /** comissão padrão do mecânico sobre a mão de obra (E26); vazio = 0 */
+    commission: commissionText,
   })
-  .transform((v) => ({ laborRateCents: v.laborRate, defaultMarkupBps: v.defaultMarkup }));
+  .transform((v) => ({
+    laborRateCents: v.laborRate,
+    defaultMarkupBps: v.defaultMarkup,
+    commissionBps: v.commission ?? 0,
+  }));
 
 export type StockEntryForm = z.input<typeof stockEntryFormSchema>;
 export type StockAdjustmentForm = z.input<typeof stockAdjustmentFormSchema>;

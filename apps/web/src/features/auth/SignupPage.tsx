@@ -43,7 +43,7 @@ export function SignupPage() {
 
   return (
     <>
-      <AuthHeader title="Crie a conta da sua oficina" description="14 dias de teste do plano Professional, sem cartão." />
+      <AuthHeader title="Crie a conta da sua oficina" description="14 dias de teste do plano Supercharger, sem cartão." />
       <form onSubmit={onSubmit} noValidate className="space-y-4">
         {formError && <Alert variant="danger">{formError}</Alert>}
         <Field label="Seu nome" htmlFor="name" error={errors.name?.message}>

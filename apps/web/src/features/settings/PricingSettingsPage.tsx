@@ -25,6 +25,7 @@ function toFormValues(settings: OrganizationSettings): PricingSettingsForm {
   return {
     laborRate: settings.laborRateCents !== null ? formatBRLInput(settings.laborRateCents) : '',
     defaultMarkup: formatPercentInput(settings.defaultMarkupBps),
+    commission: settings.commissionBps ? formatPercentInput(settings.commissionBps) : '',
   };
 }
 
@@ -64,7 +65,13 @@ function PricingForm({ settings }: { settings: OrganizationSettings }) {
       reset(toFormValues(saved));
       toast.success('Preços salvos.');
     } catch (err) {
-      if (!applyFieldErrors(err, setError, { laborRateCents: 'laborRate', defaultMarkupBps: 'defaultMarkup' })) {
+      if (
+        !applyFieldErrors(err, setError, {
+          laborRateCents: 'laborRate',
+          defaultMarkupBps: 'defaultMarkup',
+          commissionBps: 'commission',
+        })
+      ) {
         toast.error(errorMessage(err));
       }
     }
@@ -102,6 +109,35 @@ function PricingForm({ settings }: { settings: OrganizationSettings }) {
                 <AdornedInput trailing="%" {...fieldA11y('defaultMarkup', e.defaultMarkup?.message, true)} inputMode="decimal" {...register('defaultMarkup')} />
               </Field>
             </div>
+          </section>
+
+          <section className="grid gap-4 border-t border-border px-5 py-6 md:grid-cols-[13rem_minmax(0,1fr)] md:gap-8 md:px-6">
+            <div>
+              <h2 className="text-sm font-semibold">Comissão</h2>
+              <p className="mt-1 text-sm text-muted">
+                Sobre a mão de obra dos serviços, nunca sobre a peça. O percentual vale para quem não tiver o seu.
+              </p>
+            </div>
+            <div className="grid content-start gap-4 sm:grid-cols-2">
+              <Field
+                label="Comissão padrão do mecânico"
+                htmlFor="commission"
+                error={e.commission?.message}
+                hint="Vazio ou 0 = a oficina não paga comissão."
+              >
+                <AdornedInput
+                  trailing="%"
+                  {...fieldA11y('commission', e.commission?.message, true)}
+                  inputMode="decimal"
+                  placeholder="0"
+                  {...register('commission')}
+                />
+              </Field>
+            </div>
+            <p className="text-xs text-muted md:col-start-2">
+              Cada mecânico pode ter o seu (em <strong>Equipe</strong>) e cada serviço também (na ficha do serviço). O
+              mais específico vence, e o percentual usado fica congelado na OS quando ela é finalizada.
+            </p>
           </section>
         </fieldset>
         {canEdit && (

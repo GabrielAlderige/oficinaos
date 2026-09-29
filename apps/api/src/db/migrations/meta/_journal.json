@@ -365,6 +365,76 @@
       "when": 1790295453267,
       "tag": "0051_whatsapp_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1790439145265,
+      "tag": "0052_comissao",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1790439146265,
+      "tag": "0053_comissao_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1790440585340,
+      "tag": "0054_pacotes",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1790440586340,
+      "tag": "0055_pacotes_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1790516444815,
+      "tag": "0056_entrega",
+      "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1790518394647,
+      "tag": "0057_confirmacao_email",
+      "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1790553570893,
+      "tag": "0058_ficha_do_carro",
+      "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1790553570894,
+      "tag": "0059_ficha_do_carro_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1790568470247,
+      "tag": "0060_fonte_da_especificacao",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1790611833540,
+      "tag": "0061_planos_turbo",
+      "breakpoints": true
     }
   ]
 }

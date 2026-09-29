@@ -102,9 +102,19 @@ describe('formulários do catálogo (texto digitado → formato da API)', () => 
     expect(bad.error?.issues[0]?.path).toEqual(['yearTo']);
   });
 
+  it('serviço: comissão vazia herda, e "12,5" vira 1250 (E26)', () => {
+    const herdando = serviceFormSchema.parse({ ...service, price: '180,00' });
+    expect(herdando.commissionBps, 'vazio = usa o percentual do mecânico ou da oficina').toBeNull();
+    const proprio = serviceFormSchema.parse({ ...service, price: '180,00', commission: '12,5' });
+    expect(proprio.commissionBps).toBe(1250);
+    const semComissao = serviceFormSchema.parse({ ...service, price: '180,00', commission: '0' });
+    expect(semComissao.commissionBps, 'zero é escolha: este serviço não paga comissão').toBe(0);
+    expect(serviceFormSchema.safeParse({ ...service, price: '180,00', commission: '120' }).success).toBe(false);
+  });
+
   it('configurações: hora técnica opcional, margem obrigatória até 1000%', () => {
-    expect(pricingSettingsFormSchema.parse({ laborRate: '', defaultMarkup: '30' })).toEqual({ laborRateCents: null, defaultMarkupBps: 3000 });
-    expect(pricingSettingsFormSchema.parse({ laborRate: '150,00', defaultMarkup: '12,5' })).toEqual({ laborRateCents: 15000, defaultMarkupBps: 1250 });
+    expect(pricingSettingsFormSchema.parse({ laborRate: '', defaultMarkup: '30' })).toEqual({ laborRateCents: null, defaultMarkupBps: 3000, commissionBps: 0 });
+    expect(pricingSettingsFormSchema.parse({ laborRate: '150,00', defaultMarkup: '12,5', commission: '10' })).toEqual({ laborRateCents: 15000, defaultMarkupBps: 1250, commissionBps: 1000 });
     expect(pricingSettingsFormSchema.safeParse({ laborRate: '', defaultMarkup: '' }).success).toBe(false);
     expect(pricingSettingsFormSchema.safeParse({ laborRate: '', defaultMarkup: '1001' }).success).toBe(false);
   });

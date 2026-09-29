@@ -84,6 +84,8 @@ export const memberships = pgTable(
     role: text({ enum: ROLES }).notNull(),
     isActive: boolean().notNull().default(true),
     calendarColor: text(),
+    /** comissão desta pessoa (basis points); null = usa o padrão da oficina (E26) */
+    commissionBps: integer(),
     ...timestamps,
   },
   (t) => [

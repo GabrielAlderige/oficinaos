@@ -46,4 +46,14 @@ export default defineConfig({
     // em dev o painel e a API ficam na mesma origem: sem CORS, cookies funcionam
     proxy: { '/api': { target: 'http://127.0.0.1:3333' } },
   },
+  /**
+   * `vite preview` serve o build de PRODUÇÃO — é o único jeito de exercitar o
+   * service worker e a instalação do app (E24) na máquina, porque em dev ele
+   * nem se registra. Precisa do mesmo proxy, senão a API some.
+   */
+  preview: {
+    port: 4173,
+    strictPort: true,
+    proxy: { '/api': { target: 'http://127.0.0.1:3333' } },
+  },
 });

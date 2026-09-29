@@ -324,18 +324,6 @@ export const workOrderEventSchema = z.object({
   createdAt: z.string(),
 });
 
-export const inspectionSchema = inspectionInputSchema.extend({
-  id: z.uuid(),
-  performedByName: z.string().nullable(),
-  performedAt: z.string(),
-});
-
-/** Contagem por status, para o quadro da oficina. */
-export const workOrderBoardSchema = z.object({
-  counts: z.array(z.object({ status: z.enum(WORK_ORDER_STATUSES), count: z.number().int() })),
-  activeTotal: z.number().int(),
-});
-
 export const attachmentSchema = z.object({
   id: z.uuid(),
   kind: z.enum(ATTACHMENT_KINDS),
@@ -348,6 +336,38 @@ export const attachmentSchema = z.object({
   /** URL temporária de leitura; null enquanto o upload não terminou */
   url: z.string().nullable(),
   createdAt: z.string(),
+});
+
+export const inspectionSchema = inspectionInputSchema.extend({
+  id: z.uuid(),
+  performedByName: z.string().nullable(),
+  performedAt: z.string(),
+  /** quem recebeu o carro assinou na tela (E28); null = entregue sem assinatura */
+  customerAcknowledgedAt: z.string().nullable().default(null),
+  signerName: z.string().nullable().default(null),
+  signature: attachmentSchema.nullable().default(null),
+  /** as fotos do carro no momento da entrega */
+  photos: z.array(attachmentSchema).default([]),
+});
+
+/**
+ * Entrega do veículo (E28). Tudo é opcional por padrão: a oficina que quiser o
+ * comprovante liga "exigir assinatura" nas configurações, e aí a entrega sem
+ * assinatura é recusada. A assinatura e as fotos sobem ANTES, pela rota de
+ * upload de sempre; aqui só chegam os ids.
+ */
+export const deliverWorkOrderSchema = z.object({
+  signerName: optionalText(120).default(''),
+  signatureAttachmentId: z.uuid().nullable().default(null),
+  photoAttachmentIds: z.array(z.uuid()).max(12).default([]),
+  odometerKm: odometer.nullable().default(null),
+  notes: optionalText(500).default(''),
+});
+
+/** Contagem por status, para o quadro da oficina. */
+export const workOrderBoardSchema = z.object({
+  counts: z.array(z.object({ status: z.enum(WORK_ORDER_STATUSES), count: z.number().int() })),
+  activeTotal: z.number().int(),
 });
 
 // -------------------------------- uploads --------------------------------
@@ -397,3 +417,4 @@ export type CreateInspectionInput = z.output<typeof createInspectionSchema>;
 export type Inspection = z.infer<typeof inspectionSchema>;
 export type WorkOrderBoard = z.infer<typeof workOrderBoardSchema>;
 export type Attachment = z.infer<typeof attachmentSchema>;
+export type DeliverWorkOrderInput = z.output<typeof deliverWorkOrderSchema>;

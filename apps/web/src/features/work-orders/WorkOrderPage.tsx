@@ -15,7 +15,7 @@ import {
   type WorkOrder,
   type WorkOrderItem,
 } from '@oficinaos/shared';
-import { ClipboardCheck, History, Pencil, Plus, Printer, Trash2 } from 'lucide-react';
+import { Car, ClipboardCheck, History, Pencil, Plus, Printer, Trash2 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
 import { toast } from 'sonner';
@@ -32,6 +32,7 @@ import { formatDate, formatDateTime } from '../../lib/format';
 import { useCan } from '../../lib/session';
 import {
   useAddItem,
+  useApplyPackage,
   useAddNote,
   useInspections,
   useRemoveItem,
@@ -45,9 +46,11 @@ import { InvoiceCard } from '../invoices/InvoiceCard';
 import { PaymentCard } from '../payments/PaymentCard';
 import { QuoteCard } from '../quotes/QuoteCard';
 import { ItemTimer } from './ItemTimer';
+import { MechanicCard } from './MechanicCard';
+import { ConsultaDoCarroDialog } from '../catalog/ConsultaDoCarro';
 import { CheckInDialog } from './CheckInDialog';
 import { ItemPicker, parseTypedQuantity } from './ItemPicker';
-import { PaymentBadge, StatusActions, StatusBadge } from './status';
+import { PaymentBadge, StatusActions, StatusBadge, WorkOrderProgress } from './status';
 
 export function WorkOrderPage() {
   const { number = '' } = useParams();
@@ -84,6 +87,19 @@ function Info({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+/**
+ * A OS tinha nove blocos numa tela só (E30). Agora ela abre no que é do dia —
+ * o que fazer no carro e quem está com ele — e guarda dinheiro e histórico
+ * atrás de uma aba. Nada sumiu: mudou de andar.
+ */
+type Aba = 'servico' | 'dinheiro' | 'historico';
+
+const ABAS: { chave: Aba; rotulo: string }[] = [
+  { chave: 'servico', rotulo: 'Serviço' },
+  { chave: 'dinheiro', rotulo: 'Dinheiro' },
+  { chave: 'historico', rotulo: 'Histórico' },
+];
+
 function WorkOrderDetail({ order }: { order: WorkOrder }) {
   const canWrite = useCan('work_orders:write');
   const canDiscount = useCan('work_orders:discount');
@@ -91,8 +107,11 @@ function WorkOrderDetail({ order }: { order: WorkOrder }) {
   const [editing, setEditing] = useState<WorkOrderItem | null>(null);
   const [removing, setRemoving] = useState<WorkOrderItem | null>(null);
   const [checkingIn, setCheckingIn] = useState(false);
+  const [aba, setAba] = useState<Aba>('servico');
+  const [consultando, setConsultando] = useState(false);
 
   const addItem = useAddItem(order.id);
+  const applyPackage = useApplyPackage(order.id);
   const removeItem = useRemoveItem(order.id);
   const editable = order.status !== 'DELIVERED' && order.status !== 'CANCELED';
 
@@ -119,6 +138,10 @@ function WorkOrderDetail({ order }: { order: WorkOrder }) {
 
       {/* a OS entregue não é mais editável, mas ainda tem uma ação: pedir a
           avaliação (E16). Por isso a barra aparece também aqui */}
+      {/* onde a OS está e o que falta: antes dos botões, porque é o que decide
+          qual deles apertar (E33) */}
+      <WorkOrderProgress order={order} />
+
       {canWrite && (editable || order.status === 'DELIVERED') && (
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <StatusActions order={order} />
@@ -131,8 +154,35 @@ function WorkOrderDetail({ order }: { order: WorkOrder }) {
         </div>
       )}
 
+      <nav aria-label="Seções da OS" className="mb-5 flex gap-1 overflow-x-auto border-b border-border">
+        {ABAS.map((item) => (
+          <button
+            key={item.chave}
+            type="button"
+            aria-current={aba === item.chave ? 'page' : undefined}
+            onClick={() => setAba(item.chave)}
+            className={cn(
+              '-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors',
+              aba === item.chave
+                ? 'border-accent text-foreground dark:border-accent-bright'
+                : 'border-transparent text-muted hover:text-foreground',
+            )}
+          >
+            {item.rotulo}
+            {item.chave === 'dinheiro' && order.paymentStatus !== 'PAID' && order.totals.totalCents > 0 && (
+              /* decorativo: um ponto de 6px não é affordance para ninguém, é um
+                 empurrão visual. Quem usa leitor de tela recebe a mesma
+                 informação na etiqueta de pagamento, no topo da OS — e um
+                 aria-label aqui mudaria o NOME do botão para "Dinheiro há
+                 saldo em aberto", quebrando quem procura a aba pelo nome */
+              <span className="size-1.5 rounded-full bg-warning" aria-hidden="true" />
+            )}
+          </button>
+        ))}
+      </nav>
+
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        <div className="space-y-6">
+        <div className={cn('space-y-6', aba !== 'servico' && 'hidden')}>
           <Card>
             <CardHeader
               title="Itens"
@@ -155,7 +205,17 @@ function WorkOrderDetail({ order }: { order: WorkOrder }) {
               <ul className="divide-y divide-border">
                 {/* a coluna de ações cabe DOIS botões de 2rem: com menos, eles sobem no preço */}
                 {order.items.map((item) => (
-                  <li key={item.id} className="grid gap-x-4 gap-y-1 px-5 py-3 sm:grid-cols-[minmax(0,1fr)_7rem_7rem_4.5rem] sm:items-center">
+                  <li
+                    key={item.id}
+                    className={cn(
+                      'grid gap-x-4 gap-y-1 px-5 py-3 sm:items-center',
+                      // editável, a coluna do meio carrega DOIS campos e o "×":
+                      // com 7rem eles espremem até o número sumir
+                      canWrite && editable
+                        ? 'sm:grid-cols-[minmax(0,1fr)_12rem_6rem_4.5rem]'
+                        : 'sm:grid-cols-[minmax(0,1fr)_7rem_7rem_4.5rem]',
+                    )}
+                  >
                     <span className="min-w-0">
                       <span className="flex flex-wrap items-center gap-2">
                         <span className="truncate text-sm font-medium">{item.description}</span>
@@ -175,9 +235,13 @@ function WorkOrderDetail({ order }: { order: WorkOrder }) {
                       {/* cronômetro do serviço (E15): quem executa aperta aqui */}
                       <ItemTimer order={order} item={item} />
                     </span>
-                    <span className="text-sm text-muted tabular">
-                      {formatQuantity(Math.round(item.quantity * 1000))} × {formatBRL(item.unitPriceCents)}
-                    </span>
+                    {canWrite && editable ? (
+                      <PrecoDaLinha order={order} item={item} />
+                    ) : (
+                      <span className="text-sm text-muted tabular">
+                        {formatQuantity(Math.round(item.quantity * 1000))} × {formatBRL(item.unitPriceCents)}
+                      </span>
+                    )}
                     <span className="text-sm font-medium tabular sm:text-right">{formatBRL(item.totalCents)}</span>
                     {canWrite && editable && (
                       <span className="flex justify-end gap-0.5">
@@ -197,18 +261,25 @@ function WorkOrderDetail({ order }: { order: WorkOrder }) {
           </Card>
 
           <DetailsCard order={order} canWrite={canWrite && editable} />
-          <TimelineCard order={order} canWrite={canWrite} />
         </div>
 
-        {/* no celular esta coluna vira o primeiro bloco: o orçamento é a ação do
-            dia e não pode ficar embaixo de itens, relato e timeline */}
-        <div className="order-first space-y-6 lg:order-none">
-          {/* o orçamento é o que o produto inteiro existe para servir: vem primeiro */}
-          <QuoteCard order={order} quoteId={order.currentQuote?.id ?? null} />
-          <PaymentCard order={order} />
-          <ChargeCard order={order} />
-          <InvoiceCard order={order} />
-          <Card>
+        {/* No celular esta coluna vem primeiro: quem está com o carro e o
+            orçamento são as perguntas do dia, e não podem ficar embaixo de
+            itens e relato. No computador ela volta para o lado. */}
+        <div className={cn('order-first space-y-6 lg:order-none', aba === 'historico' && 'hidden')}>
+          {/* Orçar NÃO é dinheiro: é o meio do fluxo do serviço — lançar itens,
+              mandar o orçamento, executar. Ele morou uma versão na aba do
+              dinheiro e sumiu da vista de quem abria a OS para orçar (D67). */}
+          <div className={cn('space-y-6', aba !== 'servico' && 'hidden')}>
+            <QuoteCard order={order} quoteId={order.currentQuote?.id ?? null} />
+            <MechanicCard order={order} canWrite={canWrite} editable={editable} />
+          </div>
+          <div className={cn('space-y-6', aba !== 'dinheiro' && 'hidden')}>
+            <PaymentCard order={order} />
+            <ChargeCard order={order} />
+            <InvoiceCard order={order} />
+          </div>
+          <Card className={cn(aba !== 'servico' && 'hidden')}>
             <CardHeader title="Cliente e veículo" />
             <dl className="px-5 py-3">
               <Info label="Cliente">
@@ -226,20 +297,45 @@ function WorkOrderDetail({ order }: { order: WorkOrder }) {
               </Info>
               <Info label="Km na entrada">{order.odometerKm ? `${order.odometerKm.toLocaleString('pt-BR')} km` : null}</Info>
               <Info label="Previsão">{order.promisedAt ? formatDateTime(order.promisedAt) : null}</Info>
-              <Info label="Mecânico">{order.mechanic?.name}</Info>
             </dl>
+            {/* a mesma pergunta de bancada, sem sair da OS: abre já com o carro
+                desta OS escrito, e dá para apagar e procurar outro (E37) */}
+            <div className="border-t border-border px-5 py-3">
+              <Button variant="secondary" className="w-full" onClick={() => setConsultando(true)}>
+                <Car />
+                Consultar ficha do carro
+              </Button>
+            </div>
           </Card>
+        </div>
+
+        <div className={cn('space-y-6 lg:col-span-2', aba !== 'historico' && 'hidden')}>
+          <TimelineCard order={order} canWrite={canWrite} />
           <InspectionsCard order={order} />
         </div>
       </div>
 
+      <ConsultaDoCarroDialog
+        aberto={consultando}
+        onFechar={() => setConsultando(false)}
+        sugestao={`${order.vehicle.make} ${order.vehicle.model}`}
+      />
+
       <ItemPicker
         open={picking}
         onOpenChange={setPicking}
-        busy={addItem.isPending}
+        busy={addItem.isPending || applyPackage.isPending}
         onPick={async (input) => {
           try {
             await addItem.mutateAsync(input);
+          } catch (err) {
+            toast.error(errorMessage(err));
+          }
+        }}
+        onPickPackage={async (pacote) => {
+          try {
+            await applyPackage.mutateAsync(pacote.id);
+            toast.success(`${pacote.name} entrou na OS.`);
           } catch (err) {
             toast.error(errorMessage(err));
           }
@@ -264,6 +360,77 @@ function WorkOrderDetail({ order }: { order: WorkOrder }) {
         }}
       />
     </>
+  );
+}
+
+/**
+ * Quantidade e preço direto na linha (E30).
+ *
+ * Antes qualquer ajuste de valor passava por um diálogo. Mas mudar o preço de
+ * um item é o gesto mais comum da OS — o cliente pechincha, a peça veio mais
+ * cara — e abrir janela para isso trava o atendimento no balcão.
+ *
+ * Só grava no `blur`, e só se mudou: salvar a cada tecla mandaria uma
+ * requisição por dígito e brigaria com o lock otimista da OS.
+ */
+function PrecoDaLinha({ order, item }: { order: WorkOrder; item: WorkOrderItem }) {
+  const update = useUpdateItem(order.id);
+  const [quantidade, setQuantidade] = useState(() => formatQuantity(Math.round(item.quantity * 1000)));
+  const [preco, setPreco] = useState(() => formatBRLInput(item.unitPriceCents));
+
+  // a OS mudou por fora (outra pessoa, outro aparelho): a linha acompanha
+  const [espelho, setEspelho] = useState({ q: item.quantity, p: item.unitPriceCents });
+  if (espelho.q !== item.quantity || espelho.p !== item.unitPriceCents) {
+    setEspelho({ q: item.quantity, p: item.unitPriceCents });
+    setQuantidade(formatQuantity(Math.round(item.quantity * 1000)));
+    setPreco(formatBRLInput(item.unitPriceCents));
+  }
+
+  function desfazer() {
+    setQuantidade(formatQuantity(Math.round(item.quantity * 1000)));
+    setPreco(formatBRLInput(item.unitPriceCents));
+  }
+
+  async function gravar() {
+    const q = parseTypedQuantity(quantidade);
+    const p = parseBRL(preco || '0');
+    if (q === null || p === null) {
+      toast.error('Confira a quantidade e o preço.');
+      desfazer();
+      return;
+    }
+    if (q === item.quantity && p === item.unitPriceCents) return;
+    try {
+      await update.mutateAsync({ itemId: item.id, quantity: q, unitPriceCents: p });
+    } catch (err) {
+      toast.error(errorMessage(err));
+      desfazer();
+    }
+  }
+
+  return (
+    <span className="flex items-center gap-1 text-sm text-muted">
+      <Input
+        aria-label={`Quantidade de ${item.description}`}
+        inputMode="decimal"
+        className="h-8 w-14 px-2 text-right tabular"
+        value={quantidade}
+        disabled={update.isPending}
+        onChange={(evento) => setQuantidade(evento.target.value)}
+        onBlur={() => void gravar()}
+      />
+      <span aria-hidden="true">×</span>
+      <AdornedInput
+        leading="R$"
+        aria-label={`Preço de ${item.description}`}
+        inputMode="decimal"
+        className="h-8 w-24 px-2 text-right tabular"
+        value={preco}
+        disabled={update.isPending}
+        onChange={(evento) => setPreco(evento.target.value)}
+        onBlur={() => void gravar()}
+      />
+    </span>
   );
 }
 
@@ -316,7 +483,7 @@ function TotalsFooter({ order, canDiscount }: { order: WorkOrder; canDiscount: b
         </div>
       )}
       {order.totals.surchargeCents > 0 && line('Acréscimo', order.totals.surchargeCents)}
-      {line('Total', order.totals.totalCents, true)}
+      {canDiscount ? <FecharTotal order={order} /> : line('Total', order.totals.totalCents, true)}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
@@ -431,6 +598,68 @@ function ItemEditDialog({ order, item, onClose }: { order: WorkOrder; item: Work
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * "Vai sair por oitocentos" (E30).
+ *
+ * No balcão a conversa termina num número redondo, não num percentual. Aqui a
+ * pessoa digita o total e o sistema faz a conta ao contrário: o que falta vira
+ * desconto, o que sobra vira acréscimo — e a linha acima diz qual foi, para
+ * ninguém descobrir depois que deu vinte por cento sem querer.
+ */
+function FecharTotal({ order }: { order: WorkOrder }) {
+  const update = useUpdateWorkOrder(order.id);
+  const [texto, setTexto] = useState(() => formatBRLInput(order.totals.totalCents));
+  const [espelho, setEspelho] = useState(order.totals.totalCents);
+
+  if (espelho !== order.totals.totalCents) {
+    setEspelho(order.totals.totalCents);
+    setTexto(formatBRLInput(order.totals.totalCents));
+  }
+
+  async function gravar() {
+    const alvo = parseBRL(texto || '0');
+    if (alvo === null || alvo < 0) {
+      toast.error('Valor inválido.');
+      setTexto(formatBRLInput(order.totals.totalCents));
+      return;
+    }
+    if (alvo === order.totals.totalCents) return;
+
+    // o subtotal é o que os itens somam; a diferença até o alvo é desconto ou
+    // acréscimo. Zera o outro lado, senão um resto antigo falseia a conta
+    const diferenca = order.totals.subtotalCents - alvo;
+    try {
+      await update.mutateAsync({
+        version: order.version,
+        ...(diferenca >= 0
+          ? { discountMode: diferenca > 0 ? 'AMOUNT' : null, discountValue: diferenca, surchargeCents: 0 }
+          : { discountMode: null, discountValue: 0, surchargeCents: -diferenca }),
+      });
+    } catch (err) {
+      toast.error(errorMessage(err));
+      setTexto(formatBRLInput(order.totals.totalCents));
+    }
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-4 pt-1">
+      <label htmlFor="os-total" className="text-base font-semibold">
+        Total
+      </label>
+      <AdornedInput
+        leading="R$"
+        id="os-total"
+        inputMode="decimal"
+        className="h-9 w-32 text-right text-base font-semibold tabular"
+        value={texto}
+        disabled={update.isPending}
+        onChange={(evento) => setTexto(evento.target.value)}
+        onBlur={() => void gravar()}
+      />
+    </div>
   );
 }
 
@@ -549,28 +778,68 @@ function TimelineCard({ order, canWrite }: { order: WorkOrder; canWrite: boolean
   );
 }
 
+/**
+ * Check-in na entrada e comprovante de entrega (E28) na mesma lista: as duas
+ * coisas respondem à mesma pergunta — como o carro estava quando trocou de mão.
+ */
 function InspectionsCard({ order }: { order: WorkOrder }) {
   const inspections = useInspections(order.id);
   if (!inspections.data?.length) return null;
+  const temEntrega = inspections.data.some((inspection) => inspection.type === 'CHECK_OUT');
   return (
     <Card>
-      <CardHeader title="Check-in" />
+      <CardHeader title={temEntrega ? 'Check-in e entrega' : 'Check-in'} />
       <ul className="divide-y divide-border">
         {inspections.data.map((inspection) => {
           const issues = inspection.checklist.filter((entry) => entry.state === 'ISSUE');
+          const entrega = inspection.type === 'CHECK_OUT';
           return (
             <li key={inspection.id} className="px-5 py-3 text-sm">
-              <p className="font-medium">{formatDateTime(inspection.performedAt)}</p>
+              <p className="flex items-center gap-2 font-medium">
+                {entrega && <Badge tone="success">Entrega</Badge>}
+                {formatDateTime(inspection.performedAt)}
+              </p>
               <p className="text-xs text-muted">
                 {[
                   inspection.odometerKm && `${inspection.odometerKm.toLocaleString('pt-BR')} km`,
-                  `${issues.length} ${issues.length === 1 ? 'ponto de atenção' : 'pontos de atenção'}`,
-                  inspection.damages.length ? `${inspection.damages.length} avaria(s)` : null,
+                  entrega
+                    ? inspection.signerName && `recebido por ${inspection.signerName}`
+                    : `${issues.length} ${issues.length === 1 ? 'ponto de atenção' : 'pontos de atenção'}`,
+                  !entrega && inspection.damages.length ? `${inspection.damages.length} avaria(s)` : null,
                   inspection.performedByName,
                 ]
                   .filter(Boolean)
                   .join(' · ')}
               </p>
+
+              {inspection.signature?.url && (
+                <figure className="mt-2">
+                  <img
+                    src={inspection.signature.url}
+                    alt={`Assinatura de ${inspection.signerName ?? 'quem recebeu o veículo'}`}
+                    className="h-20 rounded-md border border-border bg-white object-contain"
+                  />
+                  <figcaption className="mt-1 text-xs text-muted">
+                    Assinado em {formatDateTime(inspection.customerAcknowledgedAt ?? inspection.performedAt)}
+                  </figcaption>
+                </figure>
+              )}
+
+              {inspection.photos.length > 0 && (
+                <ul className="mt-2 flex flex-wrap gap-2">
+                  {inspection.photos.map((foto, indice) => (
+                    <li key={foto.id}>
+                      <a href={foto.url ?? undefined} target="_blank" rel="noopener noreferrer">
+                        <img
+                          src={foto.url ?? undefined}
+                          alt={`Foto ${indice + 1} do veículo na entrega`}
+                          className="size-16 rounded-md border border-border object-cover"
+                        />
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </li>
           );
         })}

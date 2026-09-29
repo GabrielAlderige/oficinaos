@@ -2,146 +2,107 @@
 
 Plataforma SaaS de gestão para oficinas mecânicas brasileiras de pequeno e médio
 porte. Clientes, veículos, agenda, ordens de serviço, orçamento digital com
-aprovação pelo celular, peças e estoque num fluxo só, em vez de WhatsApp, papel e
-planilha.
+aprovação pelo celular, peças, estoque, financeiro e nota fiscal num fluxo só —
+em vez de WhatsApp, papel e planilha.
 
 O diferencial inicial é um fluxo:
 
 **orçamento → link → cliente aprova pelo celular → a OS muda sozinha para aprovada.**
 
+---
+
 ## Status
 
-**MVP 1 concluído (E1 a E9). MVP 2 em andamento: E10 concluída.** Sobre a fundação da E1 (monorepo, banco com
-isolamento por oficina via RLS, API com erros padronizados e segurança básica),
-a E2 trouxe:
+**MVP 1, MVP 2 e V3 entregues: E1 a E38.** O sistema faz o dia inteiro de uma
+oficina — da placa na recepção ao dinheiro no caixa e à nota de serviço.
 
-- cadastro da oficina em 5 campos, com 14 dias de teste;
-- login com sessão rotativa e detecção de token roubado;
-- recuperação de senha, sessões por aparelho e troca de oficina;
-- convites com link para WhatsApp e papéis com permissões aplicadas pela API;
-- dados da oficina com horário de funcionamento;
-- painel com menu lateral, tema escuro e layout de celular.
+O que ainda **não** é real, e está rotulado como tal dentro do produto:
 
-A E3 trouxe clientes e veículos:
+| Área | Situação hoje |
+|---|---|
+| Nota fiscal de serviço | **Simulador**. Nada é enviado a prefeitura nenhuma, não se gera XML nem PDF. Toda tela carimba "simulação". Vira real quando o emissor for contratado |
+| Pagamento online (Pix/boleto/cartão por gateway) | **Simulador** por padrão. O driver do **Asaas** está escrito e testado em contrato, mas nunca foi exercitado contra a API real — falta a conta |
+| Assinatura do SaaS | Roda no mesmo simulador: nenhuma assinatura é criada em gateway nenhum |
+| Deploy em servidor | `Dockerfile`, `docker-compose.yml`, `Caddyfile`, backup e restore estão escritos e documentados, mas **os containers nunca foram construídos** — não há Docker na máquina de desenvolvimento |
+| Pesquisa de peças por provedor externo | Provider **falso**, desligado por padrão (`PARTS_SEARCH_MOCK`). Toda oferta dele vem marcada como demonstração |
 
-- cadastro com CPF/CNPJ (inclusive o CNPJ alfanumérico) e WhatsApp;
-- placa antiga e Mercosul tratadas como o mesmo carro, com aviso de placa
-  repetida enquanto se digita;
-- busca global (Ctrl+K) por placa, nome, telefone ou documento;
-- quilometragem com histórico de leituras e troca de dono registrada;
-- contato mascarado para o mecânico.
+O **Pix na hora** é exceção: é Pix de verdade, sem gateway. O BR Code é montado
+pelo padrão do Banco Central e conferido no teste **contra o exemplo oficial do
+manual do BCB, byte a byte**. A conciliação é manual, e a tela diz isso ao lado
+do QR Code.
 
-A E4 trouxe o catálogo e o estoque:
+---
 
-- serviços com preço fixo ou por hora técnica (valor da hora × tempo padrão) e
-  intervalo de manutenção ("a cada 10.000 km ou 12 meses");
-- peças com código do fabricante, categoria e em que carro servem, com busca por
-  palavra: "pastilha gol 2012" acha a peça pela aplicação;
-- entrada e ajuste de contagem com **custo médio móvel** e livro-razão imutável
-  (correção é movimento novo, nunca edição de lançamento);
-- estoque mínimo com alerta no início do painel, e custo escondido de quem não
-  tem permissão para ver custo;
-- hora técnica e margem padrão em Configurações › Preços e estoque.
+## O que o sistema faz
 
-A E5 trouxe a ordem de serviço:
+**Recepção e carro.** Cliente com CPF/CNPJ (inclusive o CNPJ alfanumérico),
+placa antiga e Mercosul tratadas como o mesmo carro, busca global por placa,
+nome, telefone ou documento (Ctrl+K), quilometragem com histórico e troca de
+dono registrada.
 
-- **Nova OS numa tela só**: acha o cliente (ou cadastra ali), escolhe o carro em
-  cartões, relato e km, itens do catálogo — e abre;
-- itens com **total ao vivo**: a API recalcula tudo pelo `pricing.ts` e ignora
-  qualquer total enviado pela tela;
-- desconto em R$ ou %, com **limite por papel** (o atendente para no limite da
-  oficina; o gerente não tem limite);
-- **máquina de status** com ações explícitas por permissão, timeline de tudo o
-  que aconteceu com o carro, e `version` para duas pessoas editando a mesma OS;
-- **check-in** com checklist, combustível, km, avarias, acessórios e **fotos
-  comprimidas no aparelho**, guardadas com URL assinada de validade curta;
-- **página de impressão** da OS, com assinatura do cliente.
+**Ordem de serviço.** Nova OS numa tela só a partir da placa. A OS tem três abas
+(Serviço · Dinheiro · Histórico), trilha de quatro degraus dizendo qual é o
+próximo passo, total ao vivo recalculado pela API, desconto com limite por
+papel, total digitável (a diferença vira desconto ou acréscimo), mecânico
+escolhido na própria OS, check-in com checklist e fotos comprimidas no aparelho,
+e check-out com assinatura na tela. A OS aberta se atualiza sozinha a cada 5 s,
+porque mecânico e atendente mexem nela ao mesmo tempo.
 
-A E6 trouxe o orçamento com link e aprovação pelo celular — o diferencial do
-produto:
+**Orçamento com aprovação pelo celular.** Enviar congela uma cópia imutável dos
+itens com `contentHash`; o cliente abre um link público sem login e vê
+necessários × recomendados com foto por item; pode aprovar só o necessário. Cada
+aprovação vira uma linha imutável com quem autorizou, quando, por qual canal, o
+IP e o hash da versão. Aprovar duas vezes devolve a mesma resposta; aprovar
+versão substituída ou vencida é recusado. A aprovação reserva o estoque.
 
-- **orçamento congelado**: enviar tira uma cópia imutável dos itens e guarda um
-  `contentHash`; o que o cliente vê não muda mais, e mexer na OS gera versão nova;
-- **link público** com token de 32 bytes: o cliente abre no celular, sem login, e
-  vê necessários × recomendados, fotos por item e o total;
-- **aprovação parcial**: dá para desmarcar o recomendado e aprovar só o
-  necessário — o item obrigatório não pode ser desmarcado;
-- **a prova**: uma linha imutável por orçamento com quem autorizou, quando, por
-  qual canal, o IP e o hash da versão aprovada. Aprovar duas vezes devolve a
-  mesma resposta; aprovar uma versão já substituída ou vencida é recusado;
-- **reserva de estoque na aprovação**, sem travar o cliente quando falta peça:
-  reserva o que há e sinaliza o que falta;
-- **aprovação manual** (telefone ou balcão) com o mesmo peso do link, mudando só
-  a prova: fica registrado quem da equipe anotou;
-- **o link antigo leva à versão nova**, sem o cliente pedir nada;
-- **sino de avisos** no painel e **lista de orçamentos** por situação, mostrando
-  quem abriu e quem ainda não respondeu;
-- página do cliente em **pacote próprio de 73,6 kB gzip** (teto de 100 kB),
-  sem o Zod do painel.
+**Execução, entrega e caixa.** Baixa de estoque na finalização (append-only, sem
+tirar peça duas vezes), pagamento por forma com cancelamento que reabre o saldo
+sem apagar histórico, entrega devendo permitida mas confirmada, "veículo pronto"
+pelo WhatsApp, comissão do mecânico em três níveis (serviço, mecânico, oficina)
+que é ganha **conforme o cliente paga**.
 
-A E7 fechou o ciclo do carro — execução, entrega e dinheiro:
+**Compra da peça.** Fornecedores, cotação por link que o fornecedor responde sem
+login (sem ver placa, cliente nem o preço do concorrente), comparação lado a
+lado, pedido, recebimento total ou parcial com frete rateado no custo médio, e
+devolução que corrige sem editar lançamento.
 
-- **baixa de estoque na finalização**: a reserva vira saída no livro-razão, o
-  item fica "baixado" e finalizar de novo (depois de reabrir) não tira a peça
-  duas vezes;
-- **faltar peça não trava a entrega**: o saldo fica negativo e registrado, em vez
-  de impedir o dono de fechar a OS — travar aqui faria a oficina trabalhar por
-  fora do sistema;
-- só sai do estoque o que foi **aprovado** e é **da prateleira**: peça do cliente
-  e peça a comprar não mexem no saldo;
-- **pagamento**: registro por forma (Pix, dinheiro, cartão, boleto,
-  transferência), parcial ou total, com cancelamento que **reabre o saldo e
-  mantém o histórico** — nada é apagado. `paid_cents` e a situação da OS saem
-  sempre da soma dos lançamentos confirmados, nunca de um valor vindo da tela;
-- receber **acima do saldo é recusado** (crédito a favor do cliente é MVP 2);
-- **entregar devendo é permitido** (o fiado existe), mas pede confirmação
-  mostrando quanto falta;
-- **"veículo pronto" pelo WhatsApp**: mensagem pronta com o saldo em aberto, que
-  a pessoa revisa e envia, registrada no histórico de comunicação e na timeline
-  do carro;
-- correção que veio junto: o link `wa.me` era montado com o telefone já em E.164
-  mais um "55" na frente (link que não abria), e o do orçamento apontava para o
-  número **da própria oficina** em vez do cliente.
+**Dinheiro.** Contas a receber e a pagar, baixa, parcelamento, fluxo de caixa,
+lucro estimado, dez relatórios com exportação CSV que abre e **soma** no Excel em
+português, e nota fiscal de serviço a partir da OS finalizada.
 
-A E8 trouxe a agenda:
+**Ficha do carro.** Digita o carro e vê óleo, fluidos, pneu e torque de roda —
+com a **fonte** de cada valor (manual do fabricante, ano e página). Está no menu
+sem exigir permissão, porque o mecânico usa tanto quanto o dono, e também abre
+**de dentro da OS**, já com o carro daquele serviço escrito na busca.
 
-- **dia com uma coluna por mecânico**, semana com uma coluna por dia e mês em
-  lista, com a cor de cada pessoa nos blocos;
-- **arrastar e soltar** para remarcar, encaixando de 15 em 15 minutos; soltar em
-  outra coluna troca o dia ou o mecânico;
-- **conflito avisa, não impede**: a API devolve quem colide e a tela pergunta
-  "agendar mesmo assim?" — oficina de verdade encaixa cliente, e travar faria a
-  oficina marcar por fora do sistema;
-- **check-in a partir do agendamento abre a OS** na mesma transação, com o
-  veículo escolhido na hora quando o compromisso foi marcado sem carro, e leva
-  para a ficha da OS fazer a vistoria com fotos;
-- **confirmação pelo WhatsApp**, com a mensagem pronta e o envio registrado;
-- o **fuso é o da oficina**, não o do navegador: a grade é desenhada com
-  `Intl.DateTimeFormat` sobre o fuso de `organizations`, e há teste com o
-  navegador do outro lado da linha de data. Por isso a agenda é componente
-  próprio, e não o react-big-calendar previsto na D20 (que desenha no relógio do
-  aparelho e traria seis bibliotecas de data junto).
+> **292 fichas publicadas, 1.905 especificações, 10 marcas** — Toyota, Fiat,
+> Chevrolet, Honda, Volkswagen, Renault, Nissan, Hyundai, Kia e Jeep. Cada valor
+> carrega manual, ano e página. Sem fonte, a oficina lê "Sem fonte — confirme
+> antes de aplicar".
 
-A E9 fechou o MVP 1 com o painel de Início:
+**No celular.** O sistema instala como aplicativo (PWA) e o mecânico tem a tela
+dele — "Minhas OS", com cronômetro no topo e um botão por carro. Nenhum dado da
+oficina vai para o cache.
 
-- **faturado e recebido são contas separadas**: faturado é o serviço entregue no
-  período, recebido é o dinheiro que entrou. Com fiado os dois nunca batem, e
-  juntar num número só esconderia o problema;
-- quem não tem permissão de ver dinheiro recebe **`null`, nunca zero** — zero
-  faria o mecânico ler "faturamento R$ 0,00" e achar que a oficina não vendeu;
-- **Atenção necessária**: orçamento parado, orçamento que o cliente **nem
-  abriu** em 24 h, previsão de entrega vencida, pronto e não entregue há 2 dias,
-  entregue devendo, peça abaixo do mínimo e agendamento de hoje sem confirmação
-  — cada item com o caminho para resolver. É aqui que o estoque negativo da E7
-  finalmente aparece para a oficina;
-- **gráficos** de faturamento, OS finalizadas, ticket médio, taxa de aprovação e
-  novos clientes, desenhados sem biblioteca (~1 kB) e com os mesmos valores numa
-  tabela para leitor de tela;
-- **checklist de configuração** que some sozinho quando termina;
-- **oficina de demonstração** (`npm run db:seed:demo`) e **auditoria de
-  acessibilidade** com axe-core no e2e, sobre o painel cheio.
+**WhatsApp.** Sempre pelos canais oficiais. Sem conectar nada, a mensagem sai
+pelo `wa.me` com o texto pronto para revisar. Conectando a WhatsApp Business
+Platform **com a credencial da própria oficina**, a conversa acontece dentro do
+sistema, com a janela de 24 h explicada na tela. Nenhuma biblioteca não oficial,
+em nenhum ponto. Pós-venda nunca sai sozinho: o modelo aparece escrito e espera
+o botão.
 
-| Etapa do MVP 1 | Situação |
+**Automações.** Quatro rotinas diárias (fila de pós-venda, lembrete de
+agendamento, orçamento sem resposta e resumo do dia por e-mail), cada oficina na
+hora dela, com tela para ligar, desligar e rodar agora. Nenhuma delas manda
+mensagem para o cliente — ela deixa pronto.
+
+---
+
+## Etapas entregues
+
+### MVP 1 — a oficina trabalha dentro do sistema
+
+| Etapa | Situação |
 |---|---|
 | E1. Fundação (monorepo, banco com RLS, API base) | ✅ 10/09/2026 |
 | E2. Contas e equipe | ✅ 11/09/2026 |
@@ -153,57 +114,114 @@ A E9 fechou o MVP 1 com o painel de Início:
 | E8. Agenda | ✅ 13/09/2026 |
 | E9. Dashboard e acabamento | ✅ 13/09/2026 |
 
-| Etapa do MVP 2 | Situação |
+### MVP 2 — comprar melhor e fechar o caixa
+
+| Etapa | Situação |
 |---|---|
 | E10. Fornecedores | ✅ 14/09/2026 |
-| E11. Cotação por link com fornecedores | próxima |
-| E12. Compras | — |
-| E13. Financeiro | — |
+| E11. Cotação por link com fornecedores | ✅ 14/09/2026 |
+| E12. Compras | ✅ 14/09/2026 |
+| E13. Financeiro | ✅ 18/09/2026 |
+| E14. Pesquisa de peças e melhor preço | ✅ 18/09/2026 |
+| E15. Relatórios e produtividade | ✅ 18/09/2026 |
+| E16. Pós-venda, avaliações e CRM | ✅ 18/09/2026 |
+| E17. Landing, importação de CSV e acompanhamento | ✅ 19/09/2026 |
 
-A E10 abriu a cadeia da peça com o cadastro de fornecedores:
+### V3 — integrações, escala e uso real
 
-- **só o nome é obrigatório** — o "Zé da distribuidora" com um WhatsApp também é
-  fornecedor, e travar por CNPJ faria a oficina continuar no caderno;
-- **categorias como etiquetas**, sugeridas a partir das categorias de peça, e
-  **filtro por categoria** na lista: "quem vende freio?";
-- **prazo médio de entrega e nota de 1 a 5**, que a cotação por link vai usar
-  para apontar o mais rápido;
-- busca por nome, vendedor, CNPJ ou pedaço do telefone;
-- **fornecedor preferido na peça**, e a ficha do fornecedor mostrando o que a
-  oficina compra dele;
-- tirar da lista **não quebra nada**: o histórico fica, as peças ficam sem
-  preferido e o CNPJ volta a poder ser cadastrado;
-- dono, admin e gerente cadastram; atendente e financeiro consultam; o mecânico
-  não vê fornecedor.
+| Etapa | Situação |
+|---|---|
+| E18. Nota fiscal de serviço | ✅ 20/09/2026 |
+| E19. Pagamentos online | ✅ 20/09/2026 |
+| E20. Assinatura do SaaS | ✅ 21/09/2026 |
+| E21. Jobs e automações diárias | ✅ 21/09/2026 |
+| E22. WhatsApp oficial e conversa no sistema | ✅ 24/09/2026 |
+| E23. Enxugar o painel | ✅ 25/09/2026 |
+| E24. O aplicativo no celular (PWA) | ✅ 25/09/2026 |
+| E25. O painel que se lê de relance | ✅ 26/09/2026 |
+| E26. Comissão do mecânico | ✅ 26/09/2026 |
+| E27. Pacotes de serviço | ✅ 27/09/2026 |
+| E28. Assinatura e foto na entrega | ✅ 27/09/2026 |
+| E29. Confirmação de e-mail no cadastro | ✅ 27/09/2026 |
+| E30. A OS que se usa no balcão | ✅ 27/09/2026 |
+| E31. Ficha do carro | ✅ 27/09/2026 |
+| E32. Pix na hora (BR Code do BCB) | ✅ 27/09/2026 |
+| E33. Terminar a OS sem adivinhar | ✅ 27/09/2026 |
+| E34. Etapa nenhuma fica presa | ✅ 28/09/2026 |
+| E35. A ficha diz de onde veio | ✅ 28/09/2026 |
+| E36. Ficha do carro tem aba própria | ✅ 28/09/2026 |
+| E37. Consultar a ficha de dentro da OS | ✅ 28/09/2026 |
+| E38. Planos Turbo, Supercharger e Nitro | ✅ 28/09/2026 |
+
+O detalhe de cada etapa, com o critério de pronto e o que ficou de fora, está em
+[docs/ROADMAP.md](docs/ROADMAP.md). As decisões técnicas e de produto (D1 a D71),
+com a alternativa descartada e o porquê, estão em
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+---
+
+## Planos
+
+Três estágios de preparação de motor, porque quem compra é dono de oficina e a
+ordem se explica sozinha. O anual é 10 meses pelo preço de 12.
+
+| Plano | Mensal | Anual | Para quem |
+|---|---|---|---|
+| **Turbo** | R$ 149 | R$ 1.490 | Até 3 usuários e 150 OS/mês. Orçamento, agenda, estoque, ficha do carro, Pix e o app no celular |
+| **Supercharger** | R$ 279 | R$ 2.790 | Até 8 usuários, OS ilimitada. Tudo do Turbo + fornecedores, compras, financeiro, relatórios, comissão, pacotes e assinatura na entrega |
+| **Nitro** | R$ 499 | R$ 4.990 | Usuários ilimitados. Tudo do Supercharger + automações, WhatsApp oficial, multi-filial, papéis personalizados e API pública |
+
+O teste é de 14 dias no Supercharger, sem cartão. O preço saiu de uma conta de
+custo real por oficina (**R$ 55 com 20 oficinas, R$ 17 com 100**) — a margem não
+é o gargalo em escala nenhuma; o gargalo é custo de aquisição e churn. A conta
+inteira está na decisão **D71** do ARCHITECTURE.
+
+---
+
+## Como isso é verificado
 
 Toda etapa só fecha com `npm run check` verde. Além disso:
-- as proteções principais são quebradas de propósito, para provar que os
-  testes pegam a falha;
-- o fluxo é conferido num navegador (claro, escuro e celular).
 
-| Documento | Conteúdo |
+- as proteções principais são **quebradas de propósito**, para provar que o
+  teste pega a falha — se a mutação passa, o teste não cobre nada;
+- o fluxo é conferido **num navegador de verdade**, em claro, escuro e celular
+  de 390 px;
+- os fluxos de ponta a ponta rodam no Playwright, com **auditoria de
+  acessibilidade** (axe-core, WCAG 2.1 AA) sobre o painel **cheio de dados** —
+  tela vazia passa fácil e não prova nada.
+
+| Camada | Números |
 |---|---|
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Decisões técnicas, pastas, multi-tenant, autenticação, permissões, fluxos, regras de orçamento e estoque, segurança, riscos |
-| [docs/DATABASE.md](docs/DATABASE.md) | Convenções, isolamento por RLS, ERD, tabelas, índices, seeds |
-| [docs/API.md](docs/API.md) | Convenções REST, erros, rate limits, endpoints por fase |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | Etapas do MVP 1 com critério de pronto, MVP 2, V3, integrações, planos |
+| Testes de unidade e de API | **853 testes em 80 arquivos**, verdes, contra um Postgres de teste recriado a cada execução |
+| Ponta a ponta | 24 cenários Playwright, do painel no desktop ao cliente aprovando num celular |
+| Banco | 62 migrations aplicadas em ordem, com isolamento por oficina (RLS forçado) |
+
+---
 
 ## Stack
 
 | Camada | Tecnologia |
 |---|---|
 | Front-end | React 19, TypeScript, Vite, Tailwind CSS v4, React Router, TanStack Query, React Hook Form, Radix UI (componentes próprios no estilo shadcn) |
-| Back-end | Node.js, TypeScript, Fastify 5, Zod 4, Drizzle ORM, argon2id, JWT (jose) |
-| Banco | PostgreSQL 17 com Row Level Security |
-| Compartilhado | `packages/shared`: schemas Zod, enums, permissões, validação de CPF/CNPJ/placa/telefone, usados por front e back |
-| Testes | Vitest com Postgres real de teste (34 arquivos, 302 testes) e Playwright em `e2e/` para os fluxos de ponta a ponta: o cliente aprovando num celular de 390 px, e no painel o envio do orçamento, o caixa e a entrega |
+| Back-end | Node.js, TypeScript, Fastify 5, Zod 4, Drizzle ORM, argon2id, JWT (jose), pg-boss |
+| Banco | PostgreSQL 17 com Row Level Security forçado por oficina |
+| Compartilhado | `packages/shared`: schemas Zod, enums, permissões, cálculo de preço, BR Code do Pix, validação de CPF/CNPJ/placa/telefone — usados por front e back |
+| Landing | Astro (HTML estático) |
+| Testes | Vitest com Postgres real + Playwright |
+
+Sem biblioteca de calendário (a agenda é componente próprio, porque as prontas
+desenham no relógio do aparelho e não no fuso da oficina) e sem biblioteca de
+gráfico (os do painel são SVG próprio, ~1 kB).
+
+---
 
 ## Rodando localmente (Windows, macOS ou Linux)
 
 ### Pré-requisitos
 
 - **Node.js 22.12+** (desenvolvido com o 24)
-- **PostgreSQL 17** rodando em `localhost:5432`, com a senha do superusuário `postgres` à mão
+- **PostgreSQL 17** rodando em `localhost:5432`, com a senha do superusuário
+  `postgres` à mão
 
 ### Primeira vez
 
@@ -214,9 +232,11 @@ cp .env.example .env        # no PowerShell: Copy-Item .env.example .env
 
 No `.env`, preencha:
 
-- `DATABASE_ADMIN_URL` com a senha do superusuário do Postgres. Ela é usada **só** pelo `db:setup`.
-- As senhas das roles `oficinaos_app` e `oficinaos_owner`. Invente senhas fortes; o
-  `db:setup` cria as roles com elas. A mesma senha se repete nas URLs de dev e de teste.
+- `DATABASE_ADMIN_URL` com a senha do superusuário do Postgres. Ela é usada
+  **só** pelo `db:setup`.
+- As senhas das roles `oficinaos_app` e `oficinaos_owner`. Invente senhas
+  fortes; o `db:setup` cria as roles com elas. A mesma senha se repete nas URLs
+  de dev e de teste.
 - `JWT_SECRET`: pelo menos 32 caracteres aleatórios.
 
 ```bash
@@ -224,7 +244,7 @@ npm run db:setup            # roles, bancos oficinaos_dev e oficinaos_test, exte
 npm run db:migrate          # tabelas + isolamento por oficina (RLS)
 ```
 
-### Oficina de demonstração (opcional, mas recomendado)
+### Oficina de demonstração (recomendado)
 
 ```bash
 npm run db:seed:demo        # cria a "Oficina Demonstração" com um mês de movimento
@@ -235,12 +255,13 @@ senha (`admin@`, `manager@`, `mechanic@`, `attendant@`, `finance@oficinaos.dev`)
 o que serve para ver o painel com os olhos de cada papel — o mecânico, por
 exemplo, não enxerga valor nenhum.
 
-São 10 clientes, 15 veículos, 5 fornecedores ligados às peças, 20 ordens de serviço em todos os status,
-orçamentos aprovados, recusados e parados, pagamentos, agendamentos e estoque.
-Tudo é criado **pela própria API**, então passa pelas mesmas regras da tela; só
-as datas são espalhadas pelos últimos 30 dias depois, senão o painel mostraria
-tudo num dia só. Os dados são **obviamente fictícios** (CPF e CNPJ da faixa
-`9000…`, telefones `(11) 90000-00xx`, e-mails `@exemplo.invalido`).
+São 10 clientes, 15 veículos, 5 fornecedores ligados às peças, 20 ordens de
+serviço em todos os status, orçamentos aprovados, recusados e parados,
+pagamentos, agendamentos e estoque. Tudo é criado **pela própria API**, então
+passa pelas mesmas regras da tela; só as datas são espalhadas pelos últimos 30
+dias depois, senão o painel mostraria tudo num dia só. Os dados são
+**obviamente fictícios** (CPF e CNPJ da faixa `9000…`, telefones
+`(11) 90000-00xx`, e-mails `@exemplo.invalido`).
 
 ```bash
 npm run db:seed:demo -- --reset          # apaga a oficina de demonstração
@@ -253,9 +274,9 @@ npm run db:seed:demo -- --reset --seed   # apaga e cria de novo, do zero
 npm run dev                 # API em http://127.0.0.1:3333 e painel em http://localhost:5173
 ```
 
-Ainda não há envio real de e-mail: com `EMAIL_DRIVER=console`, o link de
-redefinição de senha e o de convite **aparecem no terminal da API**. O link de
-convite também aparece na tela, pronto para mandar pelo WhatsApp.
+Com `EMAIL_DRIVER=console`, o link de redefinição de senha, o de convite e o de
+confirmação de e-mail **aparecem no terminal da API**. O link de convite também
+aparece na tela, pronto para mandar pelo WhatsApp.
 
 ### Verificação completa
 
@@ -263,10 +284,10 @@ convite também aparece na tela, pronto para mandar pelo WhatsApp.
 npm run check               # typecheck + lint + testes + build
 ```
 
-Os testes da API rodam contra o banco **`oficinaos_test`**, que é **recriado a
-partir das migrations** a cada execução. Isso prova que as migrations sobem do
-zero. O banco de desenvolvimento nunca é tocado. Os testes rodam com o log da
-API silencioso; `TEST_LOG_LEVEL=error npm run test` mostra os erros.
+Os testes da API rodam contra o banco **`oficinaos_test`**, **recriado a partir
+das migrations** a cada execução — o que prova que elas sobem do zero. O banco
+de desenvolvimento nunca é tocado. Para ver os erros da API durante os testes:
+`TEST_LOG_LEVEL=error npm run test`.
 
 Os fluxos de ponta a ponta ficam **fora** do `check`, porque precisam de
 navegador e do servidor no ar:
@@ -276,15 +297,12 @@ npm run e2e                 # Playwright: painel e celular do cliente, ponta a p
 npm run e2e:ui              # o mesmo, com a interface do Playwright para depurar
 ```
 
-Os cenários cobrem o orçamento aprovado pelo celular, o pagamento, a entrega, a
-agenda (inclusive com o navegador em outro fuso) e o painel de Início. Um deles
-é uma **auditoria de acessibilidade** com o axe-core sobre as telas do dia a
-dia, com o painel cheio de dados — tela vazia passa fácil e não prova nada.
-
 Se não houver `npm run dev` no ar, o Playwright sobe um. Ele usa o banco de
 **desenvolvimento**, e cada cenário cria a própria oficina, com e-mail e placa
 únicos — rodar de novo não suja a execução anterior. As capturas de conferência
 ficam em `e2e/screenshots/`, fora do git.
+
+---
 
 ## Comandos
 
@@ -297,16 +315,19 @@ ficam em `e2e/screenshots/`, fora do git.
 | `npm run test` | Vitest: `packages/shared` + `apps/api` (com banco de teste) |
 | `npm run check` | Tudo acima, em sequência |
 | `npm run dev:landing` | Só a landing (Astro), em http://localhost:4321 |
-| `npm run e2e` | Playwright: fluxo do painel e fluxo do cliente, ponta a ponta (fora do `check`) |
+| `npm run e2e` | Playwright: fluxo do painel e fluxo do cliente (fora do `check`) |
+| `npm run pwa:check` | Confere manifesto, ícones e service worker no build de produção |
 | `npm run db:setup` | Prepara o Postgres local (idempotente; roda de novo para trocar senhas) |
 | `npm run db:generate` | Gera a migration SQL a partir de mudanças no schema Drizzle |
 | `npm run db:migrate` | Aplica as migrations no banco de dev (`-- --test` para o de teste) |
 | `npm run db:seed:demo` | Cria a oficina de demonstração (`-- --reset` apaga, `-- --reset --seed` recria) |
 
+---
+
 ## Publicar
 
 Um servidor, três containers (Postgres, API e Caddy) e um domínio. O passo a
-passo completo — servidor, DNS, segredos, backup e como voltar atrás — está em
+passo — servidor, DNS, segredos, backup e como voltar atrás — está em
 **[docs/DEPLOY.md](docs/DEPLOY.md)**.
 
 ```sh
@@ -317,6 +338,13 @@ docker compose --profile ferramentas run --rm migrate
 docker compose up -d
 ```
 
+O que foi testado aqui: build de produção dos três apps, `dist/migrate.js`
+aplicando as migrations e `dist/server.js` em `NODE_ENV=production` respondendo
+`/health`, `/ready` e um cadastro completo. **Os containers ainda não foram
+construídos** — não há Docker nesta máquina, e isso está dito no topo do guia.
+
+---
+
 ## Variáveis de ambiente
 
 | Variável | Uso |
@@ -325,7 +353,7 @@ docker compose up -d
 | `LOG_LEVEL` | Nível do log da API (`info` por padrão) |
 | `API_HOST` / `API_PORT` | Onde a API escuta (`127.0.0.1:3333`) |
 | `WEB_ORIGINS` | Origens do painel liberadas no CORS, separadas por vírgula. Rotas que usam o cookie de sessão exigem Origin desta lista |
-| `APP_URL` | Endereço público do painel: base dos links de redefinição de senha e de convite |
+| `APP_URL` | Endereço público do painel: base dos links de redefinição de senha, convite e confirmação de e-mail |
 | `JWT_SECRET` | Assina o token de acesso (HS256). Pelo menos 32 caracteres. Nunca vai para o front |
 | `EMAIL_DRIVER` | `console` (dev: imprime no terminal da API), `memory` (testes) ou `smtp` (produção) |
 | `SMTP_URL` / `EMAIL_FROM` | O provedor de e-mail e o remetente, quando `EMAIL_DRIVER=smtp` |
@@ -338,11 +366,14 @@ docker compose up -d
 | `UPLOAD_MAX_BYTES` | Teto por arquivo (padrão 10 MB). O painel comprime a foto no aparelho antes de enviar |
 | `DATABASE_ADMIN_URL` | Superusuário do Postgres. **Só** para o `db:setup` |
 | `DATABASE_URL` | Runtime da API: role `oficinaos_app`, sujeita ao RLS |
-| `DATABASE_OWNER_URL` | Dona das tabelas: roda as migrations |
+| `DATABASE_OWNER_URL` | Dona das tabelas: roda as migrations e instala a fila de jobs |
 | `TEST_DATABASE_URL` / `TEST_DATABASE_OWNER_URL` | O mesmo, no banco de teste |
 
 A API valida o ambiente no boot. Faltou ou errou uma variável, ela não sobe e
-diz qual é. O `.env` nunca vai para o git.
+diz qual é. O `.env` **nunca** vai para o git, e as fotos enviadas pela oficina
+também não.
+
+---
 
 ## Estrutura
 
@@ -351,20 +382,28 @@ apps/api        API REST (Fastify + Drizzle): src/modules/<domínio>, scripts/, 
 apps/web        Painel (React + Vite): src/features/<domínio>, src/lib, src/styles
                 + as páginas públicas (orçamento, cotação, avaliação, acompanhamento) em src/public
 apps/landing    Landing institucional (Astro, HTML estático)
-packages/shared Contratos e regras compartilhadas (Zod, enums, cálculos)
+packages/shared Contratos e regras compartilhadas (Zod, enums, cálculos, Pix)
 e2e/            Fluxos de ponta a ponta (Playwright): painel e página do cliente
-docs/           Arquitetura, banco, API, roadmap
+deploy/         Caddyfile, .env de exemplo, backup e restore
+docs/           Arquitetura, banco, API, roadmap, deploy
 ```
 
-A estrutura completa e a regra de dependência entre camadas estão em
+A regra de dependência entre camadas está em
 [ARCHITECTURE.md §3](docs/ARCHITECTURE.md#3-estrutura-de-pastas).
 
-## Roadmap resumido
+| Documento | Conteúdo |
+|---|---|
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Decisões D1–D71 com a alternativa descartada, pastas, multi-tenant, autenticação, permissões, fluxos, segurança, riscos |
+| [docs/DATABASE.md](docs/DATABASE.md) | Convenções, isolamento por RLS, ERD, tabelas, índices, seeds |
+| [docs/API.md](docs/API.md) | Convenções REST, erros, rate limits, endpoints por fase |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | Etapas E1–E38 com critério de pronto, integrações futuras, métricas |
+| [docs/DEPLOY.md](docs/DEPLOY.md) | Servidor, DNS, segredos, backup, restore e rollback |
 
-- **MVP 1:** contas e equipe, multi-tenant, clientes, veículos, catálogo, estoque
-  básico, OS, orçamento com link público e aprovação, pagamento simples, agenda,
-  WhatsApp com mensagem pronta, dashboard.
-- **MVP 2:** fornecedores, cotação por link, pesquisa e comparação de peças,
-  compras, financeiro, relatórios, pós-venda, avaliações, CRM, landing page.
-- **V3:** nota fiscal, pagamentos, assinatura, WhatsApp oficial, automações,
-  marketplace, IA, app mobile.
+---
+
+## O que vem depois
+
+Consulta veicular por placa e catálogo de peças licenciado (Fraga/SUIV são por
+cotação — por isso a ficha do carro é preenchida por nós e vira ativo próprio),
+backoffice de plataforma, multi-filial, API pública, IA assistida no diagnóstico
+e marketplace de peças.

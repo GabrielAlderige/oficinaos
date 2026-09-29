@@ -37,6 +37,7 @@ function toDto(row: repo.ServiceRow, laborRateCents: number | null): Service {
     effectivePriceCents: effectiveServicePrice(row, laborRateCents),
     intervalKm: row.intervalKm,
     intervalMonths: row.intervalMonths,
+    commissionBps: row.commissionBps,
     isActive: row.isActive,
     createdAt: row.createdAt.toISOString(),
     updatedAt: isoOrNull(row.updatedAt),
@@ -53,6 +54,7 @@ function toValues(input: Partial<CreateInput>) {
     estimatedMinutes: input.estimatedMinutes,
     intervalKm: input.intervalKm,
     intervalMonths: input.intervalMonths,
+    commissionBps: input.commissionBps,
     isActive: input.isActive,
   };
 }

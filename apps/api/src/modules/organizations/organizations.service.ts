@@ -84,7 +84,11 @@ export class OrganizationsService {
         laborRateCents: input.laborRateCents === undefined ? before.laborRateCents : input.laborRateCents,
         defaultMarkupBps: input.defaultMarkupBps ?? before.defaultMarkupBps,
         googleReviewUrl: input.googleReviewUrl ?? before.googleReviewUrl,
+        commissionBps: input.commissionBps ?? before.commissionBps,
         allowNegativeStock: input.allowNegativeStock ?? before.allowNegativeStock,
+        pixKey: input.pixKey ?? before.pixKey,
+        pixCity: input.pixCity ?? before.pixCity,
+        requireDeliverySignature: input.requireDeliverySignature ?? before.requireDeliverySignature,
         discountLimitBps: input.discountLimitBps ?? before.discountLimitBps,
       };
       const changes = diffChanges(before, next);

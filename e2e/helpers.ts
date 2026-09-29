@@ -275,3 +275,55 @@ export async function entrarComoMecanico(page: Page, email: string): Promise<voi
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Minhas OS' })).toBeVisible();
 }
+
+/**
+ * Marca uma conta como administradora da PLATAFORMA (E31).
+ *
+ * Vai direto ao banco de propósito: não existe — nem deve existir — tela que
+ * conceda esse acesso. Quem edita o catálogo que todas as oficinas leem é
+ * decidido fora do produto.
+ */
+export async function marcarAdminDaPlataforma(email: string): Promise<void> {
+  const { default: pg } = await import('pg');
+  const { readFileSync } = await import('node:fs');
+  const { parseEnv } = await import('node:util');
+  const env = parseEnv(readFileSync(new URL('../.env', import.meta.url), 'utf8')) as Record<string, string>;
+
+  const client = new pg.Client({ connectionString: env.DATABASE_OWNER_URL });
+  await client.connect();
+  try {
+    await client.query('update users set is_platform_admin = true where email = $1', [email]);
+  } finally {
+    await client.end();
+  }
+}
+
+/**
+ * Abre uma aba da OS (E30). A tela deixou de ser nove blocos numa coluna:
+ * "Serviço" abre por padrão, e dinheiro e histórico ficam a um clique.
+ */
+export async function abrirAbaDaOS(page: Page, aba: 'Serviço' | 'Dinheiro' | 'Histórico'): Promise<void> {
+  await page.getByRole('button', { name: aba, exact: true }).click();
+}
+
+/**
+ * Apaga uma ficha do catálogo de veículos pelo modelo (E31).
+ *
+ * O catálogo é GLOBAL: o que um cenário cria fica para sempre, e vai parar na
+ * busca da oficina se tiver sido publicado. Cada rodada deixava um "Gol Txxxx"
+ * publicado para trás — sete deles, antes de alguém notar.
+ */
+export async function apagarFichaDoCatalogo(modelo: string): Promise<void> {
+  const { default: pg } = await import('pg');
+  const { readFileSync } = await import('node:fs');
+  const { parseEnv } = await import('node:util');
+  const env = parseEnv(readFileSync(new URL('../.env', import.meta.url), 'utf8')) as Record<string, string>;
+
+  const client = new pg.Client({ connectionString: env.DATABASE_OWNER_URL });
+  await client.connect();
+  try {
+    await client.query('delete from catalog_vehicles where model = $1', [modelo]);
+  } finally {
+    await client.end();
+  }
+}

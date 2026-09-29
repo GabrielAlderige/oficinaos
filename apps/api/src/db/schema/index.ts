@@ -20,3 +20,6 @@ export * from './charges';
 export * from './automations';
 export * from './messaging';
 export * from './audit';
+export * from './commissions';
+export * from './packages';
+export * from './vehicle-specs';

@@ -14,6 +14,7 @@ export function listMembers(tx: Tx, organizationId: string) {
       role: memberships.role,
       isActive: memberships.isActive,
       calendarColor: memberships.calendarColor,
+      commissionBps: memberships.commissionBps,
       joinedAt: memberships.createdAt,
     })
     .from(memberships)
@@ -30,6 +31,7 @@ export async function findMember(tx: Tx, organizationId: string, id: string) {
       role: memberships.role,
       isActive: memberships.isActive,
       calendarColor: memberships.calendarColor,
+      commissionBps: memberships.commissionBps,
       joinedAt: memberships.createdAt,
       name: users.name,
       email: users.email,

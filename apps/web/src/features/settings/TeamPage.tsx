@@ -1,11 +1,14 @@
 import {
   CALENDAR_COLORS,
   canManageRole,
+  formatBps,
+  parseBps,
   ROLE_LABELS,
   ROLES,
   type CalendarColor,
   type Invitation,
   type Member,
+  EXECUTAM_SERVICO,
   type Role,
 } from '@oficinaos/shared';
 import { MoreHorizontal, Trash2, UserCheck, UserPlus, UserX } from 'lucide-react';
@@ -106,6 +109,20 @@ export function TeamPage() {
                           void run(
                             updateMember.mutateAsync({ id: member.id, calendarColor }),
                             `Cor de ${member.name} na agenda atualizada.`,
+                          )
+                        }
+                      />
+                    )}
+                    {manageable && EXECUTAM_SERVICO.includes(member.role) && (
+                      <ComissaoDoMembro
+                        member={member}
+                        disabled={updateMember.isPending}
+                        onSave={(commissionBps) =>
+                          void run(
+                            updateMember.mutateAsync({ id: member.id, commissionBps }),
+                            commissionBps === null
+                              ? `${member.name} volta a usar a comissão padrão da oficina.`
+                              : `Comissão de ${member.name}: ${formatBps(commissionBps)}.`,
                           )
                         }
                       />
@@ -273,5 +290,58 @@ function CorNaAgenda({
         <DropdownMenuItem onSelect={() => onPick(null)}>Sem cor</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+/**
+ * A comissão daquela pessoa (E26). Só aparece para quem executa serviço — o
+ * atendente não ganha comissão de mão de obra, e um campo vazio ao lado do
+ * nome dele seria uma pergunta sem resposta.
+ *
+ * Vazio significa "usa o padrão da oficina", e a tela diz isso no lugar de
+ * mostrar o número herdado como se fosse escolha da pessoa.
+ */
+function ComissaoDoMembro({
+  member,
+  disabled,
+  onSave,
+}: {
+  member: Member;
+  disabled: boolean;
+  onSave(commissionBps: number | null): void;
+}) {
+  const [texto, setTexto] = useState(member.commissionBps !== null ? formatBps(member.commissionBps) : '');
+  const [erro, setErro] = useState(false);
+
+  return (
+    <label className="hidden items-center gap-1.5 text-xs text-muted sm:flex">
+      <span className="whitespace-nowrap">Comissão</span>
+      <input
+        inputMode="decimal"
+        disabled={disabled}
+        aria-label={`Comissão de ${member.name}`}
+        aria-invalid={erro || undefined}
+        placeholder="padrão"
+        value={texto}
+        onChange={(event) => {
+          setTexto(event.target.value);
+          setErro(false);
+        }}
+        onBlur={() => {
+          const limpo = texto.trim();
+          const bps = limpo === '' ? null : parseBps(limpo);
+          if (limpo !== '' && bps === null) {
+            setErro(true);
+            return;
+          }
+          if (bps === member.commissionBps) return;
+          onSave(bps);
+        }}
+        className={cn(
+          'h-8 w-20 rounded-md border bg-surface px-2 text-right text-[13px] tabular',
+          erro ? 'border-danger' : 'border-border',
+        )}
+      />
+    </label>
   );
 }

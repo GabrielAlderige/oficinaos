@@ -12,6 +12,7 @@ import {
   loginSchema,
   meSchema,
   resetPasswordSchema,
+  verifyEmailSchema,
   sessionSchema,
   signupSchema,
   switchOrganizationSchema,
@@ -152,6 +153,36 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
     async (request, reply) => {
       await service.resetPassword(request.body.token, request.body.password);
       return reply.code(204).send();
+    },
+  );
+
+  /**
+   * Confirmação de e-mail (E29). Pública: o link é aberto do e-mail, muitas
+   * vezes em outro aparelho, onde não há sessão nenhuma.
+   */
+  app.post(
+    '/verify-email',
+    {
+      config: { auth: 'public', rateLimit: porHora(20) },
+      schema: { body: verifyEmailSchema },
+    },
+    async (request, reply) => {
+      await service.verifyEmail(request.body.token);
+      return reply.code(204).send();
+    },
+  );
+
+  /** Reenvio, a partir do aviso no painel. Limitado: é e-mail saindo. */
+  app.post(
+    '/resend-verification',
+    {
+      config: { auth: 'authenticated', rateLimit: porHora(5) },
+      schema: { response: { 202: z.object({ message: z.string() }) } },
+    },
+    async (request, reply) => {
+      await service.resendEmailVerification(getAuth(request), clientInfo(request));
+      reply.code(202);
+      return { message: 'Se o seu e-mail ainda não estiver confirmado, enviamos um link novo.' };
     },
   );
 

@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react';
-import { createBrowserRouter, Navigate } from 'react-router';
+import { createBrowserRouter, Navigate, useLocation } from 'react-router';
 import { FullPageSpinner } from '../components/brand';
 import { LoginPage } from '../features/auth/LoginPage';
 import { PublicOnly, RequireAuth } from './guards';
@@ -14,6 +14,12 @@ const page = <T extends Record<string, ComponentType>>(load: () => Promise<T>, n
 });
 
 // URLs em português: é o que a equipe da oficina lê e compartilha (ARCHITECTURE §13.1).
+/** Redireciona a ficha do carro mantendo `?q=` (E36). */
+function RedirecionaFichaDoCarro() {
+  const { search } = useLocation();
+  return <Navigate to={`/ficha-do-carro${search}`} replace />;
+}
+
 export const router = createBrowserRouter([
   {
     element: <PublicOnly />,
@@ -36,6 +42,10 @@ export const router = createBrowserRouter([
     children: [
       { path: '/redefinir-senha/:token', lazy: page(() => import('../features/auth/ResetPasswordPage'), 'ResetPasswordPage') },
       { path: '/convite/:token', lazy: page(() => import('../features/auth/InvitePage'), 'InvitePage') },
+      {
+        path: '/confirmar-email/:token',
+        lazy: page(() => import('../features/auth/VerifyEmailPage'), 'VerifyEmailPage'),
+      },
     ],
   },
   {
@@ -95,7 +105,30 @@ export const router = createBrowserRouter([
             ],
           },
           { path: 'orcamentos', lazy: page(() => import('../features/quotes/QuotesPage'), 'QuotesPage'), handle: { crumb: 'Orçamentos' } },
-          { path: 'servicos', lazy: page(() => import('../features/catalog/ServicesPage'), 'ServicesPage'), handle: { crumb: 'Serviços' } },
+          {
+            path: 'servicos',
+            handle: { crumb: 'Serviços' },
+            children: [
+              { index: true, lazy: page(() => import('../features/catalog/ServicesPage'), 'ServicesPage') },
+              {
+                path: 'pacotes',
+                lazy: page(() => import('../features/catalog/PackagesPage'), 'PackagesPage'),
+                handle: { crumb: 'Pacotes' },
+              },
+            ],
+          },
+          {
+            // tela própria (E36): sai de dentro de "Peças e estoque"
+            path: 'ficha-do-carro',
+            lazy: page(() => import('../features/catalog/VehicleCatalogPage'), 'VehicleCatalogPage'),
+            handle: { crumb: 'Ficha do carro' },
+          },
+          {
+            // quem tiver o endereço antigo salvo continua chegando — e com o
+            // que estava pesquisando: `Navigate` sozinho descarta a busca
+            path: 'pecas/ficha-do-carro',
+            element: <RedirecionaFichaDoCarro />,
+          },
           {
             path: 'pecas',
             handle: { crumb: 'Peças e estoque' },
@@ -108,6 +141,13 @@ export const router = createBrowserRouter([
               },
               { path: ':id', lazy: page(() => import('../features/catalog/PartPage'), 'PartPage'), handle: { crumb: 'Peça' } },
             ],
+          },
+          {
+            // área da PLATAFORMA (E31): fora do menu da oficina de propósito.
+            // Quem não é administrador é mandado embora pela própria tela.
+            path: 'plataforma/catalogo',
+            lazy: page(() => import('../features/platform/CatalogAdminPage'), 'CatalogAdminPage'),
+            handle: { crumb: 'Catálogo de veículos' },
           },
           {
             path: 'pos-venda',
@@ -144,6 +184,11 @@ export const router = createBrowserRouter([
                 path: 'caixa',
                 lazy: page(() => import('../features/finance/CashFlowPage'), 'CashFlowPage'),
                 handle: { crumb: 'Fluxo de caixa' },
+              },
+              {
+                path: 'comissoes',
+                lazy: page(() => import('../features/finance/CommissionsPage'), 'CommissionsPage'),
+                handle: { crumb: 'Comissões' },
               },
             ],
           },

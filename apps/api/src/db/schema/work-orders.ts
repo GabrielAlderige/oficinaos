@@ -181,6 +181,13 @@ export const workOrderItems = pgTable(
     estimatedMinutes: integer(),
     /** tempo real: MVP 2 */
     actualMinutes: integer(),
+    /**
+     * Comissão CONGELADA quando a OS foi finalizada (E26): o percentual que
+     * valia naquele dia e de quem é. Mexer na tabela de comissões amanhã não
+     * pode mudar o que já foi combinado ontem.
+     */
+    commissionBps: integer(),
+    commissionUserId: uuid().references(() => users.id),
     position: integer().notNull().default(0),
     ...timestamps,
   },
@@ -271,9 +278,11 @@ export const vehicleInspections = pgTable(
     damages: jsonb().$type<Damage[]>().notNull().default([]),
     accessories: jsonb().$type<string[]>().notNull().default([]),
     notes: text(),
-    /** assinatura na tela: MVP 2 */
+    /** assinatura na tela: quem recebeu o carro assinou aqui (E28) */
     customerAcknowledgedAt: timestamptz(),
     signatureAttachmentId: uuid(),
+    /** o nome de quem assinou: nem sempre é o dono do carro */
+    signerName: text(),
     performedBy: uuid().references(() => users.id),
     performedAt: timestamptz().notNull().defaultNow(),
   },

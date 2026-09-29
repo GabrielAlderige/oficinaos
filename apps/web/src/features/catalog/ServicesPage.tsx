@@ -13,6 +13,7 @@ import { useCan } from '../../lib/session';
 import { useDebouncedValue } from '../../lib/use-debounced-value';
 import { useServices, type ServiceListParams } from './api';
 import { ServiceFormDialog } from './ServiceFormDialog';
+import { ServicesTabs } from './ServicesTabs';
 
 const STATUS_LABELS: Record<ServiceListParams['status'], string> = { active: 'Ativos', inactive: 'Inativos', all: 'Todos' };
 
@@ -67,6 +68,7 @@ export function ServicesPage() {
           )
         }
       />
+      <ServicesTabs />
 
       {missingRate && (
         <Alert variant="warning" className="mb-4">

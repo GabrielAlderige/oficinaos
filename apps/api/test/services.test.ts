@@ -32,10 +32,20 @@ describe('catálogo de serviços e configurações de preço', () => {
         laborRateCents: null,
         defaultMarkupBps: 3000,
         allowNegativeStock: true,
+        // a assinatura na entrega (E28) nasce OPCIONAL: travar a entrega de
+        // quem não pediu isso seria transformar melhoria em obstáculo
+        requireDeliverySignature: false,
+        // sem chave Pix (E32) a OS não oferece "Pix na hora": um QR que não
+        // paga é pior que nenhum
+        pixKey: '',
+        pixCity: '',
         discountLimitBps: 1000,
-        // o link de avaliação do Google (E16) nasce vazio: sem ele, a página
-        // de avaliação simplesmente não convida para o Google
+        // o link de avaliação do Google (E16) nasce vazio: sem ele, o convite
+        // da OS entregue avisa que falta configurar
         googleReviewUrl: '',
+        // a comissão nasce em zero (E26): oficina que não combinou percentual
+        // não deve comissão nenhuma, e a tela diz isso em vez de mostrar 0%
+        commissionBps: 0,
       });
     });
 

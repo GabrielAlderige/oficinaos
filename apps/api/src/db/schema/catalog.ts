@@ -41,6 +41,8 @@ export const services = pgTable(
     estimatedMinutes: integer(),
     intervalKm: integer(),
     intervalMonths: integer(),
+    /** comissão do mecânico neste serviço (bps); null = herda do mecânico ou da oficina (E26) */
+    commissionBps: integer(),
     isActive: boolean().notNull().default(true),
     createdBy: uuid().references(() => users.id),
     deletedAt: timestamptz(),

@@ -1,5 +1,11 @@
 import type { MyDay, WorkOrderAction } from '@oficinaos/shared';
-import { availableActions, WORK_ORDER_STATUS_LABELS, WORK_ORDER_STATUS_TONES } from '@oficinaos/shared';
+import {
+  availableActions,
+  nextAction,
+  WORK_ORDER_HAPPY_PATH,
+  WORK_ORDER_STATUS_LABELS,
+  WORK_ORDER_STATUS_TONES,
+} from '@oficinaos/shared';
 import { Camera, ChevronRight, Clock, Play, Square, Wrench } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
@@ -138,7 +144,7 @@ function CartaoDaOS({ ordem }: { ordem: Ordem }) {
   // no celular, uma ação só: a PRÓXIMA do trabalho, na ordem em que o serviço
   // acontece. O resto (aguardando peça, cancelar) fica na ficha da OS, a um
   // toque daqui — botão que oferece cinco caminhos não decide nada
-  const principal = PRINCIPAIS.map((acao) => acoes.find((disponivel) => disponivel.action === acao)).find(Boolean);
+  const principal = nextAction(acoes.filter(({ action }) => PRINCIPAIS.includes(action)));
 
   return (
     <Card className={cn('overflow-hidden', ordem.hasRunningTimer && 'border-accent-bright')}>
@@ -191,8 +197,14 @@ function CartaoDaOS({ ordem }: { ordem: Ordem }) {
 
 /**
  * A próxima ação do carro, na ordem em que o serviço acontece — é essa ordem
+ * Sem confirmação, de propósito: a confirmação de "finalizar serviço" (E34)
+ * fala de baixa no estoque e conta a receber, que o mecânico nem tem permissão
+ * para ver. Avisar alguém de uma consequência sobre a qual ele não decide nada
+ * é só atrito — no balcão, onde a decisão é de quem olha o dinheiro, a tela da
+ * OS confirma.
+ *
  * que decide qual botão aparece. Entregar e cancelar ficam de fora de
  * propósito: são decisões de balcão, e o mecânico nem tem permissão. "Aguardando
  * peça" também sai daqui: é exceção, e exceção mora na ficha da OS.
  */
-const PRINCIPAIS: WorkOrderAction[] = ['start-diagnosis', 'finish-diagnosis', 'start', 'complete'];
+const PRINCIPAIS: WorkOrderAction[] = WORK_ORDER_HAPPY_PATH.filter((acao) => acao !== 'deliver');

@@ -13,6 +13,7 @@ export const WORK_ORDER_ACTIONS = [
   'send-quote',
   'approve',
   'reject',
+  'skip-quote',
   'start',
   'wait-parts',
   'complete',
@@ -71,6 +72,24 @@ export const WORK_ORDER_TRANSITIONS: Record<WorkOrderAction, Transition> = {
     label: 'Registrar recusa',
     permission: 'quotes:record_manual_approval',
     automatic: true,
+  },
+  /**
+   * Executar sem orçamento (E34).
+   *
+   * Existe porque a oficina real faz serviço pequeno no combinado de boca, e
+   * sem esta saída a OS ficava PRESA em "aguardando orçamento": não havia
+   * caminho nenhum de lá para a execução.
+   *
+   * Não é atalho inocente — libera a execução sem aprovação escrita, e por
+   * isso a tela confirma com todas as letras e a timeline registra quem
+   * liberou (D68). Fora do caminho feliz de propósito: nunca deve virar o
+   * botão em destaque.
+   */
+  'skip-quote': {
+    from: ['OPEN', 'DIAGNOSING', 'AWAITING_QUOTE'],
+    to: 'APPROVED',
+    label: 'Executar sem orçamento',
+    permission: 'work_orders:change_status',
   },
   start: {
     from: ['APPROVED', 'WAITING_PARTS'],

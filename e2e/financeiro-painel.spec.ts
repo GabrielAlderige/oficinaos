@@ -1,5 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
-import { abrirOS, api, captura, criarOficina, entrarNoPainel, enviarOrcamento, expect, test, textoDe } from './helpers';
+import {
+  abrirAbaDaOS,
+  abrirOS, api, captura, criarOficina, entrarNoPainel, enviarOrcamento, expect, test, textoDe } from './helpers';
 
 /**
  * O financeiro (E13). O que este roteiro prova na tela, e não só na API:
@@ -56,6 +58,7 @@ test('a oficina recebe pela tela do financeiro, lança a despesa do mês e vê o
   await test.step('e a OS mostra o mesmo dinheiro, sem lançamento paralelo', async () => {
     await page.goto(`/ordens/${ordem.number}`);
     await expect(page.getByRole('heading', { name: new RegExp(`^OS ${ordem.number}`) })).toBeVisible();
+    await abrirAbaDaOS(page, 'Dinheiro');
     await expect(page.getByText('R$ 300,00').first()).toBeVisible();
     const cartao = await textoDe(page.locator('main'));
     expect(cartao, 'recebido na OS').toContain('R$ 300,00');

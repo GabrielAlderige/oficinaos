@@ -12,6 +12,10 @@ export function usePayments(workOrderId: string) {
   return useQuery({
     queryKey: paymentKeys.list(workOrderId),
     queryFn: () => api<PaymentList>(`/work-orders/${workOrderId}/payments`),
+    // o cliente pode estar pagando no Pix agora: a tela acompanha sozinha (E34)
+    refetchInterval: 5_000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
   });
 }
 

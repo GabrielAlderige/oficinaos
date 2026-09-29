@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, gt, isNull } from 'drizzle-orm';
 import { DEFAULT_PART_CATEGORIES, SYSTEM_FINANCIAL_CATEGORIES, type PlanCode } from '@oficinaos/shared';
 import {
+  emailVerificationTokens,
   financialCategories,
   invitations,
   memberships,
@@ -275,6 +276,48 @@ export async function findUsablePasswordReset(tx: Tx, tokenHash: string, now: Da
 
 export async function markPasswordResetUsed(tx: Tx, id: string) {
   await tx.update(passwordResetTokens).set({ usedAt: new Date() }).where(eq(passwordResetTokens.id, id));
+}
+
+// ---- confirmação de e-mail (E29) ----
+
+export async function deleteUnusedEmailVerifications(tx: Tx, userId: string) {
+  await tx
+    .delete(emailVerificationTokens)
+    .where(and(eq(emailVerificationTokens.userId, userId), isNull(emailVerificationTokens.usedAt)));
+}
+
+export async function insertEmailVerification(tx: Tx, values: typeof emailVerificationTokens.$inferInsert) {
+  await tx.insert(emailVerificationTokens).values(values);
+}
+
+export async function findUsableEmailVerification(tx: Tx, tokenHash: string, now: Date) {
+  const [row] = await tx
+    .select()
+    .from(emailVerificationTokens)
+    .where(
+      and(
+        eq(emailVerificationTokens.tokenHash, tokenHash),
+        isNull(emailVerificationTokens.usedAt),
+        gt(emailVerificationTokens.expiresAt, now),
+      ),
+    )
+    .limit(1)
+    .for('update');
+  return row;
+}
+
+export async function markEmailVerificationUsed(tx: Tx, id: string) {
+  await tx.update(emailVerificationTokens).set({ usedAt: new Date() }).where(eq(emailVerificationTokens.id, id));
+}
+
+/** Marca o e-mail como confirmado. Só vale se ele ainda for o mesmo do link. */
+export async function markEmailVerified(tx: Tx, userId: string, email: string, at: Date) {
+  const linhas = await tx
+    .update(users)
+    .set({ emailVerifiedAt: at })
+    .where(and(eq(users.id, userId), eq(users.email, email)))
+    .returning({ id: users.id });
+  return linhas.length > 0;
 }
 
 // ---- convites ----

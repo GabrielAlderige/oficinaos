@@ -1,4 +1,6 @@
-import { api, captura, criarOficina, entrarNoPainel, expect, test, type Oficina } from './helpers';
+import {
+  abrirAbaDaOS,
+  api, captura, criarOficina, entrarNoPainel, expect, test, type Oficina } from './helpers';
 
 /**
  * Agenda (E8). O que interessa provar no navegador é o que teste de API não
@@ -111,6 +113,8 @@ test('a agenda mostra o compromisso, avisa do conflito e faz o check-in', async 
   await page.getByLabel('Quilometragem').fill('48000');
   await page.getByRole('button', { name: 'Fazer check-in e abrir OS' }).click();
   await expect(page).toHaveURL(/\/ordens\/\d+$/);
+  // o que aconteceu com o carro mora na aba do histórico desde a E30
+  await abrirAbaDaOS(page, 'Histórico');
   await expect(page.getByText('Aberta pelo agendamento de 14/09, das 09:00 às 10:00.')).toBeVisible();
   await captura(page, 'agenda-check-in');
 });

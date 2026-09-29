@@ -9,7 +9,7 @@ import {
   type PaymentMethod,
   type WorkOrder,
 } from '@oficinaos/shared';
-import { Banknote } from 'lucide-react';
+import { Banknote, QrCode } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '../../components/ui/button';
@@ -22,6 +22,7 @@ import { errorMessage } from '../../lib/errors';
 import { formatDateTime } from '../../lib/format';
 import { useCan } from '../../lib/session';
 import { useCancelPayment, usePayments, useRecordPayment } from './api';
+import { PixNaHoraDialog } from './PixNaHoraDialog';
 
 const TOM = { PAID: 'success', PARTIAL: 'warning', UNPAID: 'neutral' } as const;
 
@@ -35,6 +36,13 @@ export function PaymentCard({ order }: { order: WorkOrder }) {
   const canCancel = useCan('payments:cancel');
   const payments = usePayments(order.id);
   const [recording, setRecording] = useState(false);
+  const [pix, setPix] = useState(false);
+  /**
+   * A forma que o diálogo abre. O "Recebi, dar baixa" do Pix promete que já
+   * vem no Pix — e o diálogo fica montado entre as aberturas, então sem isto
+   * ele guardaria a última escolha e o botão passaria a mentir.
+   */
+  const [formaInicial, setFormaInicial] = useState<PaymentMethod>('PIX');
   const [cancelling, setCancelling] = useState<Payment | null>(null);
 
   const lista = payments.data;
@@ -72,10 +80,17 @@ export function PaymentCard({ order }: { order: WorkOrder }) {
             </dl>
 
             {canRecord && falta > 0 && order.status !== 'CANCELED' && (
-              <Button onClick={() => setRecording(true)}>
-                <Banknote />
-                Registrar pagamento
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                {/* o cliente está no balcão: o caminho mais curto é a câmera dele (E32) */}
+                <Button onClick={() => setPix(true)}>
+                  <QrCode />
+                  Pix na hora
+                </Button>
+                <Button variant="secondary" onClick={() => setRecording(true)}>
+                  <Banknote />
+                  Registrar pagamento
+                </Button>
+              </div>
             )}
 
             {lista?.data.length ? (
@@ -122,13 +137,32 @@ export function PaymentCard({ order }: { order: WorkOrder }) {
         )}
       </div>
 
-      <RecordDialog order={order} falta={falta} open={recording} onOpenChange={setRecording} />
+      <RecordDialog
+        /* o `key` faz o diálogo renascer a cada abertura, com a forma certa */
+        key={`${recording}-${formaInicial}`}
+        order={order}
+        falta={falta}
+        formaInicial={formaInicial}
+        open={recording}
+        onOpenChange={setRecording}
+      />
+      <PixNaHoraDialog
+        order={order}
+        falta={falta}
+        aberto={pix}
+        onFechar={() => setPix(false)}
+        onRecebi={() => {
+          setFormaInicial('PIX');
+          setRecording(true);
+        }}
+      />
       <CancelDialog order={order} payment={cancelling} onClose={() => setCancelling(null)} />
     </Card>
   );
 }
 
-function RecordDialog({ order, falta, open, onOpenChange }: {
+function RecordDialog({ order, falta, formaInicial, open, onOpenChange }: {
+  formaInicial: PaymentMethod;
   order: WorkOrder;
   falta: number;
   open: boolean;
@@ -137,15 +171,20 @@ function RecordDialog({ order, falta, open, onOpenChange }: {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <RecordBody order={order} falta={falta} onDone={() => onOpenChange(false)} />
+        <RecordBody order={order} falta={falta} formaInicial={formaInicial} onDone={() => onOpenChange(false)} />
       </DialogContent>
     </Dialog>
   );
 }
 
-function RecordBody({ order, falta, onDone }: { order: WorkOrder; falta: number; onDone(): void }) {
+function RecordBody({ order, falta, formaInicial, onDone }: {
+  order: WorkOrder;
+  falta: number;
+  formaInicial: PaymentMethod;
+  onDone(): void;
+}) {
   const registrar = useRecordPayment(order.id, order.number);
-  const [method, setMethod] = useState<PaymentMethod>('PIX');
+  const [method, setMethod] = useState<PaymentMethod>(formaInicial);
   // já vem com o que falta: no balcão, receber o restante é o caso comum
   const [valor, setValor] = useState(formatBRLInput(falta));
   const [parcelas, setParcelas] = useState('1');

@@ -72,11 +72,25 @@ export function useWorkOrderBoard(enabled = true) {
   return useQuery({ queryKey: workOrderKeys.board, queryFn: () => api<WorkOrderBoard>('/work-orders/board'), enabled });
 }
 
+/**
+ * A OS se atualiza sozinha enquanto está aberta (E34).
+ *
+ * Duas pessoas mexem na mesma OS ao mesmo tempo o dia inteiro: o mecânico
+ * finaliza no celular, o atendente está com a tela aberta no balcão. Sem isto,
+ * o balcão via o estado de cinco minutos atrás e clicava num botão que já não
+ * valia — o lock otimista devolvia 409 e a pessoa levava a culpa.
+ *
+ * Cinco segundos, e só com a aba à frente: perguntar de fundo o dia inteiro é
+ * gastar bateria do celular do mecânico e requisição do servidor à toa.
+ */
+const AO_VIVO = { refetchInterval: 5_000, refetchIntervalInBackground: false, refetchOnWindowFocus: true } as const;
+
 export function useWorkOrder(number: number) {
   return useQuery({
     queryKey: workOrderKeys.detail(number),
     queryFn: () => api<WorkOrder>(`/work-orders/${number}`),
     enabled: Number.isFinite(number) && number > 0,
+    ...AO_VIVO,
   });
 }
 
@@ -85,6 +99,7 @@ export function useTimeline(id: string) {
     queryKey: workOrderKeys.timeline(id),
     queryFn: async () => (await api<{ data: WorkOrderEvent[] }>(`/work-orders/${id}/timeline`)).data,
     enabled: Boolean(id),
+    ...AO_VIVO,
   });
 }
 
@@ -157,6 +172,15 @@ export const useUpdateItem = (id: string) =>
 export const useRemoveItem = (id: string) =>
   useWorkOrderMutation((itemId: string) => api<WorkOrder>(`/work-orders/${id}/items/${itemId}`, { method: 'DELETE' }));
 
+/** Pacote de serviço (E27): vira várias linhas normais, editáveis depois. */
+export const useApplyPackage = (id: string) =>
+  useWorkOrderMutation((packageId: string) =>
+    api<WorkOrder>(`/work-orders/${id}/packages`, {
+      method: 'POST',
+      json: { packageId, clientRequestId: crypto.randomUUID() },
+    }),
+  );
+
 export const useReorderItems = (id: string) =>
   useWorkOrderMutation((itemIds: string[]) =>
     api<WorkOrder>(`/work-orders/${id}/items/order`, { method: 'PUT', json: { itemIds } }),
@@ -185,6 +209,44 @@ export const useRunAction = (id: string) =>
   useWorkOrderMutation(({ action, reason }: { action: WorkOrderAction; reason?: string }) =>
     api<WorkOrder>(`/work-orders/${id}/${action}`, { method: 'POST', json: reason ? { reason } : undefined }),
   );
+
+/**
+ * Entregar o veículo (E28). A assinatura e as fotos sobem primeiro, pela rota
+ * de upload de sempre; só depois o POST da entrega recebe os ids. Se o upload
+ * falhar, a OS **não** é entregue — metade de um comprovante é pior que nenhum.
+ */
+export function useEntregar(id: string) {
+  const queryClient = useQueryClient();
+  const enviar = useUploadFile(id);
+  const mutation = useWorkOrderMutation((body: Record<string, unknown>) =>
+    api<WorkOrder>(`/work-orders/${id}/deliver`, { method: 'POST', json: body }),
+  );
+
+  return {
+    ...mutation,
+    entregar: async (input: {
+      signerName: string;
+      assinatura: File | null;
+      fotos: File[];
+      odometerKm: number | null;
+      notes: string;
+    }) => {
+      const assinatura = input.assinatura ? await enviar.mutateAsync({ file: input.assinatura }) : null;
+      const fotos = [];
+      for (const foto of input.fotos) fotos.push(await enviar.mutateAsync({ file: foto }));
+      const entregue = await mutation.mutateAsync({
+        signerName: input.signerName,
+        signatureAttachmentId: assinatura?.id ?? null,
+        photoAttachmentIds: fotos.map((foto) => foto.id),
+        odometerKm: input.odometerKm,
+        notes: input.notes,
+      });
+      // o comprovante entra na lista de inspeções da OS
+      void queryClient.invalidateQueries({ queryKey: workOrderKeys.inspections(id) });
+      return entregue;
+    },
+  };
+}
 
 export function useAddNote(id: string) {
   const queryClient = useQueryClient();

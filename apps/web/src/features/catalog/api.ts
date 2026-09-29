@@ -9,7 +9,10 @@ import type {
   PartCategory,
   PartInput,
   PartListItem,
+  CreatePackageInput,
   PurchaseSuggestions,
+  ServicePackage,
+  UpdatePackageInput,
   Service,
   ServiceInput,
   StockMovementInput,
@@ -222,5 +225,39 @@ export function usePurchaseSuggestions() {
   return useQuery({
     queryKey: ['purchase-suggestions'],
     queryFn: () => api<PurchaseSuggestions>('/purchase-orders/suggestions'),
+  });
+}
+
+// --------------------------- pacotes de serviço ----------------------------
+
+export const packageKeys = {
+  all: ['service-packages'] as const,
+  list: (incluirInativos: boolean) => ['service-packages', 'list', incluirInativos] as const,
+};
+
+export function useServicePackages(incluirInativos = false) {
+  return useQuery({
+    queryKey: packageKeys.list(incluirInativos),
+    queryFn: () =>
+      api<{ data: ServicePackage[] }>(`/service-packages?incluirInativos=${incluirInativos}`).then((r) => r.data),
+  });
+}
+
+export function useSavePackage() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id?: string; body: CreatePackageInput | UpdatePackageInput }) =>
+      id
+        ? api<ServicePackage>(`/service-packages/${id}`, { method: 'PATCH', json: body })
+        : api<ServicePackage>('/service-packages', { method: 'POST', json: body }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: packageKeys.all }),
+  });
+}
+
+export function useDeletePackage() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api<{ ok: true }>(`/service-packages/${id}`, { method: 'DELETE' }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: packageKeys.all }),
   });
 }

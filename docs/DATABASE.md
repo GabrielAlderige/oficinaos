@@ -984,6 +984,82 @@ A capacidade `app.job_runner` (policy `organizations_for_jobs`) deixa o
 trabalhador de fundo ler **a lista de oficinas** — e nada mais. O trabalho de
 cada oficina continua passando pelo RLS de sempre.
 
+### Entrega com assinatura e foto (V3, E28, migration 0056)
+
+`vehicle_inspections` ganhou só `signer_name`: as colunas
+`customer_acknowledged_at` e `signature_attachment_id` existem desde a
+migration 0008, criadas para exatamente isto. A entrega vira uma linha de tipo
+`CHECK_OUT`, e as fotos são `attachments` com `inspection_id` preenchido — os
+anexos sobem presos à OS e o serviço os transfere para a inspeção que acabou de
+nascer (D60). O interruptor `requireDeliverySignature` mora em
+`organizations.settings` (jsonb), então não pediu migration.
+
+### Confirmação de e-mail (V3, E29, migration 0057)
+
+```
+email_verification_tokens     GLOBAL, sem RLS de tenant (o link é aberto sem sessão, como o reset de
+                              senha): user_id, email (o endereço do momento do envio — trocar de
+                              e-mail invalida o link antigo), token_hash (UNIQUE; o token em si nunca
+                              é gravado), expires_at (48 h), used_at, requested_ip
+```
+
+`users.email_verified_at` já existia e passa a ser preenchido — só se o e-mail
+ainda for o mesmo do link. A tabela está registrada em `GLOBAL_TABLES` no
+teste de guarda do RLS, ao lado de `sessions` e `password_reset_tokens`.
+
+### Ficha do carro (V3, E31, migrations 0058/0059)
+
+```
+catalog_vehicles              GLOBAL, sem RLS de tenant (como `plans`): make, model, version, year_from,
+                              year_to, notes, published_at (null = rascunho, invisível para a oficina),
+                              created_by. UNIQUE (make, model, version, year_from, year_to) e índice GIN
+                              de trigrama sobre marca+modelo+versão
+catalog_vehicle_specs         uma linha da ficha: vehicle_id (ON DELETE CASCADE), key (de SPEC_ITEMS) OU
+                              custom_label, group, value, note, position. CHECK exige um dos dois nomes
+catalog_vehicle_requests      "não achei meu carro": DADO DA OFICINA, com RLS de tenant. UNIQUE
+                              (organization_id, make, model, year) — insistir não fura a fila
+```
+
+A aplicação só LÊ o catálogo (`REVOKE INSERT, UPDATE, DELETE`); quem escreve é
+a API, depois de conferir `users.is_platform_admin`. A fila de pedidos ganhou
+uma policy extra, `platform_reads_requests`, que abre a leitura de TODAS as
+oficinas quando a API declara `app.platform_admin = 'on'` (capacidade
+`withPlatformAdmin`) — sem a marca, cada oficina continua vendo só o que pediu.
+As duas tabelas globais estão registradas em `GLOBAL_TABLES` no teste de guarda.
+
+### Comissão do mecânico (V3, E26, migrations 0052/0053)
+
+```
+commission_payouts            o que a oficina PAGOU, nunca um cálculo: mechanic_user_id, period_from,
+                              period_to (CHECK from <= to), amount_cents (CHECK > 0), notes, paid_at,
+                              created_by. Adiantamento, vale e acerto parcial são linhas aqui — o
+                              relatório mostra "ganho" e "pago" lado a lado e nunca os mistura (D58)
+```
+
+Três colunas novas de `commission_bps` (**basis points**, 0..10000) guardam o
+percentual em cada nível (D57): `organizations.settings`, `memberships` e
+`services`. A resolução é serviço > mecânico > oficina, e o resultado é
+**congelado** em `work_order_items.commission_bps` + `commission_user_id`
+quando a OS é finalizada — só nas linhas de SERVIÇO, só em OS aprovada, e só
+onde ainda está nulo. Mudar o percentual hoje não reescreve o mês passado; sem
+mecânico no item, vale o responsável pela OS.
+
+### Pacotes de serviço (V3, E27, migrations 0054/0055)
+
+```
+service_packages              name, description, is_active, deleted_at (soft delete: quem já usou
+                              continua com o histórico), created_by. UNIQUE (organization_id, id) para
+                              a FK composta dos itens
+service_package_items         package_id, service_id XOR part_id (CHECK: cada linha é um OU outro),
+                              quantity numeric(12,3) CHECK > 0, position. FKs COMPOSTAS com o tenant
+                              (§1.2). NÃO tem preço: o valor sai do catálogo na hora de ler (D59)
+```
+
+A armadilha da FK composta é a mesma da E19: `uniqueIndex()` do Drizzle é
+emitido **depois** das FKs e o CREATE TABLE falha com "não há restrição de
+unicidade que corresponde"; com `unique()` a restrição nasce dentro da própria
+tabela.
+
 ### WhatsApp oficial e conversa (V3, E22, migrations 0050/0051)
 
 ```

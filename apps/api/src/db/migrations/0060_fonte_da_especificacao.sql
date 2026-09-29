@@ -1,0 +1,1 @@
+ALTER TABLE "catalog_vehicle_specs" ADD COLUMN "source" text;

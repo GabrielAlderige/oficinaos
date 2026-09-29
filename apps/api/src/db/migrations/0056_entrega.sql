@@ -1,0 +1,1 @@
+ALTER TABLE "vehicle_inspections" ADD COLUMN "signer_name" text;

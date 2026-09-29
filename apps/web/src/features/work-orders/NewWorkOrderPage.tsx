@@ -242,6 +242,23 @@ export function NewWorkOrderPage() {
         open={picking}
         onOpenChange={setPicking}
         onPick={(input, label) => setItems((current) => [...current, { input, label }])}
+        onPickPackage={(pacote) =>
+          setItems((current) => [
+            ...current,
+            // a OS ainda não existe para receber o pacote: as linhas entram
+            // aqui e nascem juntas no POST, com o preço que a API confirmar
+            ...pacote.items
+              .filter((item) => !item.unavailable)
+              .map((item) => ({
+                input: {
+                  type: item.kind,
+                  ...(item.kind === 'SERVICE' ? { serviceId: item.refId } : { partId: item.refId }),
+                  quantity: item.quantity,
+                } as WorkOrderItemInput,
+                label: item.name,
+              })),
+          ])
+        }
       />
     </>
   );

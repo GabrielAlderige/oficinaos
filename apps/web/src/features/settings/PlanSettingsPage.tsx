@@ -21,6 +21,12 @@ import { useBilling, useCancelSubscription, useChangePlan, useResumeSubscription
 
 const NOME_DO_RECURSO: Record<string, string> = {
   quotes: 'Orçamento por link',
+  vehicle_specs: 'Ficha do carro',
+  pix_charge: 'Pix na hora com QR Code',
+  mobile_app: 'Aplicativo no celular',
+  commissions: 'Comissão do mecânico',
+  service_packages: 'Pacotes de serviço',
+  delivery_proof: 'Assinatura e foto na entrega',
   appointments: 'Agenda',
   inventory: 'Estoque',
   suppliers: 'Fornecedores',

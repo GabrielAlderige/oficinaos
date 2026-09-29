@@ -8,7 +8,19 @@ import { describe, expect, it } from 'vitest';
 import { testDb } from './helpers';
 
 // Tabelas globais de propósito, sem RLS de tenant (só o módulo de auth as acessa).
-const GLOBAL_TABLES = new Set(['users', 'sessions', 'password_reset_tokens', 'plans']);
+// tabelas sem dono: o refresh, o reset de senha e a confirmação de e-mail (E29)
+// acontecem ANTES de existir contexto de oficina
+const GLOBAL_TABLES = new Set([
+  'users',
+  'sessions',
+  'password_reset_tokens',
+  'email_verification_tokens',
+  'plans',
+  // o catálogo de veículos (E31) é da PLATAFORMA: todas as oficinas leem o
+  // mesmo, e quem escreve é decidido na API, não por policy de tenant
+  'catalog_vehicles',
+  'catalog_vehicle_specs',
+]);
 
 describe('guarda do RLS', () => {
   const { db } = testDb();

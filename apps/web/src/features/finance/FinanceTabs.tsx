@@ -2,13 +2,15 @@ import { NavLink } from 'react-router';
 import { cn } from '../../lib/cn';
 
 /**
- * As duas telas do dinheiro. "A pagar" deixou de ser uma lista inteira (E23):
- * a despesa se lança no fluxo de caixa, que é onde ela faz diferença.
+ * As telas do dinheiro. "A pagar" deixou de ser uma lista inteira (E23): a
+ * despesa se lança no fluxo de caixa, que é onde ela faz diferença. A comissão
+ * entrou aqui (E26) porque é dinheiro saindo, e não uma configuração.
  */
 export function FinanceTabs() {
   const abas = [
     { to: '/financeiro/receber', label: 'A receber' },
     { to: '/financeiro/caixa', label: 'Fluxo de caixa' },
+    { to: '/financeiro/comissoes', label: 'Comissões' },
   ];
 
   return (

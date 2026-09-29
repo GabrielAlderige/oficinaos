@@ -36,7 +36,7 @@ describe('autenticação', () => {
       expect(s.me.permissions).toContain('billing:manage');
       expect(s.me.organization.name).toBe('Auto Center Beta');
       expect(s.me.organizations).toHaveLength(1);
-      expect(s.me.subscription).toMatchObject({ plan: 'PROFESSIONAL', status: 'TRIALING' });
+      expect(s.me.subscription).toMatchObject({ plan: 'SUPERCHARGER', status: 'TRIALING' });
       const trialDays = (Date.parse(s.me.subscription!.trialEndsAt!) - Date.now()) / 86_400_000;
       expect(trialDays).toBeGreaterThan(13.9);
       expect(trialDays).toBeLessThanOrEqual(14);

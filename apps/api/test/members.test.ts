@@ -219,7 +219,7 @@ describe('equipe e convites', () => {
   });
 
   it('o limite de usuários do plano conta os convites pendentes', async () => {
-    const owner = await signup(t.app); // plano de teste: Professional, 8 usuários
+    const owner = await signup(t.app); // plano de teste: Supercharger, 8 usuários
     for (let i = 0; i < 7; i++) expect((await invite(t.app, owner, uniqueEmail(), 'MECHANIC')).statusCode).toBe(201);
     const over = await invite(t.app, owner, uniqueEmail(), 'MECHANIC');
     expect(over.statusCode).toBe(403);

@@ -29,6 +29,9 @@ export const resetPasswordSchema = z.object({
   password: passwordSchema,
 });
 
+/** Confirmação de e-mail (E29): o link do e-mail, aberto sem sessão. */
+export const verifyEmailSchema = z.object({ token: z.string().min(20).max(200) });
+
 export const switchOrganizationSchema = z.object({ organizationId: z.uuid() });
 
 export const invitationTokenParamsSchema = z.object({ token: z.string().min(20).max(200) });
@@ -49,6 +52,10 @@ export const authUserSchema = z.object({
   id: z.uuid(),
   name: z.string(),
   email: z.string(),
+  /** quando o dono confirmou o e-mail (E29); null = o painel avisa */
+  emailVerifiedAt: z.string().nullable().default(null),
+  /** administrador da PLATAFORMA (E31): abre o catálogo de veículos */
+  isPlatformAdmin: z.boolean().default(false),
 });
 
 export const organizationSummarySchema = z.object({
@@ -110,6 +117,7 @@ export const invitationPreviewSchema = z.object({
   expiresAt: z.string(),
 });
 
+export type VerifyEmailInput = z.output<typeof verifyEmailSchema>;
 export type SignupInput = z.input<typeof signupSchema>;
 export type LoginInput = z.input<typeof loginSchema>;
 export type Me = z.infer<typeof meSchema>;

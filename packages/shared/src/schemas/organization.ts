@@ -110,8 +110,29 @@ export const organizationSettingsSchema = z.object({
    * exigem, e é o honesto.
    */
   googleReviewUrl: z.string().trim().max(300).refine((v) => v === '' || /^https?:\/\//.test(v), 'Cole o link completo'),
+  /**
+   * Comissão padrão do mecânico sobre a mão de obra (basis points, E26).
+   * Zero = a oficina não paga comissão, e a tela de comissões fica vazia em
+   * vez de mostrar número inventado.
+   */
+  commissionBps: z.number().int().min(0).max(10_000),
   /** a baixa na finalização da OS pode deixar o estoque negativo (padrão: sim, com alerta) */
   allowNegativeStock: z.boolean(),
+  /**
+   * Chave Pix da oficina (E32). Com ela, a OS gera o QR e o copia-e-cola na
+   * hora, sem gateway nenhum — o dinheiro cai direto na conta da oficina.
+   * Vazio = a tela oferece cadastrar em vez de mostrar um QR que não paga.
+   */
+  pixKey: z.string().trim().max(120),
+  /** cidade do recebedor, exigida pelo padrão do BR Code (máx. 15 no código) */
+  pixCity: z.string().trim().max(60),
+  /**
+   * Exigir a assinatura de quem recebe o carro para entregar (E28). Desligado
+   * por padrão: a maioria entrega com um aperto de mão, e travar a entrega de
+   * quem não pediu isso é transformar melhoria em obstáculo. Ligado, a entrega
+   * sem assinatura é recusada — é a oficina que decide se quer o comprovante.
+   */
+  requireDeliverySignature: z.boolean(),
   /**
    * Desconto máximo (basis points) para quem tem `work_orders:discount` mas não
    * `work_orders:discount_unlimited` — na prática, o atendente (§7).
@@ -123,7 +144,11 @@ export const DEFAULT_ORGANIZATION_SETTINGS: z.infer<typeof organizationSettingsS
   laborRateCents: null,
   defaultMarkupBps: 3000,
   googleReviewUrl: '',
+  commissionBps: 0,
   allowNegativeStock: true,
+  pixKey: '',
+  pixCity: '',
+  requireDeliverySignature: false,
   discountLimitBps: 1000,
 };
 

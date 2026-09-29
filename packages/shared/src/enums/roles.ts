@@ -21,3 +21,10 @@ export const ROLE_LABELS: Record<Role, string> = {
   ATTENDANT: 'Atendente',
   FINANCE: 'Financeiro',
 };
+
+/**
+ * Quem põe a mão no carro. São esses que ganham comissão de mão de obra (E26)
+ * e que podem ser o responsável por uma OS (E30) — oferecer o financeiro na
+ * lista de mecânicos é oferecer erro.
+ */
+export const EXECUTAM_SERVICO: Role[] = ['MECHANIC', 'MANAGER', 'OWNER', 'ADMIN'];

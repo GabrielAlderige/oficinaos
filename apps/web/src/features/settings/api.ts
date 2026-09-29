@@ -96,7 +96,17 @@ export function useRevokeInvitation() {
 export function useUpdateMember() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...body }: { id: string; role?: Role; isActive?: boolean; calendarColor?: CalendarColor | null }) =>
+    mutationFn: ({
+      id,
+      ...body
+    }: {
+      id: string;
+      role?: Role;
+      isActive?: boolean;
+      calendarColor?: CalendarColor | null;
+      /** null = volta a usar a comissão padrão da oficina (E26) */
+      commissionBps?: number | null;
+    }) =>
       api<Member>(`/members/${id}`, { method: 'PATCH', json: body }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: settingsKeys.members }),
   });

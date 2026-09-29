@@ -70,11 +70,28 @@ describe('máquina de estados da OS', () => {
   });
 
   it('o mecânico trabalha na OS, mas não entrega nem cancela (§7, nota 4)', () => {
-    expect(actionsOf('OPEN', 'MECHANIC')).toEqual(['start-diagnosis']);
+    // "executar sem orçamento" (E34) é do mecânico de propósito: é ele quem
+    // está com o carro quando o cliente manda fazer de boca. A tela confirma
+    // com todas as letras, e a timeline registra quem liberou (D68)
+    expect(actionsOf('OPEN', 'MECHANIC')).toEqual(['start-diagnosis', 'skip-quote']);
     expect(actionsOf('IN_PROGRESS', 'MECHANIC')).toEqual(['wait-parts', 'complete']);
     expect(actionsOf('COMPLETED', 'MECHANIC')).toEqual([]);
     expect(actionsOf('COMPLETED', 'ATTENDANT')).toEqual(['deliver']);
     expect(actionsOf('IN_PROGRESS', 'MANAGER')).toEqual(['wait-parts', 'complete', 'cancel']);
+  });
+
+  it('sem "executar sem orçamento" a OS ficaria presa em aguardando orçamento (E34)', () => {
+    // era o buraco: de AWAITING_QUOTE só se saía enviando orçamento E tendo
+    // resposta. Quem faz serviço pequeno no combinado de boca não tinha caminho
+    expect(nextStatus('AWAITING_QUOTE', 'start'), 'executar direto continua proibido').toBeNull();
+    expect(nextStatus('AWAITING_QUOTE', 'skip-quote')).toBe('APPROVED');
+    expect(nextStatus('OPEN', 'skip-quote'), 'e também serve para a OS que nem diagnosticou').toBe('APPROVED');
+    expect(nextStatus('DIAGNOSING', 'skip-quote')).toBe('APPROVED');
+
+    // depois de aprovada ou em execução não faz sentido: já está liberado
+    expect(nextStatus('APPROVED', 'skip-quote')).toBeNull();
+    expect(nextStatus('IN_PROGRESS', 'skip-quote')).toBeNull();
+    expect(nextStatus('COMPLETED', 'skip-quote')).toBeNull();
   });
 
   it('o financeiro só olha: nenhuma ação de status', () => {
