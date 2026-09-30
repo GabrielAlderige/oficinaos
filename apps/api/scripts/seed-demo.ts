@@ -254,6 +254,11 @@ async function reset(): Promise<void> {
     await db.execute(
       sql`delete from password_reset_tokens where user_id in (select id from users where email like '%@oficinaos.dev')`,
     );
+    // nasceu depois do reset (E29) e ficou de fora: sem apagar, o delete dos
+    // usuários bate na chave estrangeira e o reset morre pela metade
+    await db.execute(
+      sql`delete from email_verification_tokens where user_id in (select id from users where email like '%@oficinaos.dev')`,
+    );
 
     for (const organizationId of oficinas) {
       await withTenant(db, { organizationId }, async (tx) => {
@@ -354,6 +359,19 @@ async function main(): Promise<void> {
         sat: [['08:00', '12:00']],
       },
     },
+    dono,
+  );
+
+  /**
+   * As configurações ficam em OUTRO endpoint, e o seed nunca as tocava — por
+   * isso o convite de avaliação (E16) morria com 422 no fim da execução: sem
+   * link do Google não há para onde mandar o cliente. Fica aqui em cima porque
+   * é pré-requisito do que vem depois, não enfeite.
+   */
+  await chamar(
+    'PATCH',
+    '/organization/settings',
+    { googleReviewUrl: 'https://g.page/r/oficina-de-demonstracao/review' },
     dono,
   );
 
@@ -726,21 +744,15 @@ async function main(): Promise<void> {
    * pública. A fila de pós-venda não é semeada — ela se monta sozinha quando a
    * tela abre, a partir das OS entregues.
    */
-  const NOTAS: { nota: number; comentario: string | null }[] = [
-    { nota: 5, comentario: 'Atendimento rápido e o carro ficou ótimo.' },
-    { nota: 5, comentario: null },
-    { nota: 4, comentario: 'Serviço bom, só demorou um pouco mais que o combinado.' },
-    { nota: 3, comentario: 'Resolveu, mas achei o preço da peça salgado.' },
-  ];
+  /**
+   * A avaliação deixou de ser interna (E23): o convite leva para o Google, e
+   * não existe mais rota pública para gravar nota aqui dentro. O seed continua
+   * DISPARANDO os convites — é isso que a tela de pós-venda mostra — mas não
+   * tem mais nota para semear, porque a nota mora no Google.
+   */
   const entregues = criadas.filter((ordem) => ordem.roteiro.startsWith('DELIVERED'));
-  for (const [indice, ordem] of entregues.entries()) {
-    const nota = NOTAS[indice];
-    const convite = (await chamar('POST', `/work-orders/${ordem.id}/review-invite`, {}, dono)) as {
-      publicUrl: string;
-    };
-    if (!nota) continue;
-    const token = convite.publicUrl.slice(convite.publicUrl.lastIndexOf('/') + 1);
-    await chamar('POST', `/public/reviews/${token}`, { rating: nota.nota, comment: nota.comentario ?? '' });
+  for (const ordem of entregues) {
+    await chamar('POST', `/work-orders/${ordem.id}/review-invite`, {}, dono);
   }
 
   /**
