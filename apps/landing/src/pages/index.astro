@@ -171,7 +171,7 @@ const perguntas = [
       name="description"
       content="Sistema para oficina mecânica: ordem de serviço com fotos, orçamento que o cliente aprova pelo WhatsApp, estoque, financeiro e a ficha do carro com óleo e torque de 292 modelos."
     />
-    <meta name="theme-color" content="#c2410c" />
+    <meta name="theme-color" content="#0d0c0e" />
     <link rel="canonical" href="https://oficinaos.com.br/" />
     <meta property="og:title" content="OficinaOS — o cliente aprova o orçamento pelo celular" />
     <meta
@@ -337,19 +337,19 @@ const perguntas = [
       </section>
 
       <!-- ============== NÚMEROS REAIS ============== -->
-      <section class="border-y border-border bg-foreground text-background">
+      <section class="numeros border-y border-border">
         <div class="mx-auto grid max-w-6xl gap-8 px-5 py-14 sm:grid-cols-3">
           <div class="reveal">
-            <p class="text-4xl font-semibold tabular-nums"><span class="conta" data-ate="292">0</span></p>
-            <p class="mt-1 text-sm opacity-75">fichas de carro prontas, de 10 marcas</p>
+            <p class="text-4xl font-semibold tabular-nums text-accent"><span class="conta" data-ate="292">0</span></p>
+            <p class="mt-1 text-sm text-muted">fichas de carro prontas, de 10 marcas</p>
           </div>
           <div class="reveal" style="--atraso:.1s">
-            <p class="text-4xl font-semibold tabular-nums"><span class="conta" data-ate="1905">0</span></p>
-            <p class="mt-1 text-sm opacity-75">especificações conferidas contra o manual do fabricante</p>
+            <p class="text-4xl font-semibold tabular-nums text-accent"><span class="conta" data-ate="1905">0</span></p>
+            <p class="mt-1 text-sm text-muted">especificações conferidas contra o manual do fabricante</p>
           </div>
           <div class="reveal" style="--atraso:.2s">
-            <p class="text-4xl font-semibold tabular-nums"><span class="conta" data-ate="6">0</span></p>
-            <p class="mt-1 text-sm opacity-75">papéis de acesso, aplicados no servidor</p>
+            <p class="text-4xl font-semibold tabular-nums text-accent"><span class="conta" data-ate="6">0</span></p>
+            <p class="mt-1 text-sm text-muted">papéis de acesso, aplicados no servidor</p>
           </div>
         </div>
       </section>
@@ -364,7 +364,7 @@ const perguntas = [
             </h2>
             <p class="mt-4 text-muted">
               Digite o modelo e o ano. O sistema mostra óleo e quantidade, fluido de freio,
-              aditivo, medida do pneu e torque — e, embaixo de cada valor,
+              aditivo, medida do pneu e torque — e, embaixo de cada valor,{' '}
               <strong class="text-foreground">de qual manual e de qual página aquilo saiu</strong>.
             </p>
             <p class="mt-3 text-muted">
@@ -675,7 +675,7 @@ const perguntas = [
       </section>
 
       <!-- ============== CHAMADA FINAL ============== -->
-      <section class="border-t border-border bg-foreground text-background">
+      <section class="chamada-final border-t border-border">
         <div class="mx-auto max-w-4xl px-5 py-16 text-center">
           <h2 class="reveal text-2xl font-semibold tracking-tight text-balance sm:text-4xl">
             Amanhã de manhã o primeiro carro entra.<br />Que tal ele já entrar no sistema?
@@ -688,13 +688,13 @@ const perguntas = [
               Testar 14 dias grátis
             </a>
             <a
-              class="rounded-md border border-background/30 px-7 py-3.5 text-sm font-medium transition hover:-translate-y-0.5 hover:bg-background/10"
+              class="rounded-md border border-border bg-surface px-7 py-3.5 text-sm font-medium transition hover:-translate-y-0.5 hover:bg-surface-muted"
               href="#quero-ver"
             >
               Falar com a gente
             </a>
           </div>
-          <p class="reveal mt-4 text-sm opacity-70">Sem cartão. Sem contrato. Sem instalar nada.</p>
+          <p class="reveal mt-4 text-sm text-muted">Sem cartão. Sem contrato. Sem instalar nada.</p>
         </div>
       </section>
     </main>

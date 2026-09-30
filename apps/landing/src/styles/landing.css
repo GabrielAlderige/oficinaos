@@ -2,21 +2,35 @@
 
 /*
  * Os mesmos tokens do painel (ARCHITECTURE §13.2): a landing e o produto têm
- * de parecer a mesma empresa. Só o modo claro — a página é institucional.
+ * de parecer a mesma empresa.
  */
 :root {
-  --background: #f6f6f4;
-  --surface: #ffffff;
-  --surface-muted: #efefec;
-  --border: #e2e2de;
-  --foreground: #1c1c1a;
-  --muted: #66665f;
-  --accent: #c2410c;
-  --accent-hover: #9a3412;
-  --accent-foreground: #ffffff;
-  --accent-bright: #f26b1d;
-  --accent-soft: #fff1e8;
-  color-scheme: light;
+  /*
+   * Landing em tema ESCURO, por escolha (E42).
+   *
+   * Não é "modo escuro opcional": a página commita num visual só, e por isso
+   * pinta fundo e texto explicitamente em vez de depender da preferência do
+   * navegador. O laranja da marca salta muito mais sobre o escuro — e oficina
+   * é um ambiente de graxa e aço, não de papel branco.
+   *
+   * O contraste foi medido: texto sobre fundo passa em AA, e o acento é claro
+   * o bastante para servir COMO texto (o `--accent` de tema claro, #c2410c,
+   * não serviria: some sobre o escuro).
+   */
+  --background: #0d0c0e;
+  --surface: #17151a;
+  --surface-muted: #201d23;
+  --border: #2a262e;
+  --foreground: #f4f1ee;
+  --muted: #a49da6;
+  /* claro o bastante para ser texto sobre o fundo escuro */
+  --accent: #ff8244;
+  --accent-hover: #ffa06e;
+  /* sobre o laranja claro, quem contrasta é o texto ESCURO */
+  --accent-foreground: #2a1206;
+  --accent-bright: #ffa06e;
+  --accent-soft: #2a1a12;
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -62,17 +76,23 @@
 
 .hero-fundo {
   background:
-    radial-gradient(60rem 30rem at 15% -10%, var(--accent-soft), transparent 60%),
-    radial-gradient(45rem 26rem at 95% 0%, #fdf0e6, transparent 55%);
+    radial-gradient(60rem 30rem at 15% -10%, #2a1a12, transparent 62%),
+    radial-gradient(45rem 26rem at 95% 0%, #1b1520, transparent 58%);
 }
 
-/* o traço embaixo de "pelo celular": cresce quando a página abre */
+/*
+ * O traço de "pelo celular": cresce quando a página abre.
+ *
+ * No tema claro isto era um realce ATRÁS do texto. No escuro, faixa atrás de
+ * letra clara vira mancha marrom e suja a leitura — então o traço foi para
+ * BAIXO, sólido no acento, que é como ênfase se lê sobre fundo escuro.
+ */
 .sublinhado { position: relative; white-space: nowrap; }
 .sublinhado::after {
   content: '';
-  position: absolute; left: 0; right: 0; bottom: .06em;
-  height: .28em; background: var(--accent-soft); border-radius: 2px;
-  z-index: -1; transform-origin: left;
+  position: absolute; left: 0; right: 0; bottom: -.02em;
+  height: .08em; background: var(--accent); border-radius: 99px;
+  transform-origin: left;
   animation: cresce .7s .35s ease both;
 }
 @keyframes cresce { from { transform: scaleX(0); } to { transform: scaleX(1); } }
@@ -97,8 +117,8 @@
 }
 .zap-topo {
   display: flex; align-items: center; gap: .5rem;
-  padding: .7rem .8rem; background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  padding: .7rem .8rem; background: #fff; color: #1c1c1a;
+  border-bottom: 1px solid #e2e2de;
 }
 .zap-corpo { display: flex; flex-direction: column; gap: .45rem; padding: .8rem; }
 
@@ -110,11 +130,11 @@
 .balao {
   align-self: flex-start; max-width: 85%;
   border-radius: .8rem .8rem .8rem .2rem;
-  background: var(--surface); padding: .5rem .7rem;
+  background: #fff; color: #1c1c1a; padding: .5rem .7rem;
   font-size: 11.5px; line-height: 1.45;
   box-shadow: 0 1px 1px rgb(0 0 0 / .08);
 }
-.balao.link { color: var(--accent); text-decoration: underline; word-break: break-all; }
+.balao.link { color: #c2410c; text-decoration: underline; word-break: break-all; }
 .balao.meu {
   align-self: flex-end; background: #d9fdd3;
   border-radius: .8rem .8rem .2rem .8rem; font-weight: 600;
@@ -122,27 +142,29 @@
 @keyframes entra { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
 .cartao-orcamento {
-  border-radius: .7rem; background: var(--surface);
+  border-radius: .7rem; background: #fff; color: #1c1c1a;
   padding: .7rem; font-size: 11px;
   box-shadow: 0 2px 8px rgb(0 0 0 / .1);
 }
 .cartao-orcamento .item {
   display: flex; align-items: center; gap: .4rem;
-  padding: .25rem 0; border-bottom: 1px solid var(--border);
+  padding: .25rem 0; border-bottom: 1px solid #e2e2de;
 }
 .cartao-orcamento .item b { margin-left: auto; }
 .cartao-orcamento .item.apagado { opacity: .45; text-decoration: line-through; }
+/* os rótulos dentro do celular seguem a tela clara, não os tokens da página */
+.cartao-orcamento .text-muted, .cartao-orcamento p { color: #66665f; }
 .caixa {
   width: .8rem; height: .8rem; flex: none;
-  border: 1.5px solid var(--border); border-radius: .2rem;
+  border: 1.5px solid #cfcbc6; border-radius: .2rem;
 }
-.caixa.marcada { background: var(--accent); border-color: var(--accent); }
+.caixa.marcada { background: #c2410c; border-color: #c2410c; }
 .total {
   display: flex; justify-content: space-between;
   padding-top: .5rem; margin-top: .35rem; font-size: 12px; font-weight: 600;
 }
 .botao-aprovar {
-  margin-top: .5rem; border-radius: .4rem; background: var(--accent);
+  margin-top: .5rem; border-radius: .4rem; background: #c2410c;
   padding: .5rem; text-align: center; color: #fff; font-weight: 600; font-size: 11px;
 }
 
@@ -167,4 +189,18 @@
     animation: none;
   }
   .sublinhado::after { transform: none; }
+}
+
+/* As duas faixas que antes eram escuras sobre a página clara. Invertidas
+ * agora seriam escuro sobre escuro — some tudo. Viram painéis com brilho
+ * próprio: o mesmo papel de "pausa visual", sem depender de inverter cor. */
+.numeros {
+  background:
+    radial-gradient(40rem 20rem at 20% 0%, #23161d, transparent 70%),
+    var(--surface);
+}
+.chamada-final {
+  background:
+    radial-gradient(45rem 24rem at 50% 120%, #2f1a10, transparent 70%),
+    var(--surface);
 }
