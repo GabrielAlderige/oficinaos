@@ -153,8 +153,15 @@ export async function findSubscriptionState(tx: Tx, organizationId: string) {
       trialEndsAt: subscriptions.trialEndsAt,
       currentPeriodEnd: subscriptions.currentPeriodEnd,
       pastDueSince: subscriptions.pastDueSince,
+      // o plano vem junto (E40): o guard barra por funcionalidade a cada
+      // requisição, e isso não pode custar uma segunda consulta. Entra no
+      // mesmo cache, que já é invalidado quando a oficina troca de plano.
+      planCode: plans.code,
+      planName: plans.name,
+      features: plans.features,
     })
     .from(subscriptions)
+    .innerJoin(plans, eq(plans.id, subscriptions.planId))
     .where(eq(subscriptions.organizationId, organizationId))
     .limit(1);
   return row;

@@ -26,7 +26,7 @@ export const messagingRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get(
     '/channel',
     {
-      config: { auth: 'organization:manage' },
+      config: { auth: 'organization:manage', feature: 'whatsapp_api' },
       schema: { response: { 200: messagingOverviewSchema } },
     },
     async (request) => service.overview(getAuth(request)),
@@ -35,7 +35,7 @@ export const messagingRoutes: FastifyPluginAsyncZod = async (app) => {
   app.post(
     '/channel',
     {
-      config: { auth: 'organization:manage' },
+      config: { auth: 'organization:manage', feature: 'whatsapp_api' },
       schema: { body: connectChannelSchema, response: { 200: messagingOverviewSchema } },
     },
     async (request) => service.connect(getAuth(request), request.body, clientInfo(request)),
@@ -44,7 +44,7 @@ export const messagingRoutes: FastifyPluginAsyncZod = async (app) => {
   app.delete(
     '/channel',
     {
-      config: { auth: 'organization:manage' },
+      config: { auth: 'organization:manage', feature: 'whatsapp_api' },
       schema: { response: { 200: messagingOverviewSchema } },
     },
     async (request) => service.disconnect(getAuth(request), clientInfo(request)),
@@ -53,7 +53,7 @@ export const messagingRoutes: FastifyPluginAsyncZod = async (app) => {
   app.patch(
     '/templates',
     {
-      config: { auth: 'organization:manage' },
+      config: { auth: 'organization:manage', feature: 'whatsapp_api' },
       schema: { body: updateTemplateSchema, response: { 200: messagingOverviewSchema } },
     },
     async (request) => service.saveTemplate(getAuth(request), request.body),
@@ -62,7 +62,7 @@ export const messagingRoutes: FastifyPluginAsyncZod = async (app) => {
   app.put(
     '/auto-send',
     {
-      config: { auth: 'organization:manage' },
+      config: { auth: 'organization:manage', feature: 'whatsapp_api' },
       schema: { body: updateAutoSendSchema, response: { 200: messagingOverviewSchema } },
     },
     async (request) => service.setAutoSend(getAuth(request), request.body, clientInfo(request)),

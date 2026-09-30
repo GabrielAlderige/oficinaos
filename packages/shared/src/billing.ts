@@ -68,13 +68,29 @@ export function situacaoDaAssinatura(
 
   if (assinatura.status === 'TRIALING' && fimDoTeste) {
     const acabou = fimDoTeste.getTime() <= agora.getTime();
+    /**
+     * O teste vencido também tem carência (E41).
+     *
+     * Antes disto o bloqueio era no mesmo minuto: os 7 dias só valiam para
+     * quem JÁ pagava. Na prática, a oficina que entrou numa segunda-feira
+     * parava de conseguir gravar na segunda seguinte, no meio do expediente,
+     * sem aviso útil — e quem assina no domingo à noite não existe.
+     *
+     * São os mesmos 7 dias do atraso de boleto, pela mesma razão: o dono
+     * precisa de alguns dias úteis para decidir e passar no cartão, e cortar
+     * antes disso não acelera a decisão, só faz a oficina voltar para o
+     * caderno. A leitura nunca é bloqueada, nem aqui nem lá.
+     */
+    const fimDaCarencia = new Date(fimDoTeste.getTime() + GRACE_DAYS * dia);
+    const naCarencia = acabou && fimDaCarencia.getTime() > agora.getTime();
+    const limite = acabou ? fimDaCarencia : fimDoTeste;
     return {
       status: 'TRIALING',
       emTeste: !acabou,
-      emCarencia: false,
-      bloqueada: acabou,
-      diasRestantes: diasEntre(agora, fimDoTeste),
-      trabalhaAte: fimDoTeste.toISOString(),
+      emCarencia: naCarencia,
+      bloqueada: acabou && !naCarencia,
+      diasRestantes: diasEntre(agora, limite),
+      trabalhaAte: limite.toISOString(),
     };
   }
 

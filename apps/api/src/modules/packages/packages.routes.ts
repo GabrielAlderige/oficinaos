@@ -13,7 +13,7 @@ export const packageRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get(
     '/',
     {
-      config: { auth: 'catalog:read' },
+      config: { auth: 'catalog:read', feature: 'service_packages' },
       schema: {
         querystring: z.object({ incluirInativos: z.stringbool().default(false) }),
         response: { 200: z.object({ data: z.array(servicePackageSchema) }) },
@@ -24,14 +24,14 @@ export const packageRoutes: FastifyPluginAsyncZod = async (app) => {
 
   app.get(
     '/:id',
-    { config: { auth: 'catalog:read' }, schema: { params: idParamSchema, response: { 200: servicePackageSchema } } },
+    { config: { auth: 'catalog:read', feature: 'service_packages' }, schema: { params: idParamSchema, response: { 200: servicePackageSchema } } },
     async (request) => service.get(getAuth(request), request.params.id),
   );
 
   app.post(
     '/',
     {
-      config: { auth: 'catalog:write' },
+      config: { auth: 'catalog:write', feature: 'service_packages' },
       schema: { body: createPackageSchema, response: { 201: servicePackageSchema } },
     },
     async (request, reply) => {
@@ -43,7 +43,7 @@ export const packageRoutes: FastifyPluginAsyncZod = async (app) => {
   app.patch(
     '/:id',
     {
-      config: { auth: 'catalog:write' },
+      config: { auth: 'catalog:write', feature: 'service_packages' },
       schema: { params: idParamSchema, body: updatePackageSchema, response: { 200: servicePackageSchema } },
     },
     async (request) => service.update(getAuth(request), request.params.id, request.body, clientInfo(request)),
@@ -52,7 +52,7 @@ export const packageRoutes: FastifyPluginAsyncZod = async (app) => {
   app.delete(
     '/:id',
     {
-      config: { auth: 'catalog:write' },
+      config: { auth: 'catalog:write', feature: 'service_packages' },
       schema: { params: idParamSchema, response: { 200: z.object({ ok: z.literal(true) }) } },
     },
     async (request) => {

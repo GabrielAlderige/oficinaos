@@ -449,6 +449,20 @@
       "when": 1790611835540,
       "tag": "0063_tutoriais_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1790698235540,
+      "tag": "0064_planos_de_verdade",
+      "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1790699999000,
+      "tag": "0065_plataforma_oficinas",
+      "breakpoints": true
     }
   ]
 }

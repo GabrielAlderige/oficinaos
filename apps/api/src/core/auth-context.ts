@@ -1,5 +1,5 @@
 import type { FastifyBaseLogger, FastifyRequest } from 'fastify';
-import { ErrorCode, type Permission, type Role, type SubscriptionStatus } from '@oficinaos/shared';
+import { ErrorCode, type Permission, type PlanFeature, type Role, type SubscriptionStatus } from '@oficinaos/shared';
 import type { Env } from '../config/env';
 import type { Database } from '../db/client';
 import type { EmailProvider } from '../integrations/email/email';
@@ -43,6 +43,12 @@ declare module 'fastify' {
      * bloquear a própria cobrança.
      */
     allowBlocked?: boolean;
+    /**
+     * A rota só existe para quem tem esta funcionalidade no plano (E40).
+     * Roda DEPOIS da permissão: quem não pode por papel recebe 403 de papel,
+     * e não um convite para assinar um plano que não resolveria nada.
+     */
+    feature?: PlanFeature;
   }
 }
 
@@ -66,6 +72,10 @@ export interface SubscriptionState {
   trialEndsAt: Date | null;
   currentPeriodEnd: Date | null;
   pastDueSince: Date | null;
+  /** o plano em vigor e o que ele libera (E40): o guard barra por isto */
+  planCode: string;
+  planName: string;
+  features: string[];
 }
 
 export interface AuthCaches {

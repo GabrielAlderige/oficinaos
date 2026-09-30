@@ -12,14 +12,14 @@ export const automationRoutes: FastifyPluginAsyncZod = async (app) => {
 
   app.get(
     '/',
-    { config: { auth: 'organization:manage' }, schema: { response: { 200: automationsOverviewSchema } } },
+    { config: { auth: 'organization:manage', feature: 'automations' }, schema: { response: { 200: automationsOverviewSchema } } },
     async (request) => service.overview(getAuth(request)),
   );
 
   app.put(
     '/',
     {
-      config: { auth: 'organization:manage' },
+      config: { auth: 'organization:manage', feature: 'automations' },
       schema: { body: updateAutomationSettingsSchema, response: { 200: automationsOverviewSchema } },
     },
     async (request) => service.updateSettings(getAuth(request), request.body, clientInfo(request)),
@@ -28,7 +28,7 @@ export const automationRoutes: FastifyPluginAsyncZod = async (app) => {
   app.post(
     '/run',
     {
-      config: { auth: 'organization:manage' },
+      config: { auth: 'organization:manage', feature: 'automations' },
       schema: { body: runAutomationSchema, response: { 200: automationsOverviewSchema } },
     },
     async (request) => service.runNow(getAuth(request), request.body.key, clientInfo(request)),

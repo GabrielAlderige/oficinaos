@@ -3,11 +3,15 @@ import {
   formatBRL,
   mensalEquivalente,
   PAYMENT_ENVIRONMENT_LABELS,
+  PLAN_FEATURE_LABELS,
+  ROADMAP_FEATURE_LABELS,
+  ROADMAP_FEATURES,
   type BillingCycle,
   type BillingOverview,
+  type PlanFeature,
   type PlanOption,
 } from '@oficinaos/shared';
-import { Check, FlaskConical } from 'lucide-react';
+import { Check, Clock, FlaskConical } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '../../components/ui/button';
@@ -19,27 +23,6 @@ import { errorMessage } from '../../lib/errors';
 import { formatDate } from '../../lib/format';
 import { useBilling, useCancelSubscription, useChangePlan, useResumeSubscription, useSubscribe } from '../billing/api';
 
-const NOME_DO_RECURSO: Record<string, string> = {
-  quotes: 'Orçamento por link',
-  vehicle_specs: 'Ficha do carro',
-  pix_charge: 'Pix na hora com QR Code',
-  mobile_app: 'Aplicativo no celular',
-  commissions: 'Comissão do mecânico',
-  service_packages: 'Pacotes de serviço',
-  delivery_proof: 'Assinatura e foto na entrega',
-  appointments: 'Agenda',
-  inventory: 'Estoque',
-  suppliers: 'Fornecedores',
-  purchasing: 'Compras',
-  finance: 'Financeiro',
-  reports: 'Relatórios',
-  parts_search: 'Pesquisa de peças',
-  automations: 'Automações',
-  whatsapp_api: 'WhatsApp oficial',
-  multi_branch: 'Multi-filial',
-  custom_roles: 'Papéis customizados',
-  public_api: 'API pública',
-};
 
 /**
  * O plano da oficina (E20): em que pé está a assinatura, quanto do plano ela
@@ -235,7 +218,7 @@ function Conteudo({ dados }: { dados: BillingOverview }) {
                   {plano.features.map((recurso) => (
                     <li key={recurso} className="flex items-center gap-1.5">
                       <Check className="size-3.5 text-success" aria-hidden="true" />
-                      {NOME_DO_RECURSO[recurso] ?? recurso}
+                      {PLAN_FEATURE_LABELS[recurso as PlanFeature] ?? recurso}
                     </li>
                   ))}
                 </ul>
@@ -286,6 +269,28 @@ function Conteudo({ dados }: { dados: BillingOverview }) {
           </table>
         </Card>
       )}
+
+      {/*
+        O que ainda NÃO existe fica aqui embaixo, longe dos ✓ verdes dos planos.
+        Três destes — multi-filial, papéis customizados e API pública — já
+        estiveram na lista de incluídos do Nitro, com visual de pronto, por
+        R$ 499 por mês. Prometer o futuro é justo; cobrar por ele como se fosse
+        presente não é.
+      */}
+      <Card>
+        <CardHeader
+          title="Em desenvolvimento"
+          description="Ainda não está pronto e não entra em plano nenhum. Fica aqui para você saber o caminho, não como algo que já dá para usar."
+        />
+        <ul className="grid gap-2 px-5 pb-5 text-sm sm:grid-cols-2">
+          {ROADMAP_FEATURES.map((recurso) => (
+            <li key={recurso} className="flex items-center gap-1.5 text-muted">
+              <Clock className="size-3.5 shrink-0" aria-hidden="true" />
+              {ROADMAP_FEATURE_LABELS[recurso]}
+            </li>
+          ))}
+        </ul>
+      </Card>
 
       <Card>
         <CardHeader

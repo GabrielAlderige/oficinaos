@@ -22,7 +22,7 @@ export const commissionRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get(
     '/',
     {
-      config: { auth: 'authenticated' },
+      config: { auth: 'authenticated', feature: 'commissions' },
       schema: { querystring: commissionQuerySchema, response: { 200: commissionReportSchema } },
     },
     async (request) => service.report(getAuth(request), request.query),
@@ -31,7 +31,7 @@ export const commissionRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get(
     '/payouts',
     {
-      config: { auth: 'authenticated' },
+      config: { auth: 'authenticated', feature: 'commissions' },
       schema: { response: { 200: z.object({ data: z.array(commissionPayoutSchema) }) } },
     },
     async (request) => ({ data: await service.listPayouts(getAuth(request)) }),
@@ -40,7 +40,7 @@ export const commissionRoutes: FastifyPluginAsyncZod = async (app) => {
   app.post(
     '/payouts',
     {
-      config: { auth: 'commissions:manage' },
+      config: { auth: 'commissions:manage', feature: 'commissions' },
       schema: { body: createCommissionPayoutSchema, response: { 201: commissionPayoutSchema } },
     },
     async (request, reply) => {

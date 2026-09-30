@@ -1,6 +1,8 @@
+import type { PlanFeature } from '@oficinaos/shared';
 import type { ComponentType } from 'react';
 import { createBrowserRouter, Navigate, useLocation } from 'react-router';
 import { FullPageSpinner } from '../components/brand';
+import { PlanGate } from '../components/PlanGate';
 import { LoginPage } from '../features/auth/LoginPage';
 import { PublicOnly, RequireAuth } from './guards';
 import { AppShell } from './layouts/AppShell';
@@ -12,6 +14,25 @@ import { NotFoundPage } from './NotFoundPage';
 const page = <T extends Record<string, ComponentType>>(load: () => Promise<T>, name: keyof T) => async () => ({
   Component: (await load())[name],
 });
+
+/**
+ * Como `page`, mas atrás do plano (E40): quem não tem a funcionalidade recebe
+ * o convite para assinar em vez de um 404. O menu já esconde o item, então
+ * quem chega aqui digitou o endereço ou seguiu um link antigo — e mesmo assim
+ * precisa de uma saída. Quem garante de verdade é a API, com 402 na rota.
+ */
+const pageDoPlano =
+  <T extends Record<string, ComponentType>>(load: () => Promise<T>, name: keyof T, feature: PlanFeature) =>
+  async () => {
+    const Tela = (await load())[name] as ComponentType;
+    return {
+      Component: () => (
+        <PlanGate feature={feature}>
+          <Tela />
+        </PlanGate>
+      ),
+    };
+  };
 
 // URLs em português: é o que a equipe da oficina lê e compartilha (ARCHITECTURE §13.1).
 /** Redireciona a ficha do carro mantendo `?q=` (E36). */
@@ -118,6 +139,17 @@ export const router = createBrowserRouter([
             ],
           },
           {
+            // exclusiva do Nitro (E40): cruza o estoque da oficina com o carro
+            // da OS e mostra o que serve nele, com o custo médio
+            path: 'pesquisa-de-pecas',
+            lazy: pageDoPlano(
+              () => import('../features/parts-search/PartsSearchPage'),
+              'PartsSearchPage',
+              'parts_search',
+            ),
+            handle: { crumb: 'Pesquisa de peças' },
+          },
+          {
             // tela própria (E36): sai de dentro de "Peças e estoque"
             path: 'ficha-do-carro',
             lazy: page(() => import('../features/catalog/VehicleCatalogPage'), 'VehicleCatalogPage'),
@@ -148,6 +180,11 @@ export const router = createBrowserRouter([
             path: 'plataforma/catalogo',
             lazy: page(() => import('../features/platform/CatalogAdminPage'), 'CatalogAdminPage'),
             handle: { crumb: 'Catálogo de veículos' },
+          },
+          {
+            path: 'plataforma/oficinas',
+            lazy: page(() => import('../features/platform/OrganizationsPage'), 'OrganizationsPage'),
+            handle: { crumb: 'Oficinas' },
           },
           {
             path: 'plataforma/tutoriais',

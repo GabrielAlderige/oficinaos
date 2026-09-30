@@ -48,6 +48,8 @@ import {
 import { PurchasesService } from './modules/purchases/purchases.service';
 import { financeRoutes } from './modules/finance/finance.routes';
 import { partsSearchRoutes, supplierPriceListRoutes } from './modules/parts-search/parts-search.routes';
+import { platformRoutes } from './modules/platform/platform.routes';
+import { PlatformService } from './modules/platform/platform.service';
 import {
   followUpRoutes,
   leadRoutes,
@@ -132,6 +134,7 @@ export interface Services {
   messaging: MessagingService;
   commissions: CommissionsService;
   packages: PackagesService;
+  platform: PlatformService;
   tutorials: TutorialsService;
   vehicleCatalog: VehicleCatalogService;
 }
@@ -195,6 +198,14 @@ export async function buildApp({
     },
     genReqId: () => uuidv7(),
     bodyLimit: 1_048_576,
+    /**
+     * De onde o `X-Forwarded-For` é confiável (E41). Em produção vale
+     * `TRUST_PROXY=uniquelocal`: o Caddy está na rede privada do compose, e
+     * cabeçalho vindo de fora dela continua sendo ignorado. Vazio (o padrão, e
+     * o caso do desenvolvimento) lê o socket, como antes. Ver `config/env.ts`
+     * para o que quebra em silêncio sem isso.
+     */
+    trustProxy: env.TRUST_PROXY === '' ? false : env.TRUST_PROXY,
   }).withTypeProvider<ZodTypeProvider>();
 
   app.setValidatorCompiler(validatorCompiler);
@@ -206,6 +217,7 @@ export async function buildApp({
   // o canal de WhatsApp nasce antes de quem manda mensagem por ele (E22)
   const messaging = new MessagingService(deps);
   const packages = new PackagesService(deps);
+  const platform = new PlatformService(deps);
   const tutorials = new TutorialsService(deps);
   const vehicleCatalog = new VehicleCatalogService(deps);
   const workOrders = new WorkOrdersService(deps, messaging, packages);
@@ -245,6 +257,7 @@ export async function buildApp({
     messaging,
     commissions: new CommissionsService(deps),
     packages,
+    platform,
     tutorials,
     vehicleCatalog,
   };
@@ -315,6 +328,7 @@ export async function buildApp({
   await app.register(commissionRoutes, { prefix: '/api/v1/commissions' });
   await app.register(packageRoutes, { prefix: '/api/v1/service-packages' });
   await app.register(vehicleCatalogRoutes, { prefix: '/api/v1/vehicle-catalog' });
+  await app.register(platformRoutes, { prefix: '/api/v1/platform' });
   await app.register(tutorialsRoutes, { prefix: '/api/v1/tutorials' });
   await app.register(workOrderChargeRoutes, { prefix: '/api/v1/work-orders' });
   // sem login: quem prova a origem é o token que o gateway repete no aviso

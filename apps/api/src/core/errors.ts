@@ -16,6 +16,8 @@ export class AppError extends Error {
     readonly title: string,
     readonly detail?: string,
     readonly errors?: FieldError[],
+    /** dado estruturado para a tela reagir (ver `meta` em problemSchema) */
+    readonly meta?: Record<string, unknown>,
   ) {
     super(detail ?? title);
     this.name = 'AppError';

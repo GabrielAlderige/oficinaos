@@ -21,6 +21,31 @@ const envSchema = z.object({
     ),
   /** Endereço público do painel: base dos links de e-mail (redefinir senha, convite). */
   APP_URL: z.url().default('http://localhost:5173'),
+  /**
+   * De quais endereços o `X-Forwarded-For` é confiável (E41). Vazio = de
+   * nenhum, e a API lê o IP do socket (o certo em desenvolvimento).
+   *
+   * Em produção a API roda atrás do Caddy: sem isto o Fastify ignora o
+   * cabeçalho e **todas as oficinas chegam com o mesmo IP**, o do contêiner do
+   * proxy. Três coisas quebram em silêncio — o limite de 300 req/min por IP
+   * vira um balde compartilhado por TODOS os clientes, a tela de Sessões
+   * ativas mostra sempre o mesmo endereço, e a prova de aprovação do orçamento
+   * grava um IP interno que não prova nada.
+   *
+   * O valor de produção é `uniquelocal`: confia no cabeçalho quando ele vem de
+   * um endereço de rede privada (o Caddy, na rede do compose) e **recusa**
+   * quando vem de um cliente público — senão qualquer um forjaria o próprio IP
+   * e passaria por cima do limite. Aceita também `loopback`, um CIDR
+   * (`172.16.0.0/12`) ou uma lista separada por vírgula.
+   *
+   * Não use número de saltos aqui: no Fastify o número não significa "quantos
+   * proxies existem", e com `1` o cabeçalho continua sendo ignorado — foi
+   * medido.
+   */
+  TRUST_PROXY: z
+    .string()
+    .default('')
+    .transform((valor) => valor.trim()),
   /** Conexão da aplicação: role oficinaos_app, sujeita ao RLS. */
   DATABASE_URL: postgresUrl,
   /** Assina o access token (HS256). Nunca vai para o front. */

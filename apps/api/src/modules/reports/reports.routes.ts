@@ -14,14 +14,14 @@ export const reportRoutes: FastifyPluginAsyncZod = async (app) => {
 
   app.get(
     '/',
-    { config: { auth: 'reports:read' }, schema: { response: { 200: reportListSchema } } },
+    { config: { auth: 'reports:read', feature: 'reports' }, schema: { response: { 200: reportListSchema } } },
     async () => service.list(),
   );
 
   app.get(
     '/:key',
     {
-      config: { auth: 'reports:read' },
+      config: { auth: 'reports:read', feature: 'reports' },
       schema: {
         params: z.object({ key: z.enum(REPORT_KEYS) }),
         querystring: reportQuerySchema,

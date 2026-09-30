@@ -23,7 +23,7 @@ export const partsSearchRoutes: FastifyPluginAsyncZod = async (app) => {
   app.post(
     '/',
     {
-      config: { auth: 'parts:view_cost' },
+      config: { auth: 'parts:view_cost', feature: 'parts_search' },
       schema: { body: partSearchQuerySchema, response: { 200: partSearchResultSchema } },
     },
     async (request) => service.search(getAuth(request), request.body, clientInfo(request)),
@@ -32,7 +32,7 @@ export const partsSearchRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get(
     '/:id',
     {
-      config: { auth: 'parts:view_cost' },
+      config: { auth: 'parts:view_cost', feature: 'parts_search' },
       schema: { params: idParamSchema, response: { 200: partSearchResultSchema } },
     },
     async (request) => service.get(getAuth(request), request.params.id),
@@ -42,7 +42,7 @@ export const partsSearchRoutes: FastifyPluginAsyncZod = async (app) => {
   app.post(
     '/offers/:id/add-to-work-order',
     {
-      config: { auth: 'work_orders:write' },
+      config: { auth: 'work_orders:write', feature: 'parts_search' },
       schema: { params: idParamSchema, body: addOfferToWorkOrderSchema, response: { 201: workOrderSchema } },
     },
     async (request, reply) => {

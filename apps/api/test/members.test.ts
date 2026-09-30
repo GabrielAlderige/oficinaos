@@ -1,4 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { sql } from 'drizzle-orm';
+import { withTenant } from '../src/db/tenant';
 import {
   acceptInvite,
   addMember,
@@ -9,6 +11,7 @@ import {
   me,
   signup,
   TEST_PASSWORD,
+  testDb,
   tokenFromUrl,
   uniqueEmail,
   type TestApp,
@@ -219,10 +222,24 @@ describe('equipe e convites', () => {
   });
 
   it('o limite de usuários do plano conta os convites pendentes', async () => {
-    const owner = await signup(t.app); // plano de teste: Supercharger, 8 usuários
-    for (let i = 0; i < 7; i++) expect((await invite(t.app, owner, uniqueEmail(), 'MECHANIC')).statusCode).toBe(201);
+    const owner = await signup(t.app);
+    // o teste de 14 dias entra no Nitro, que não tem teto (E40). Quem vive o
+    // limite é quem assinou o Turbo — 3 vagas — então o cenário desce para lá,
+    // que é o estado real do cliente de plano de entrada.
+    // `withTenant` é obrigatório: `subscriptions` tem RLS FORÇADO, e um update
+    // solto daqui atingiria zero linhas em silêncio, deixando o teste verde
+    // sem cobrir nada.
+    await withTenant(testDb().db, { organizationId: owner.orgId }, (tx) =>
+      tx.execute(
+        sql`update subscriptions set plan_id = (select id from plans where code = 'TURBO') where organization_id = ${owner.orgId}`,
+      ),
+    );
+    t.app.caches.subscriptions.delete(owner.orgId);
+
+    // o dono já ocupa 1 das 3 vagas: sobram 2, e o convite pendente ocupa vaga
+    for (let i = 0; i < 2; i++) expect((await invite(t.app, owner, uniqueEmail(), 'MECHANIC')).statusCode).toBe(201);
     const over = await invite(t.app, owner, uniqueEmail(), 'MECHANIC');
-    expect(over.statusCode).toBe(403);
+    expect(over.statusCode, 'a 4ª pessoa não cabe no Turbo').toBe(403);
     expect(over.json().code).toBe('PLAN_LIMIT_REACHED');
   });
 

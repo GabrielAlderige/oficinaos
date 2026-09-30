@@ -110,7 +110,10 @@ export async function vencerOTesteDaOficina(email: string): Promise<void> {
 
     await client.query('select set_config($1, $2, false)', ['app.org_id', organizationId]);
     const alterou = await client.query(
-      `update subscriptions set trial_ends_at = now() - interval '1 day' where organization_id = $1`,
+      // 30 dias, não 1: desde a E41 o teste vencido tem 7 dias de carência,
+      // e vencer "ontem" deixaria a oficina trabalhando — que é o contrário do
+      // que este cenário quer provar
+      `update subscriptions set trial_ends_at = now() - interval '30 days' where organization_id = $1`,
       [organizationId],
     );
     if (!alterou.rowCount) throw new Error('A assinatura não foi encontrada para vencer o teste');

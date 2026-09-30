@@ -15,7 +15,9 @@ test('a oficina vê o teste correndo, assina, troca de plano e cancela', async (
   await test.step('o painel mostra o teste correndo, com o caminho para o plano', async () => {
     await expect(page.getByText(/em teste/i).first()).toBeVisible();
     await page.getByRole('link', { name: 'Ver planos' }).click();
-    await expect(page.getByRole('heading', { name: /^Plano Supercharger/ })).toBeVisible();
+    // a conta nasce no NITRO, o plano mais alto (E40): quem termina o teste sem
+    // ter visto pesquisa de peças, WhatsApp oficial e automações não paga por elas
+    await expect(page.getByRole('heading', { name: /^Plano Nitro/ })).toBeVisible();
     const tela = await textoDe(page.locator('main'));
     expect(tela, 'a simulação é declarada').toContain('Cobrança em simulação');
     expect(tela, 'o uso do plano aparece').toContain('Pessoas na equipe');
@@ -58,6 +60,8 @@ test('com o teste vencido, a oficina lê tudo e é avisada do que fazer', async 
   ignorarErros.push(/status of 402/);
   const oficina = await criarOficina('bloqueio', 'BLO1A23');
   // o teste vence quando o relógio passa: aqui, empurramos o relógio da conta
+  // para ALÉM da carência — vencer ontem já não bloqueia (E41), e é isso que o
+  // teste de unidade de `billing.ts` cobre. Aqui o cenário é o bloqueio de fato
   await vencerOTesteDaOficina(oficina.email);
 
   await entrarNoPainel(page, oficina.email);

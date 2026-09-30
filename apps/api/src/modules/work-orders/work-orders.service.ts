@@ -34,7 +34,9 @@ import {
 } from '@oficinaos/shared';
 import type { z } from 'zod';
 import { diffChanges, recordActivity } from '../../core/audit';
+import * as billingRepo from '../billing/billing.repository';
 import { cancelWorkOrderEntries, ensureWorkOrderReceivable } from '../finance/finance.sync';
+import * as membersRepo from '../members/members.repository';
 import { findRunningTimer, listItemTimers, readItemTimes, readRunningTimer, startTimer, stopTimer } from './timers';
 import type { AuthContext, ClientInfo, ServiceDeps } from '../../core/auth-context';
 import { freezeCommissions } from '../../core/commissions';
@@ -293,6 +295,36 @@ export class WorkOrdersService {
   }
 
   /**
+   * O teto de OS por mês do plano (E40).
+   *
+   * Estava escrito na tela do Turbo — "Até 150 OS por mês" — e não era aplicado
+   * em lugar nenhum: a oficina podia abrir dez mil. Cobrar por um limite que
+   * não existe é o mesmo problema de vender funcionalidade que não existe.
+   *
+   * O teto conta o MÊS CORRENTE e não apaga nada: quem estourou continua
+   * trabalhando nas OS que já tem, só não abre a próxima até virar o mês ou
+   * subir de plano — e a mensagem diz as duas saídas.
+   */
+  private async assertCabeNoPlano(tx: Tx, organizationId: string): Promise<void> {
+    const plano = await membersRepo.findPlanLimits(tx, organizationId);
+    const teto = plano?.limits.maxWorkOrdersPerMonth ?? null;
+    if (teto === null) return;
+
+    const inicioDoMes = new Date();
+    inicioDoMes.setDate(1);
+    inicioDoMes.setHours(0, 0, 0, 0);
+    const { workOrdersThisMonth } = await billingRepo.usage(tx, organizationId, inicioDoMes);
+    if (workOrdersThisMonth < teto) return;
+
+    throw new AppError(
+      402,
+      ErrorCode.PLAN_LIMIT_REACHED,
+      'Limite de ordens de serviço do mês',
+      `O plano ${plano?.planName} abre até ${teto} ordens de serviço por mês, e a oficina já abriu ${workOrdersThisMonth}. As OS que já existem continuam funcionando normalmente. O limite zera na virada do mês, ou você pode subir de plano em Configurações → Plano.`,
+    );
+  }
+
+  /**
    * O mesmo "abrir OS", só que dentro de uma transação que já existe. O
    * check-in da agenda (E8) precisa criar a OS e ligar o agendamento a ela sem
    * abrir uma segunda transação: ou as duas coisas acontecem, ou nenhuma.
@@ -303,6 +335,8 @@ export class WorkOrdersService {
     input: CreateWorkOrderInput & { appointmentId?: string | null },
     client: ClientInfo,
   ): Promise<WorkOrder> {
+    await this.assertCabeNoPlano(tx, auth.organizationId);
+
     const vehicle = await repo.findVehicleWithCustomer(tx, auth.organizationId, input.vehicleId);
     if (!vehicle || vehicle.deletedAt) {
       throw validationFailed([{ path: 'body.vehicleId', message: 'Veículo não encontrado' }]);

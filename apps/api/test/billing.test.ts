@@ -94,17 +94,19 @@ describe('assinatura do SaaS', () => {
 
   // ------------------------------- leitura -------------------------------
 
-  it('a oficina nasce em teste, no plano Supercharger, e vê o uso do plano', async () => {
+  it('a oficina nasce em teste no plano MAIS ALTO, e vê o uso do plano', async () => {
     const dados = await visao();
-    expect(dados.plan).toBe('SUPERCHARGER');
+    // o teste é no Nitro de propósito (E40): quem termina os 14 dias sem ter
+    // visto pesquisa de peças, WhatsApp oficial e automações não paga por elas
+    expect(dados.plan).toBe('NITRO');
     expect(dados.status).toBe('TRIALING');
     expect(dados.emTeste).toBe(true);
     expect(dados.bloqueada).toBe(false);
     expect(dados.diasRestantes).toBeGreaterThan(10);
     expect(dados.environment, 'o simulador não cobra ninguém').toBe('SIMULATOR');
     expect(dados.usage.users, 'dono + gerente').toBe(2);
-    expect(dados.usage.maxUsers).toBe(8);
-    expect(dados.plans.find((plano) => plano.current)?.code).toBe('SUPERCHARGER');
+    expect(dados.usage.maxUsers, 'Nitro não tem teto de usuários').toBeNull();
+    expect(dados.plans.find((plano) => plano.current)?.code).toBe('NITRO');
   });
 
   it('plano é coisa do dono: nem o gerente vê', async () => {
@@ -160,6 +162,43 @@ describe('assinatura do SaaS', () => {
     expect(dados.usage.maxUsers, 'Nitro não tem teto de usuários').toBeNull();
 
     expect((await post('/api/v1/billing/change-plan', { plan: 'NITRO', cycle: 'MONTHLY' })).statusCode).toBe(409);
+  });
+
+  it('descer de plano com gente demais é recusado, em vez de desativar alguém', async () => {
+    // o furo que isto fecha (E40): o limite de usuários só barrava convite
+    // NOVO. Bastava montar a equipe inteira no teste — que é Nitro, sem teto —
+    // assinar o Turbo de R$ 149 e ficar com todo mundo lá dentro.
+    const outra = await signup(t.app);
+    const donoDaOutra = bearer(outra.accessToken);
+    const orgDaOutra = outra.orgId;
+
+    // dono + 3 convites = 4 vagas; o Turbo permite 3
+    for (let i = 0; i < 3; i++) {
+      const convite = await t.app.inject({
+        method: 'POST',
+        url: '/api/v1/members/invitations',
+        headers: donoDaOutra,
+        payload: { email: `vaga-${randomUUID()}@exemplo.invalido`, role: 'MECHANIC' },
+      });
+      expect(convite.statusCode, convite.body).toBe(201);
+    }
+
+    const descer = await t.app.inject({
+      method: 'POST',
+      url: '/api/v1/billing/change-plan',
+      headers: donoDaOutra,
+      payload: { plan: 'TURBO', cycle: 'MONTHLY' },
+    });
+    expect(descer.statusCode, descer.body).toBe(409);
+    const problema = descer.json() as { code: string; detail: string };
+    expect(problema.code).toBe('PLAN_LIMIT_REACHED');
+    // a mensagem tem de dizer o caminho, não só que não deu
+    expect(problema.detail).toContain('Equipe');
+
+    // e o plano não mudou pela metade
+    const depois = await t.app.inject({ method: 'GET', url: '/api/v1/billing', headers: donoDaOutra });
+    expect((depois.json() as Visao).plan, 'a troca recusada não pode ter gravado nada').toBe('NITRO');
+    expect(orgDaOutra).toBeTruthy();
   });
 
   // ----------------------------- conciliação ------------------------------

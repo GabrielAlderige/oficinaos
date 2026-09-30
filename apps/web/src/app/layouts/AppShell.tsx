@@ -1,6 +1,7 @@
-import { can, type Permission } from '@oficinaos/shared';
+import { can, PLAN_FEATURE_MATRIX, type Permission, type PlanFeature } from '@oficinaos/shared';
 import {
   CalendarDays,
+  Building2,
   Car,
   ClipboardList,
   FileText,
@@ -14,6 +15,7 @@ import {
   PanelLeftOpen,
   PhoneCall,
   ReceiptText,
+  Search,
   Settings,
   Target,
   type LucideIcon,
@@ -59,6 +61,18 @@ interface NavItem {
   end?: boolean;
   /** some do menu para quem não tem acesso (a API recusa de qualquer jeito) */
   permission?: Permission;
+  /**
+   * some do menu quando o plano da oficina não inclui (E40). É coisa DIFERENTE
+   * de `permission`: papel é "esta pessoa pode", plano é "esta oficina
+   * contratou". Quem digitar o endereço na mão cai no convite para assinar, e
+   * a API recusa com 402 de qualquer jeito.
+   */
+  feature?: PlanFeature;
+  /**
+   * só para administrador da PLATAFORMA (E41) — que é marca da CONTA, não
+   * papel de oficina. Nenhum dono de oficina vê estas telas.
+   */
+  platformOnly?: boolean;
 }
 
 interface NavGroup {
@@ -99,6 +113,13 @@ const NAV: NavGroup[] = [
     items: [
       { to: '/servicos', label: 'Serviços', icon: Wrench, permission: 'catalog:read' },
       { to: '/pecas', label: 'Peças e estoque', icon: Package, permission: 'catalog:read' },
+      {
+        to: '/pesquisa-de-pecas',
+        label: 'Pesquisa de peças',
+        icon: Search,
+        permission: 'parts:view_cost',
+        feature: 'parts_search',
+      },
       /**
        * Ficha do carro no primeiro nível (E36). Estava como terceira aba
        * dentro de Peças e estoque: três toques para uma consulta que o
@@ -126,6 +147,15 @@ const NAV: NavGroup[] = [
       { to: '/configuracoes', label: 'Configurações', icon: Settings },
     ],
   },
+  {
+    // some inteiro para quem não é da plataforma: o grupo só existe se tiver item
+    label: 'Plataforma',
+    items: [
+      { to: '/plataforma/oficinas', label: 'Oficinas', icon: Building2, platformOnly: true },
+      { to: '/plataforma/catalogo', label: 'Catálogo de veículos', icon: Car, platformOnly: true },
+      { to: '/plataforma/tutoriais', label: 'Aulas', icon: GraduationCap, platformOnly: true },
+    ],
+  },
 ];
 
 function SidebarContent({ collapsed, onToggle, onNavigate }: {
@@ -133,10 +163,16 @@ function SidebarContent({ collapsed, onToggle, onNavigate }: {
   onToggle?: () => void;
   onNavigate?: () => void;
 }) {
-  const { role } = useMe();
+  const { role, subscription, user } = useMe();
+  const doPlano = subscription ? PLAN_FEATURE_MATRIX[subscription.plan] : [];
   const grupos = NAV.map((grupo) => ({
     ...grupo,
-    items: grupo.items.filter((item) => !item.permission || can(role, item.permission)),
+    items: grupo.items.filter(
+      (item) =>
+        (!item.permission || can(role, item.permission)) &&
+        (!item.feature || doPlano.includes(item.feature)) &&
+        (!item.platformOnly || user.isPlatformAdmin),
+    ),
   })).filter((grupo) => grupo.items.length > 0);
   return (
     <div className="flex h-full flex-col gap-4 p-3">

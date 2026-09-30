@@ -1,5 +1,13 @@
 import type { FastifyRequest } from 'fastify';
-import { bloqueiaEscrita, can, ErrorCode, situacaoDaAssinatura } from '@oficinaos/shared';
+import {
+  bloqueiaEscrita,
+  can,
+  ErrorCode,
+  PLAN_FEATURE_LABELS,
+  planoInclui,
+  planoMaisBaratoCom,
+  situacaoDaAssinatura,
+} from '@oficinaos/shared';
 import { withoutTenant } from '../../db/tenant';
 import type { Database } from '../../db/client';
 import { sessions, users } from '../../db/schema';
@@ -94,6 +102,40 @@ export function createAuthGuard({ db, tokens, caches, auth }: GuardDeps) {
     );
   }
 
+  /**
+   * A funcionalidade está no plano da oficina? (E40)
+   *
+   * Vale para LER também, não só para gravar — diferente do bloqueio por
+   * assinatura vencida, que só barra escrita porque ali o dado é da oficina e
+   * ela tem direito de vê-lo. Aqui é o contrário: é uma funcionalidade que ela
+   * nunca contratou, então não há dado dela para preservar.
+   *
+   * O 402 é de propósito: "precisa pagar por isso" é exatamente o que
+   * `Payment Required` quer dizer, e separa no painel o convite para assinar
+   * do 403 de papel, que nenhum upgrade resolve.
+   */
+  async function assertPlanoInclui(request: FastifyRequest, organizationId: string): Promise<void> {
+    const feature = request.routeOptions.config.feature;
+    if (!feature) return;
+
+    const estado = await auth.subscriptionState(organizationId);
+    // sem assinatura não há o que barrar: o cadastro ainda está nascendo
+    if (!estado) return;
+    if (planoInclui(estado.features, feature)) return;
+
+    const necessario = planoMaisBaratoCom(feature);
+    throw new AppError(
+      402,
+      ErrorCode.PLAN_FEATURE_REQUIRED,
+      `${PLAN_FEATURE_LABELS[feature]} não está no seu plano`,
+      necessario
+        ? `O plano ${estado.planName} não inclui ${PLAN_FEATURE_LABELS[feature]}. A partir do plano ${necessario.charAt(0) + necessario.slice(1).toLowerCase()} ela fica disponível.`
+        : `O plano ${estado.planName} não inclui ${PLAN_FEATURE_LABELS[feature]}.`,
+      undefined,
+      { feature, requiredPlan: necessario },
+    );
+  }
+
   return async function authGuard(request: FastifyRequest): Promise<void> {
     if (request.is404) return;
     const rule = request.routeOptions.config.auth ?? 'authenticated';
@@ -111,6 +153,10 @@ export function createAuthGuard({ db, tokens, caches, auth }: GuardDeps) {
     } else if (rule !== 'authenticated' && !can(request.auth.role, rule)) {
       throw forbidden();
     }
+    // a ordem importa: papel primeiro, plano depois. Quem não pode por papel
+    // recebe o 403 de papel — oferecer upgrade a quem não resolveria nada
+    // seria vender plano para o mecânico.
+    await assertPlanoInclui(request, request.auth.organizationId);
     await assertNaoBloqueada(request, request.auth.organizationId);
   };
 }

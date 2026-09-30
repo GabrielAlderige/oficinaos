@@ -1,5 +1,12 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { can, type AuthResponse, type Me, type Permission } from '@oficinaos/shared';
+import {
+  can,
+  PLAN_FEATURE_MATRIX,
+  type AuthResponse,
+  type Me,
+  type Permission,
+  type PlanFeature,
+} from '@oficinaos/shared';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { api } from './api-client';
 import { onForcedLogout, refreshSession, tokenStore } from './auth';
@@ -129,4 +136,24 @@ export function useMe(): Me {
 export function useCan(permission: Permission): boolean {
   const { state } = useSession();
   return state.status === 'authenticated' && can(state.me.role, permission);
+}
+
+/**
+ * O plano da oficina inclui esta funcionalidade? (E40)
+ *
+ * Sai da matriz de `shared` a partir do código do plano, em vez de trafegar a
+ * lista: o teste `plan-features.test.ts` compara a matriz com a coluna
+ * `features` do banco, então as duas não divergem.
+ *
+ * Isto é coisa DIFERENTE de `useCan`: papel é "esta pessoa pode", plano é "esta
+ * oficina contratou". Um mecânico no Nitro continua sem ver custo; um dono no
+ * Turbo continua sem a pesquisa de peças. Por isso as telas checam os dois, e
+ * nunca trocam um pelo outro.
+ */
+export function useFeature(feature: PlanFeature): boolean {
+  const { state } = useSession();
+  if (state.status !== 'authenticated') return false;
+  const plano = state.me.subscription?.plan;
+  if (!plano) return false;
+  return PLAN_FEATURE_MATRIX[plano].includes(feature);
 }

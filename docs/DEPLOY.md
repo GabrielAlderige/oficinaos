@@ -104,6 +104,13 @@ echo "SECRETS_KEY=$(openssl rand -base64 32)"
 nano .env   # cole os valores e preencha domínios e SMTP
 ```
 
+**Confira que o `.env` tem `TRUST_PROXY=uniquelocal`.** O compose já põe esse
+valor por padrão, e ele é o que faz a API enxergar o IP real de cada oficina
+atrás do Caddy. Sem ele, todas chegam com o IP do contêiner do proxy: o limite
+de 300 requisições por minuto vira um balde compartilhado por **todos** os seus
+clientes, a tela de Sessões ativas mostra sempre o mesmo endereço, e o IP
+gravado como prova de aprovação do orçamento deixa de provar qualquer coisa.
+
 O `.env` fica **só no servidor**: ele não entra no git (o `.gitignore` e o
 `.dockerignore` barram), e não entra no backup junto com os dados — guarde-o
 no seu gerenciador de senhas.
@@ -147,7 +154,10 @@ primeira visita (leva alguns segundos).
 
 O cadastro é público — é assim que um SaaS funciona. Crie a sua conta pelo
 próprio painel, em **Criar conta**, e ela nasce com 14 dias de teste no plano
-Professional.
+**Nitro**, o mais alto (E40): o teste mostra o produto inteiro, inclusive
+pesquisa de peças, WhatsApp oficial e automações. Ao assinar um plano menor, a
+oficina perde o que não estiver nele — e a tela diz em qual plano cada coisa
+mora, com o caminho para subir.
 
 Depois, dentro do painel:
 
@@ -177,6 +187,26 @@ Depois, dentro do painel:
 > desenvolvimento, de propósito: dado inventado não nasce junto com dado real
 > no servidor de quem trabalha.
 
+### 6.1 Virar administrador da plataforma
+
+A marca é da CONTA, não da oficina, e só se liga uma vez, direto no banco:
+
+```sh
+docker compose exec -T db psql -U postgres -d oficinaos -c   "update users set is_platform_admin = true where email = 'voce@seudominio.com.br';"
+```
+
+Depois disso aparecem três telas que a oficina nunca vê:
+
+| Tela | Para quê |
+|---|---|
+| `/plataforma/oficinas` | todas as oficinas, com a situação da assinatura, e **estender o teste** com motivo registrado |
+| `/plataforma/catalogo` | preencher a ficha do carro que as oficinas pedem |
+| `/plataforma/tutoriais` | cadastrar as aulas em vídeo |
+
+> **Estender o teste é a tela que evita SQL em produção.** Um piloto com preço
+> de fundador precisa de 60 ou 90 dias em vez de 14; os dias contam a partir de
+> hoje e o motivo fica na trilha da oficina.
+
 ---
 
 ## 7. Se algo falhar
@@ -201,15 +231,116 @@ responde 200 quando o banco também responde. São eles que um monitor externo
 ## 8. Ligar o que ainda está em simulação
 
 O sistema sobe funcionando, mas três coisas ficam **declaradamente em
-simulação** até você contratar as contas — e a tela diz isso em cada uma:
+simulação** até você contratar as contas — e a tela diz isso em cada uma, com
+o carimbo de simulação, para ninguém achar que emitiu nota ou recebeu dinheiro.
 
-| O quê | O que fazer | Onde |
+| O quê | Sem configurar | Depois de configurar |
 |---|---|---|
-| **E-mail** | contrate SMTP (Resend, SES, Postmark), preencha `EMAIL_DRIVER=smtp` e `SMTP_URL` | `.env` |
-| **Cobrança do cliente e assinatura** | crie a conta no Asaas, comece com a chave de **sandbox**: `PAYMENT_GATEWAY=asaas`, `ASAAS_API_KEY`, `ASAAS_WEBHOOK_TOKEN`; no painel do Asaas, aponte o webhook para `https://app.seudominio.com.br/api/v1/webhooks/payments/asaas` | `.env` |
-| **Nota fiscal** | contrate um emissor de NFS-e, cadastre a oficina lá com o certificado A1, e um driver novo entra no lugar do `simulador` | `.env` + uma etapa de código |
+| **E-mail** | o e-mail aparece só no log do servidor | redefinir senha, convite e resumo do dia chegam de verdade |
+| **Cobrança e assinatura** | nenhum dinheiro se move; dá para percorrer o fluxo inteiro | Pix, boleto e cartão de verdade, e a assinatura da oficina |
+| **Nota fiscal** | nada é enviado para prefeitura nenhuma | exige emissor contratado **e** um driver novo no código |
 
-Depois de cada mudança no `.env`:
+O e-mail é o único que **não é opcional**: sem ele ninguém recupera a senha.
+Está no §4.
+
+---
+
+### 8.1 Asaas, passo a passo
+
+O Asaas cuida de duas coisas ao mesmo tempo, pelo mesmo webhook: a **cobrança
+que a oficina faz do cliente dela** (E19) e a **assinatura que ela paga para
+você** (E20).
+
+**Comece pelo sandbox.** É uma conta separada, com dados falsos, onde o Pix e o
+boleto se comportam igual ao de produção. Passar direto para produção significa
+descobrir erro de configuração com dinheiro de cliente no meio.
+
+**1) Criar a conta e pegar a chave**
+
+Em <https://sandbox.asaas.com> crie a conta. Depois, no menu do seu perfil,
+**Integrações → Chave de API**, gere a chave e copie. Ela começa com `$aact_`.
+
+> A chave dá acesso total à conta. Ela vai para o `.env` do servidor e para o
+> seu gerenciador de senhas — nunca para o git, nunca para mensagem.
+
+**2) Inventar o token do webhook**
+
+Este você escolhe, não é o Asaas que dá. Ele volta em todo aviso, e é como a
+API sabe que o aviso veio mesmo do Asaas:
+
+```sh
+openssl rand -base64 32
+```
+
+**3) Preencher o `.env`**
+
+```sh
+PAYMENT_GATEWAY=asaas
+ASAAS_API_KEY=$aact_...                        # a chave do passo 1
+ASAAS_BASE_URL=https://api-sandbox.asaas.com/v3
+ASAAS_WEBHOOK_TOKEN=...                        # o token do passo 2
+```
+
+`ASAAS_BASE_URL` é o que decide o rótulo que a tela mostra: com `sandbox` no
+endereço a oficina lê **SANDBOX**; sem ele, **PRODUÇÃO**. Não existe outro
+interruptor, então trocar a URL é trocar de ambiente de verdade.
+
+```sh
+docker compose up -d api
+```
+
+> Se faltar a chave ou o token, a API **não sobe** e diz qual falta. É de
+> propósito: subir com `asaas` pela metade significaria cobrança falhando em
+> silêncio.
+
+**4) Apontar o webhook no painel do Asaas**
+
+Em **Integrações → Webhooks → Adicionar**:
+
+| Campo | Valor |
+|---|---|
+| URL | `https://app.seudominio.com.br/api/v1/webhooks/payments/asaas` |
+| Token de autenticação | o mesmo `ASAAS_WEBHOOK_TOKEN` do `.env` |
+| Versão da API | v3 |
+| Eventos | todos os de **Cobrança** (`PAYMENT_*`) |
+| Fila de sincronização | ativada |
+
+Deixe a fila ativada: se a sua API estiver fora do ar por um minuto, o Asaas
+reenvia em vez de perder o aviso. O reenvio é seguro — a API reconhece o aviso
+repetido e não conta o pagamento duas vezes.
+
+**5) Provar que funciona, no sandbox**
+
+1. No painel do OficinaOS, abra uma OS e gere uma cobrança por boleto.
+2. No painel do Asaas, ache a cobrança e use **Confirmar recebimento em
+   dinheiro** — é o jeito de simular o pagamento sem pagar.
+3. Volte na OS: o pagamento tem de aparecer **sozinho**, sem você clicar em
+   nada. Quem dá baixa é o webhook, nunca a tela.
+
+Se não aparecer, olhe `docker compose logs api | grep "aviso de pagamento"`. A
+linha diz se o aviso chegou e o que foi feito com ele.
+
+**6) Virar para produção**
+
+Só depois que o passo 5 funcionou:
+
+```sh
+ASAAS_API_KEY=$aact_...                  # chave da conta de PRODUÇÃO
+ASAAS_BASE_URL=https://api.asaas.com/v3  # sem "sandbox"
+```
+
+Gere um `ASAAS_WEBHOOK_TOKEN` **novo** e cadastre o webhook de novo, na conta
+de produção — são painéis separados e o do sandbox não vem junto. Reinicie a
+API e confira que a tela de Plano deixou de mostrar o aviso de simulação.
+
+> **A conta do Asaas é sua, não de cada oficina.** Quem recebe o Pix do cliente
+> final é a oficina, pela chave Pix dela (isso não passa por gateway nenhum); o
+> Asaas entra na cobrança por boleto e cartão, e na assinatura que a oficina
+> paga para você.
+
+---
+
+### 8.2 Depois de qualquer mudança no `.env`
 
 ```sh
 docker compose up -d api    # recria só a API, com a configuração nova

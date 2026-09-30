@@ -16,6 +16,7 @@ import { AppError, notFound } from '../../core/errors';
 import { withSubscriptionRef, withTenant } from '../../db/tenant';
 import type { Tx } from '../../db/tenant';
 import type { AvisoDeCobranca } from '../../integrations/payments';
+import { countSeats as contarVagas } from '../members/members.repository';
 import * as orgRepo from '../organizations/organizations.repository';
 import * as repo from './billing.repository';
 
@@ -192,6 +193,27 @@ export class BillingService {
       const plano = await this.planoEscolhido(tx, input.plan, input.cycle);
       if (plano.row.id === assinatura.planId && assinatura.billingCycle === input.cycle) {
         throw new AppError(409, ErrorCode.CONFLICT, 'Já é este plano', 'A oficina já está neste plano e ciclo.');
+      }
+
+      /**
+       * Descer de plano com gente demais era um furo (corrigido na E40): o
+       * limite de usuários só barrava convite NOVO, então bastava montar a
+       * equipe de 8 no teste, assinar o Turbo e ficar com as 8 pagando R$ 149.
+       *
+       * Barrar é melhor do que desativar alguém sozinho: escolher qual
+       * mecânico perde o acesso é decisão do dono, não do sistema.
+       */
+      const teto = plano.row.limits.maxUsers;
+      if (teto !== null) {
+        const ocupadas = await contarVagas(tx, auth.organizationId, new Date());
+        if (ocupadas > teto) {
+          throw new AppError(
+            409,
+            ErrorCode.PLAN_LIMIT_REACHED,
+            'A equipe não cabe neste plano',
+            `A oficina tem ${ocupadas} pessoas (contando convites pendentes) e o plano ${plano.row.name} permite ${teto}. Remova quem não vai mais usar em Configurações → Equipe e tente de novo.`,
+          );
+        }
       }
       return { assinatura, plano };
     });

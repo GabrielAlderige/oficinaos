@@ -23,6 +23,8 @@ export const ErrorCode = {
   LAST_OWNER: 'LAST_OWNER',
   ALREADY_MEMBER: 'ALREADY_MEMBER',
   PLAN_LIMIT_REACHED: 'PLAN_LIMIT_REACHED',
+  /** o plano não inclui esta funcionalidade (E40): o painel oferece o upgrade */
+  PLAN_FEATURE_REQUIRED: 'PLAN_FEATURE_REQUIRED',
   // clientes e veículos
   CUSTOMER_DOCUMENT_TAKEN: 'CUSTOMER_DOCUMENT_TAKEN',
   PLATE_ALREADY_REGISTERED: 'PLATE_ALREADY_REGISTERED',
@@ -108,6 +110,13 @@ export const problemSchema = z.object({
   detail: z.string().optional(),
   errors: z.array(z.object({ path: z.string(), message: z.string() })).optional(),
   requestId: z.string().optional(),
+  /**
+   * Dado estruturado do erro, quando a tela precisa reagir e não só mostrar
+   * texto. Hoje só o PLAN_FEATURE_REQUIRED usa: manda a funcionalidade e o
+   * plano que a libera, para o painel abrir o convite já no plano certo em vez
+   * de o front ter de adivinhar lendo a frase.
+   */
+  meta: z.record(z.string(), z.unknown()).optional(),
 });
 
 export type Problem = z.infer<typeof problemSchema>;

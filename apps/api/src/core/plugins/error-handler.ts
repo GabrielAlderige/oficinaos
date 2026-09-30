@@ -30,6 +30,7 @@ export function registerErrorHandling(app: FastifyInstance): void {
         title: error.title,
         detail: error.detail,
         errors: error.errors,
+        meta: error.meta,
       });
     }
 

@@ -14,11 +14,27 @@ describe('situação da assinatura', () => {
     expect(s.diasRestantes).toBe(5);
   });
 
-  it('teste vencido bloqueia a escrita', () => {
+  it('teste recém-vencido NÃO bloqueia: entra na carência', () => {
+    // a armadilha que isto fecha (E41): antes, quem entrou numa segunda-feira
+    // parava de gravar na segunda seguinte, no meio do expediente. Os 7 dias
+    // só valiam para quem já pagava
     const s = situacaoDaAssinatura({ ...base, status: 'TRIALING', trialEndsAt: emDias(-1) }, AGORA);
+    expect(s.emTeste, 'o teste acabou').toBe(false);
+    expect(s.emCarencia, 'mas ainda trabalha').toBe(true);
+    expect(s.bloqueada).toBe(false);
+    expect(bloqueiaEscrita(s)).toBe(false);
+    expect(s.diasRestantes, 'venceu ontem: sobram 6 dos 7').toBe(GRACE_DAYS - 1);
+  });
+
+  it('teste vencido há mais que a carência bloqueia a escrita', () => {
+    const s = situacaoDaAssinatura(
+      { ...base, status: 'TRIALING', trialEndsAt: emDias(-(GRACE_DAYS + 1)) },
+      AGORA,
+    );
     expect(s.emTeste).toBe(false);
+    expect(s.emCarencia).toBe(false);
     expect(s.bloqueada).toBe(true);
-    expect(bloqueiaEscrita(s)).toBe(true);
+    expect(bloqueiaEscrita(s), 'passou da carência: só leitura').toBe(true);
   });
 
   it('assinatura em dia nunca bloqueia', () => {

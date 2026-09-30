@@ -68,6 +68,11 @@ services:
       JWT_SECRET: ${JWT_SECRET:?gere com: openssl rand -base64 48}
       APP_URL: ${APP_URL:?ex.: https://app.suaoficina.com.br}
       WEB_ORIGINS: ${APP_URL}
+      # a API fica atrás do Caddy: sem isto ela lê o IP do contêiner do proxy
+      # para TODAS as oficinas, e o limite por IP vira um balde compartilhado
+      # entre todos os clientes (E41). `uniquelocal` confia no cabeçalho só
+      # quando ele vem da rede privada do compose.
+      TRUST_PROXY: ${TRUST_PROXY:-uniquelocal}
       # automações diárias (E21)
       JOBS_ENABLED: ${JOBS_ENABLED:-true}
       # e-mail de verdade; sem SMTP_URL o driver volta a ser o console

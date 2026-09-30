@@ -13,7 +13,7 @@ O diferencial inicial é um fluxo:
 
 ## Status
 
-**MVP 1, MVP 2 e V3 entregues: E1 a E39.** O sistema faz o dia inteiro de uma
+**MVP 1, MVP 2 e V3 entregues: E1 a E41.** O sistema faz o dia inteiro de uma
 oficina — da placa na recepção ao dinheiro no caixa e à nota de serviço.
 
 O que ainda **não** é real, e está rotulado como tal dentro do produto:
@@ -160,9 +160,11 @@ mensagem para o cliente — ela deixa pronto.
 | E37. Consultar a ficha de dentro da OS | ✅ 28/09/2026 |
 | E38. Planos Turbo, Supercharger e Nitro | ✅ 28/09/2026 |
 | E39. Tutoriais em vídeo | ✅ 29/09/2026 |
+| E40. Os planos valem de verdade | ✅ 29/09/2026 |
+| E41. Pronto para publicar: IP real, carência do teste e área da plataforma | ✅ 29/09/2026 |
 
 O detalhe de cada etapa, com o critério de pronto e o que ficou de fora, está em
-[docs/ROADMAP.md](docs/ROADMAP.md). As decisões técnicas e de produto (D1 a D72),
+[docs/ROADMAP.md](docs/ROADMAP.md). As decisões técnicas e de produto (D1 a D79),
 com a alternativa descartada e o porquê, estão em
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -175,11 +177,20 @@ ordem se explica sozinha. O anual é 10 meses pelo preço de 12.
 
 | Plano | Mensal | Anual | Para quem |
 |---|---|---|---|
-| **Turbo** | R$ 149 | R$ 1.490 | Até 3 usuários e 150 OS/mês. Orçamento, agenda, estoque, ficha do carro, Pix e o app no celular |
-| **Supercharger** | R$ 279 | R$ 2.790 | Até 8 usuários, OS ilimitada. Tudo do Turbo + fornecedores, compras, financeiro, relatórios, comissão, pacotes e assinatura na entrega |
-| **Nitro** | R$ 499 | R$ 4.990 | Usuários ilimitados. Tudo do Supercharger + automações, WhatsApp oficial, multi-filial, papéis personalizados e API pública |
+| **Turbo** | R$ 149 | R$ 1.490 | Até 3 usuários, 150 OS/mês e 5 GB. A oficina trabalhando inteira: OS, orçamento por link, Pix, agenda, estoque, ficha do carro, financeiro (a receber e caixa), assinatura na entrega e o app no celular |
+| **Supercharger** | R$ 279 | R$ 2.790 | Até 8 usuários, OS ilimitada, 25 GB. Tudo do Turbo + o que faz entender a oficina: comissão do mecânico, relatórios e pacotes de serviço |
+| **Nitro** | R$ 499 | R$ 4.990 | Usuários ilimitados, 100 GB. Tudo do Supercharger + o sistema trabalhando sozinho: WhatsApp oficial, automações diárias e a pesquisa de peças por carro |
 
-O teste é de 14 dias no Supercharger, sem cartão. O preço saiu de uma conta de
+**Os planos valem de verdade** (E40): a API barra por funcionalidade, as rotas
+declaram `config.feature`, e um teste compara a coluna `features` do banco com
+`PLAN_FEATURE_MATRIX` no código — tela prometendo o que a API recusa é pior do
+que não prometer. Multi-filial, papéis customizados, API pública, fornecedores
+e compras **não estão em plano nenhum**: aparecem numa lista separada de "em
+desenvolvimento", porque ainda não existem.
+
+O teste é de 14 dias no **Nitro**, o plano mais alto, sem cartão, com mais 7 dias de carência depois de vencer (D78) — quem termina
+os 14 dias sem ter visto pesquisa de peças, WhatsApp oficial e automações não
+paga por elas. O preço saiu de uma conta de
 custo real por oficina (**R$ 55 com 20 oficinas, R$ 17 com 100**) — a margem não
 é o gargalo em escala nenhuma; o gargalo é custo de aquisição e churn. A conta
 inteira está na decisão **D71** do ARCHITECTURE.
@@ -401,10 +412,10 @@ A regra de dependência entre camadas está em
 
 | Documento | Conteúdo |
 |---|---|
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Decisões D1–D72 com a alternativa descartada, pastas, multi-tenant, autenticação, permissões, fluxos, segurança, riscos |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Decisões D1–D79 com a alternativa descartada, pastas, multi-tenant, autenticação, permissões, fluxos, segurança, riscos |
 | [docs/DATABASE.md](docs/DATABASE.md) | Convenções, isolamento por RLS, ERD, tabelas, índices, seeds |
 | [docs/API.md](docs/API.md) | Convenções REST, erros, rate limits, endpoints por fase |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | Etapas E1–E39 com critério de pronto, integrações futuras, métricas |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | Etapas E1–E41 com critério de pronto, integrações futuras, métricas |
 | [docs/DEPLOY.md](docs/DEPLOY.md) | Servidor, DNS, segredos, backup, restore e rollback |
 
 ---
