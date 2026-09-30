@@ -182,6 +182,11 @@ export const router = createBrowserRouter([
             handle: { crumb: 'Catálogo de veículos' },
           },
           {
+            path: 'plataforma/interessados',
+            lazy: page(() => import('../features/platform/ProspectsPage'), 'ProspectsPage'),
+            handle: { crumb: 'Interessados' },
+          },
+          {
             path: 'plataforma/oficinas',
             lazy: page(() => import('../features/platform/OrganizationsPage'), 'OrganizationsPage'),
             handle: { crumb: 'Oficinas' },

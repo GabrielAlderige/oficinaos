@@ -2,197 +2,429 @@
 import '../styles/landing.css';
 
 /**
- * A landing do OficinaOS (MVP 2, E17).
+ * A landing do OficinaOS (E42).
  *
  * Regras que valem aqui tanto quanto no produto: **nada de dado fictício
  * apresentado como real**. Não há depoimento inventado, logo de cliente que
- * não existe, número de oficinas atendidas nem preço que ainda não foi
- * decidido. O que a página promete é exatamente o que o sistema faz hoje.
+ * não existe, número de oficinas atendidas nem "economize 30% do seu tempo".
+ * Os números desta página saem do banco de verdade (as fichas de carro) ou da
+ * tabela de planos. O que a página promete é exatamente o que o sistema faz
+ * hoje — e o que ainda não faz está escrito, na seção de perguntas.
+ *
+ * A seção de prova social é um CONVITE, não um depoimento: enquanto não
+ * houver cliente de verdade para citar com nome e autorização, citar qualquer
+ * coisa seria inventar.
  */
 const APP_URL = import.meta.env.PUBLIC_APP_URL ?? 'https://app.oficinaos.com.br';
 
-const passos = [
+/** Comercial. Provisório: sai do número pessoal quando a empresa tiver o dela. */
+const WHATSAPP = '5535998416972';
+const zap = (texto: string) => `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(texto)}`;
+
+const dores = [
   {
-    numero: '1',
-    titulo: 'O carro chega',
-    texto: 'Busque pela placa, abra a OS e faça o check-in com fotos do estado do veículo. Seis toques, do balcão.',
+    titulo: 'O orçamento some na conversa',
+    texto:
+      'Você manda por áudio, o cliente some, volta três dias depois perguntando "quanto era mesmo?". E ninguém sabe o que foi combinado.',
   },
   {
-    numero: '2',
-    titulo: 'Você monta o orçamento',
+    titulo: 'A entrega vira discussão',
     texto:
-      'Serviços e peças do seu catálogo, com o total ao vivo. Marque o que é necessário e o que é recomendado — o cliente decide item a item.',
+      'O risco no para-choque já estava lá? O cliente jura que não. Sem foto da entrada, quem perde é sempre a oficina.',
   },
   {
-    numero: '3',
-    titulo: 'O cliente aprova pelo celular',
+    titulo: 'O caderno não fecha o mês',
     texto:
-      'Um link pelo WhatsApp. Ele vê as fotos, aprova o que quiser e assina. A OS muda para aprovada sozinha e a peça já fica reservada.',
-  },
-  {
-    numero: '4',
-    titulo: 'Você executa e entrega',
-    texto:
-      'Baixa de estoque na finalização, aviso de "veículo pronto", pagamento registrado e o link para o cliente acompanhar tudo.',
+      'Quanto entrou, quanto falta receber, quanto o mecânico ganhou de comissão. Descobrir isso leva um domingo inteiro.',
   },
 ];
 
+const passos = [
+  {
+    numero: '01',
+    titulo: 'O carro chega',
+    texto:
+      'Busque pela placa — antiga ou Mercosul, tanto faz. Abra a OS e faça o check-in com fotos do estado do veículo.',
+    detalhe: 'Seis toques, do balcão.',
+  },
+  {
+    numero: '02',
+    titulo: 'Você monta o orçamento',
+    texto:
+      'Serviços e peças do seu catálogo, com o total recalculando ao vivo. Marque o que é necessário e o que é recomendado.',
+    detalhe: 'Anexe a foto da peça gasta: ela vende sozinha.',
+  },
+  {
+    numero: '03',
+    titulo: 'O cliente aprova pelo celular',
+    texto:
+      'Um link pelo WhatsApp. Ele vê as fotos, aprova item a item e confirma. A OS muda para aprovada sozinha e a peça já fica reservada.',
+    detalhe: 'Sem login, sem app, sem ligar para ninguém.',
+  },
+  {
+    numero: '04',
+    titulo: 'Você executa e entrega',
+    texto:
+      'Baixa de estoque na finalização, aviso de "veículo pronto" no WhatsApp, pagamento no Pix e assinatura na tela.',
+    detalhe: 'Com foto da saída, se você quiser.',
+  },
+];
+
+/** Só o que TEM tela hoje. Fornecedores e compras ficaram para depois. */
 const modulos = [
-  { titulo: 'Ordem de serviço', texto: 'Check-in com fotos, itens com total ao vivo, timeline e impressão.' },
-  { titulo: 'Orçamento por link', texto: 'Aprovação parcial, prova imutável com IP e aparelho, orçamento complementar.' },
-  { titulo: 'Agenda', texto: 'Dia, semana e mês, coluna por mecânico, aviso de conflito e check-in que abre a OS.' },
+  { titulo: 'Ordem de serviço', texto: 'Check-in com fotos, itens com total ao vivo, trilha do próximo passo e impressão.' },
+  { titulo: 'Orçamento por link', texto: 'Aprovação parcial, prova de quem autorizou, orçamento complementar.' },
+  { titulo: 'Agenda', texto: 'Dia, semana e mês, uma coluna por mecânico, aviso de conflito e check-in que abre a OS.' },
   { titulo: 'Estoque', texto: 'Custo médio, reserva na aprovação, baixa na finalização e alerta de mínimo.' },
-  { titulo: 'Cotação com fornecedores', texto: 'Peça preço a vários por WhatsApp; cada um responde no próprio link.' },
-  { titulo: 'Compras', texto: 'Pedido, recebimento com frete no custo, devolução e sugestão do que comprar.' },
-  { titulo: 'Financeiro', texto: 'Contas a receber e a pagar, fluxo de caixa e lucro estimado do mês.' },
-  { titulo: 'Relatórios', texto: 'Faturamento, lucro, peças, mecânicos e estoque — com exportação para planilha.' },
-  { titulo: 'Pós-venda', texto: 'A fila de quem chamar hoje, com a mensagem pronta. Avaliação por link depois da entrega.' },
+  { titulo: 'Ficha do carro', texto: 'Óleo, torque, fluido e pneu — com a página do manual de onde o valor saiu.' },
+  { titulo: 'Financeiro', texto: 'A receber, fluxo de caixa, despesas do mês e lucro estimado.' },
+  { titulo: 'Pix na hora', texto: 'QR Code com o valor já dentro. Cai direto na sua conta, sem intermediário e sem taxa nossa.' },
+  { titulo: 'Comissão', texto: 'Percentual por oficina, por mecânico ou por serviço. Ganha conforme o cliente paga.' },
+  { titulo: 'Relatórios', texto: 'Faturamento, lucro, peças e mecânicos — com planilha que abre no Excel em português.' },
+  { titulo: 'Pós-venda', texto: 'A fila de quem chamar hoje, com a mensagem pronta. Avaliação no Google depois da entrega.' },
+  { titulo: 'No celular', texto: 'O mecânico instala e vê só os carros dele, com cronômetro. Sem ver valor nenhum.' },
+  { titulo: 'Nota de serviço', texto: 'Monta a nota com o ISS por dentro. Hoje em simulação — veja as perguntas.' },
+];
+
+const planos = [
+  {
+    code: 'TURBO',
+    nome: 'Turbo',
+    mensal: 149,
+    anual: 1490,
+    para: 'A oficina de até 3 pessoas',
+    inclui: [
+      'Ordem de serviço e check-in com fotos',
+      'Orçamento por link, aprovado no celular',
+      'Agenda e estoque com custo médio',
+      'Financeiro: a receber e fluxo de caixa',
+      'Pix na hora e assinatura na entrega',
+      'Ficha do carro e app no celular',
+    ],
+    limites: '3 usuários · 150 OS por mês · 5 GB',
+  },
+  {
+    code: 'SUPERCHARGER',
+    nome: 'Supercharger',
+    mensal: 279,
+    anual: 2790,
+    para: 'Quem quer entender a oficina',
+    destaque: true,
+    inclui: [
+      'Tudo do Turbo',
+      'Comissão do mecânico',
+      'Relatórios e exportação',
+      'Pacotes de serviço',
+    ],
+    limites: '8 usuários · OS ilimitada · 25 GB',
+  },
+  {
+    code: 'NITRO',
+    nome: 'Nitro',
+    mensal: 499,
+    anual: 4990,
+    para: 'Quem quer o sistema trabalhando sozinho',
+    inclui: [
+      'Tudo do Supercharger',
+      'Pesquisa de peças pelo carro da OS',
+      'WhatsApp oficial, com as respostas na tela',
+      'Automações diárias',
+    ],
+    limites: 'Usuários ilimitados · 100 GB',
+  },
 ];
 
 const perguntas = [
   {
     q: 'Precisa instalar alguma coisa?',
-    a: 'Não. Funciona no navegador do computador, do tablet e do celular. O mecânico usa no celular dele, sem instalar app.',
-  },
-  {
-    q: 'E o WhatsApp, é automático?',
-    a: 'O sistema escreve a mensagem e abre a conversa; quem aperta enviar é você. Não usamos biblioteca não oficial — é o que mantém o número da oficina seguro.',
-  },
-  {
-    q: 'Meus dados ficam com quem?',
-    a: 'Com a sua oficina. Cada oficina só enxerga os próprios dados, com isolamento garantido no banco. Você exporta seus relatórios em CSV quando quiser.',
-  },
-  {
-    q: 'Dá para trazer meus clientes do sistema antigo?',
-    a: 'Dá. Clientes, veículos e peças entram por planilha CSV, com uma conferência antes de gravar.',
+    a: 'Não. Funciona no navegador do computador e do celular. O mecânico adiciona à tela inicial do telefone dele e usa como aplicativo, sem baixar nada de loja nenhuma.',
   },
   {
     q: 'Emite nota fiscal?',
-    a: 'Ainda não. A emissão de NFS-e e NF-e está no plano para logo depois desta versão, por emissor terceirizado.',
+    a: 'Ainda não de verdade. O sistema monta a nota do serviço e mostra o ISS por dentro, mas **não envia para a prefeitura** — e a tela avisa isso em cima de cada nota. Está no plano, por emissor terceirizado. Se emitir nota é o seu problema número um, é melhor você saber agora.',
+  },
+  {
+    q: 'E o WhatsApp, é automático?',
+    a: 'Sem configurar nada, o sistema escreve a mensagem e abre a conversa — quem aperta enviar é você, do seu número. Quem assina o Nitro conecta a conta oficial da Meta e aí as respostas do cliente chegam dentro do sistema. Nunca usamos biblioteca não oficial: é o que mantém o número da oficina seguro.',
+  },
+  {
+    q: 'Meus mecânicos vão ver quanto a peça custou?',
+    a: 'Não. O papel Mecânico não recebe custo nem financeiro — e isso é decidido no servidor, não escondido na tela. São seis papéis: dono, administrador, gerente, atendente, mecânico e financeiro.',
+  },
+  {
+    q: 'Meus dados ficam presos aí?',
+    a: 'Não. Relatórios, clientes e financeiro saem em planilha a qualquer momento. E se você atrasar o pagamento, o sistema trava a escrita mas **nunca a leitura**: seus dados continuam visíveis e exportáveis.',
+  },
+  {
+    q: 'Quanto tempo para começar a usar?',
+    a: 'A conta nasce em cinco campos. Nas primeiras oficinas, a gente vai até lá e monta junto com você em uma hora: seus serviços, sua hora técnica e o app no celular de cada mecânico.',
   },
 ];
 ---
 
-<!doctype html>
 <html lang="pt-BR">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#f6f6f4" />
-    <title>OficinaOS — o orçamento aprovado pelo celular, não perdido no WhatsApp</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OficinaOS — o cliente aprova o orçamento pelo celular</title>
     <meta
       name="description"
-      content="Sistema de gestão para oficinas mecânicas: ordem de serviço, orçamento aprovado pelo celular do cliente, agenda, estoque, compras e financeiro."
+      content="Sistema para oficina mecânica: ordem de serviço com fotos, orçamento que o cliente aprova pelo WhatsApp, estoque, financeiro e a ficha do carro com óleo e torque de 292 modelos."
     />
+    <meta name="theme-color" content="#c2410c" />
     <link rel="canonical" href="https://oficinaos.com.br/" />
-    <meta property="og:title" content="OficinaOS — gestão para oficinas mecânicas" />
+    <meta property="og:title" content="OficinaOS — o cliente aprova o orçamento pelo celular" />
     <meta
       property="og:description"
-      content="O orçamento vai por link, o cliente aprova pelo celular e a ordem de serviço anda sozinha."
+      content="Do check-in com foto à entrega assinada. O orçamento vai por link e volta aprovado, sem ninguém ligar para ninguém."
     />
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="pt_BR" />
-    <link
-      rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231c1c1a'/%3E%3Cpath d='M9 16a7 7 0 1 0 14 0a7 7 0 1 0 -14 0' fill='none' stroke='%23f26b1d' stroke-width='3.5'/%3E%3C/svg%3E"
-    />
   </head>
 
   <body>
-    <header class="mx-auto flex max-w-5xl items-center justify-between px-5 py-5">
-      <span class="flex items-center gap-2 text-lg font-semibold tracking-tight">
-        <svg viewBox="0 0 32 32" class="size-7" aria-hidden="true">
-          <rect width="32" height="32" rx="8" fill="#1c1c1a"></rect>
-          <circle cx="16" cy="16" r="7" fill="none" stroke="#f26b1d" stroke-width="3.5"></circle>
-        </svg>
-        <!-- num flex, cada trecho de texto vira item e o `gap` entra no meio
-             da palavra: por isso a marca fica num span só -->
-        <span>Oficina<span class="text-accent">OS</span></span>
-      </span>
-      <a class="text-sm font-medium hover:underline" href={`${APP_URL}/entrar`}>Entrar</a>
+    <a class="sr-only focus:not-sr-only focus:absolute focus:m-3 focus:rounded focus:bg-surface focus:px-4 focus:py-2" href="#conteudo">
+      Pular para o conteúdo
+    </a>
+
+    <header class="sticky top-0 z-40 border-b border-border/70 bg-background/85 backdrop-blur">
+      <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3.5">
+        <span class="flex items-center gap-2 text-lg font-semibold tracking-tight">
+          <svg viewBox="0 0 32 32" class="size-7" aria-hidden="true">
+            <circle cx="16" cy="16" r="14" fill="var(--accent)" />
+            <path d="M16 8v8l5 3" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round" />
+          </svg>
+          <span>Oficina<span class="text-accent">OS</span></span>
+        </span>
+        <nav class="hidden items-center gap-6 text-sm text-muted md:flex" aria-label="Seções">
+          <a class="hover:text-foreground" href="#como-funciona">Como funciona</a>
+          <a class="hover:text-foreground" href="#recursos">Recursos</a>
+          <a class="hover:text-foreground" href="#ficha">Ficha do carro</a>
+          <a class="hover:text-foreground" href="#planos">Planos</a>
+        </nav>
+        <div class="flex items-center gap-2">
+          <a class="hidden text-sm font-medium hover:underline sm:block" href={`${APP_URL}/entrar`}>Entrar</a>
+          <a
+            class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground transition hover:bg-accent-hover"
+            href="#quero-ver"
+          >
+            Quero ver
+          </a>
+        </div>
+      </div>
     </header>
 
-    <main>
-      <!-- herói -->
-      <section class="mx-auto max-w-5xl px-5 pt-10 pb-16 sm:pt-16">
-        <h1 class="max-w-3xl text-4xl leading-tight font-semibold tracking-tight sm:text-5xl">
-          O orçamento aprovado pelo celular, em vez de perdido no WhatsApp.
-        </h1>
-        <p class="mt-5 max-w-2xl text-lg text-muted">
-          O OficinaOS é o sistema da oficina mecânica de bairro: abre a ordem de serviço em segundos, manda o orçamento
-          por link, e o cliente aprova item a item do celular dele — a OS muda sozinha e a peça já fica reservada.
-        </p>
-        <div class="mt-8 flex flex-wrap gap-3">
-          <a
-            class="rounded-md bg-accent px-5 py-3 text-sm font-medium text-accent-foreground hover:bg-accent-hover"
-            href={`${APP_URL}/criar-conta`}
-          >
-            Criar a conta da minha oficina
-          </a>
-          <a class="rounded-md border border-border px-5 py-3 text-sm font-medium hover:bg-surface-muted" href="#como-funciona">
-            Ver como funciona
-          </a>
+    <main id="conteudo">
+      <!-- ============== HERO ============== -->
+      <section class="hero-fundo relative overflow-hidden">
+        <div class="mx-auto grid max-w-6xl items-center gap-12 px-5 py-14 lg:grid-cols-[1.05fr_.95fr] lg:py-20">
+          <div class="reveal">
+            <p class="inline-flex items-center gap-2 rounded-full border border-accent/25 bg-accent-soft px-3 py-1 text-xs font-medium text-accent">
+              <span class="pulso inline-block size-1.5 rounded-full bg-accent"></span>
+              14 dias grátis, sem cartão
+            </p>
+            <h1 class="mt-5 text-4xl leading-[1.08] font-semibold tracking-tight text-balance sm:text-5xl lg:text-[3.4rem]">
+              O cliente aprova o orçamento <span class="sublinhado">pelo celular</span>.
+              Você nem precisa ligar.
+            </h1>
+            <p class="mt-5 max-w-xl text-lg text-muted">
+              Do check-in com foto à entrega assinada. O orçamento sai por WhatsApp,
+              o cliente aprova item a item no telefone dele, e a ordem de serviço
+              muda sozinha na sua tela.
+            </p>
+            <div class="mt-8 flex flex-wrap gap-3">
+              <a
+                class="rounded-md bg-accent px-6 py-3.5 text-sm font-medium text-accent-foreground shadow-sm transition hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-md"
+                href={`${APP_URL}/criar-conta`}
+              >
+                Testar 14 dias grátis
+              </a>
+              <a
+                class="flex items-center gap-2 rounded-md border border-border bg-surface px-6 py-3.5 text-sm font-medium transition hover:-translate-y-0.5 hover:bg-surface-muted"
+                href={zap('Oi! Vi o OficinaOS no site e queria entender como funciona na minha oficina.')}
+                target="_blank"
+                rel="noopener"
+              >
+                <svg viewBox="0 0 24 24" class="size-4 fill-[#25D366]" aria-hidden="true">
+                  <path d="M12 2a10 10 0 00-8.6 15L2 22l5.2-1.4A10 10 0 1012 2zm0 18a8 8 0 01-4.1-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8 8 0 1112 20zm4.4-6c-.2-.1-1.4-.7-1.6-.8-.2-.1-.4-.1-.5.1l-.7.9c-.1.2-.3.2-.5.1a6.6 6.6 0 01-3.2-2.8c-.1-.2 0-.4.1-.5l.4-.5.2-.4v-.4l-.7-1.7c-.2-.4-.4-.4-.5-.4h-.5a1 1 0 00-.7.3A2.9 2.9 0 006 8.9c0 1.7 1.2 3.3 1.4 3.5a11 11 0 004.3 3.8c1.6.6 2 .5 2.4.5.5 0 1.4-.6 1.6-1.1.2-.6.2-1 .1-1.1l-.4-.2z" />
+                </svg>
+                Falar no WhatsApp
+              </a>
+            </div>
+            <p class="mt-3 text-sm text-muted">
+              Sem instalar nada. Funciona no celular do mecânico e no computador do balcão.
+            </p>
+          </div>
+
+          <!-- celular animado: o momento que vende -->
+          <div class="reveal flutua justify-self-center" style="--atraso:.15s">
+            <div class="celular">
+              <div class="celular-tela">
+                <div class="zap-topo">
+                  <span class="size-6 rounded-full bg-accent"></span>
+                  <span class="text-[11px] font-medium">Auto Center do Marcos</span>
+                </div>
+                <div class="zap-corpo">
+                  <div class="balao" style="--i:0">
+                    Seu orçamento do Corolla ABC-1D23 está pronto 👇
+                  </div>
+                  <div class="balao link" style="--i:1">
+                    oficinaos.com.br/orcamento/…
+                  </div>
+                  <div class="cartao-orcamento" style="--i:2">
+                    <p class="text-[10px] tracking-wide text-muted uppercase">Necessário</p>
+                    <label class="item"><span class="caixa marcada"></span> Pastilha de freio dianteira <b>R$ 280</b></label>
+                    <label class="item"><span class="caixa marcada"></span> Mão de obra — 1,5 h <b>R$ 180</b></label>
+                    <p class="mt-2 text-[10px] tracking-wide text-muted uppercase">Recomendado</p>
+                    <label class="item apagado"><span class="caixa"></span> Troca de óleo <b>R$ 190</b></label>
+                    <div class="total"><span>Total aprovado</span><b>R$ 460</b></div>
+                    <div class="botao-aprovar">Aprovar orçamento</div>
+                  </div>
+                  <div class="balao meu" style="--i:3">Aprovado ✓</div>
+                </div>
+              </div>
+            </div>
+            <p class="mt-3 max-w-xs text-center text-xs text-muted">
+              É isto que chega no celular do cliente. Ele desmarca o que não quer e aprova só o necessário.
+            </p>
+          </div>
         </div>
-        <p class="mt-3 text-sm text-muted">Sem instalar nada. Funciona no celular do mecânico e no computador do balcão.</p>
       </section>
 
-      <!-- o problema -->
+      <!-- ============== DORES ============== -->
       <section class="border-y border-border bg-surface">
-        <div class="mx-auto grid max-w-5xl gap-8 px-5 py-14 sm:grid-cols-3">
-          <div>
-            <h2 class="font-semibold">O orçamento some na conversa</h2>
-            <p class="mt-1.5 text-sm text-muted">
-              Foto, áudio e preço no meio de cem mensagens. Três dias depois ninguém sabe o que foi combinado — nem se o
-              cliente chegou a ver.
-            </p>
-          </div>
-          <div>
-            <h2 class="font-semibold">O caderno não fecha o mês</h2>
-            <p class="mt-1.5 text-sm text-muted">
-              Peça que saiu e não foi cobrada, fiado que ninguém lembra, e no fim do mês a conta do faturamento é um
-              chute.
-            </p>
-          </div>
-          <div>
-            <h2 class="font-semibold">O cliente liga para saber do carro</h2>
-            <p class="mt-1.5 text-sm text-muted">
-              E alguém para o serviço para atender. Cinco vezes por dia, todo dia.
-            </p>
+        <div class="mx-auto max-w-6xl px-5 py-14">
+          <h2 class="reveal max-w-2xl text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
+            Toda oficina perde dinheiro nos mesmos três lugares
+          </h2>
+          <div class="mt-9 grid gap-6 sm:grid-cols-3">
+            {
+              dores.map((dor, i) => (
+                <div class="reveal rounded-xl border border-border bg-background p-5" style={`--atraso:${i * 0.08}s`}>
+                  <span class="block h-1 w-9 rounded-full bg-accent"></span>
+                  <h3 class="mt-4 font-semibold">{dor.titulo}</h3>
+                  <p class="mt-2 text-sm text-muted">{dor.texto}</p>
+                </div>
+              ))
+            }
           </div>
         </div>
       </section>
 
-      <!-- como funciona -->
-      <section id="como-funciona" class="mx-auto max-w-5xl px-5 py-16">
-        <h2 class="text-2xl font-semibold tracking-tight">Como funciona, do portão à entrega</h2>
-        <ol class="mt-8 grid gap-6 sm:grid-cols-2">
+      <!-- ============== COMO FUNCIONA ============== -->
+      <section id="como-funciona" class="mx-auto max-w-6xl scroll-mt-20 px-5 py-16">
+        <h2 class="reveal max-w-2xl text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
+          O dia inteiro da oficina, em quatro passos
+        </h2>
+        <p class="reveal mt-3 max-w-2xl text-muted">
+          Não é um módulo aqui e outro ali. É um caminho só, do carro entrando até o dinheiro entrando.
+        </p>
+        <ol class="mt-10 grid gap-5 md:grid-cols-2">
           {
-            passos.map((passo) => (
-              <li class="rounded-xl border border-border bg-surface p-5">
-                <span class="grid size-8 place-items-center rounded-full bg-accent-soft text-sm font-semibold text-accent">
-                  {passo.numero}
-                </span>
-                <h3 class="mt-3 font-semibold">{passo.titulo}</h3>
-                <p class="mt-1 text-sm text-muted">{passo.texto}</p>
+            passos.map((passo, i) => (
+              <li
+                class="reveal relative rounded-xl border border-border bg-surface p-6 transition hover:-translate-y-1 hover:shadow-md"
+                style={`--atraso:${i * 0.08}s`}
+              >
+                <span class="font-mono text-sm font-semibold text-accent">{passo.numero}</span>
+                <h3 class="mt-2 text-lg font-semibold">{passo.titulo}</h3>
+                <p class="mt-2 text-sm text-muted">{passo.texto}</p>
+                <p class="mt-3 text-sm font-medium text-accent">{passo.detalhe}</p>
               </li>
             ))
           }
         </ol>
       </section>
 
-      <!-- módulos -->
-      <section class="border-y border-border bg-surface">
-        <div class="mx-auto max-w-5xl px-5 py-16">
-          <h2 class="text-2xl font-semibold tracking-tight">O que já está pronto</h2>
-          <p class="mt-2 max-w-2xl text-sm text-muted">
-            Tudo aqui existe e funciona hoje — esta lista não é promessa de roteiro.
+      <!-- ============== NÚMEROS REAIS ============== -->
+      <section class="border-y border-border bg-foreground text-background">
+        <div class="mx-auto grid max-w-6xl gap-8 px-5 py-14 sm:grid-cols-3">
+          <div class="reveal">
+            <p class="text-4xl font-semibold tabular-nums"><span class="conta" data-ate="292">0</span></p>
+            <p class="mt-1 text-sm opacity-75">fichas de carro prontas, de 10 marcas</p>
+          </div>
+          <div class="reveal" style="--atraso:.1s">
+            <p class="text-4xl font-semibold tabular-nums"><span class="conta" data-ate="1905">0</span></p>
+            <p class="mt-1 text-sm opacity-75">especificações conferidas contra o manual do fabricante</p>
+          </div>
+          <div class="reveal" style="--atraso:.2s">
+            <p class="text-4xl font-semibold tabular-nums"><span class="conta" data-ate="6">0</span></p>
+            <p class="mt-1 text-sm opacity-75">papéis de acesso, aplicados no servidor</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============== FICHA DO CARRO ============== -->
+      <section id="ficha" class="mx-auto max-w-6xl scroll-mt-20 px-5 py-16">
+        <div class="grid items-center gap-10 lg:grid-cols-2">
+          <div class="reveal">
+            <p class="text-xs font-semibold tracking-widest text-accent uppercase">Ficha do carro</p>
+            <h2 class="mt-3 text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
+              Qual óleo vai nesse carro? E o torque da roda?
+            </h2>
+            <p class="mt-4 text-muted">
+              Digite o modelo e o ano. O sistema mostra óleo e quantidade, fluido de freio,
+              aditivo, medida do pneu e torque — e, embaixo de cada valor,
+              <strong class="text-foreground">de qual manual e de qual página aquilo saiu</strong>.
+            </p>
+            <p class="mt-3 text-muted">
+              Não é chute de fórum. São 1.905 especificações lidas dos manuais dos
+              fabricantes. Quando não há fonte, a ficha diz “confira antes de aplicar”
+              em vez de inventar um número.
+            </p>
+            <p class="mt-4 text-sm text-muted">
+              Está em todos os planos, inclusive no Turbo — e abre de dentro da ordem de serviço.
+            </p>
+          </div>
+          <div class="reveal rounded-xl border border-border bg-surface p-5 shadow-sm" style="--atraso:.12s">
+            <div class="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm text-muted">
+              <svg viewBox="0 0 24 24" class="size-4 stroke-current" fill="none" stroke-width="2" aria-hidden="true">
+                <circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" stroke-linecap="round" />
+              </svg>
+              <span class="digitando">Corolla 2015</span>
+            </div>
+            <dl class="mt-4 divide-y divide-border text-sm">
+              <div class="flex items-baseline justify-between gap-4 py-2.5">
+                <dt class="text-muted">Óleo do motor</dt>
+                <dd class="text-right"><b>0W-20 sintético</b><br /><span class="text-xs text-muted">4,2 L com filtro</span></dd>
+              </div>
+              <div class="flex items-baseline justify-between gap-4 py-2.5">
+                <dt class="text-muted">Torque da roda</dt>
+                <dd class="text-right"><b>103 N·m</b><br /><span class="text-xs text-muted">manual do proprietário, pág. 402</span></dd>
+              </div>
+              <div class="flex items-baseline justify-between gap-4 py-2.5">
+                <dt class="text-muted">Fluido de freio</dt>
+                <dd class="text-right"><b>DOT 3</b><br /><span class="text-xs text-muted">troca a cada 2 anos</span></dd>
+              </div>
+              <div class="flex items-baseline justify-between gap-4 py-2.5">
+                <dt class="text-muted">Pneu</dt>
+                <dd class="text-right"><b>195/65 R15</b><br /><span class="text-xs text-muted">32 psi</span></dd>
+              </div>
+            </dl>
+            <p class="mt-3 text-xs text-muted">Exemplo de ficha real do catálogo.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============== RECURSOS ============== -->
+      <section id="recursos" class="border-y border-border bg-surface scroll-mt-20">
+        <div class="mx-auto max-w-6xl px-5 py-16">
+          <h2 class="reveal max-w-2xl text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
+            O que já está funcionando
+          </h2>
+          <p class="reveal mt-3 max-w-2xl text-muted">
+            Tudo o que está nesta lista tem tela e você usa hoje. O que ainda não existe
+            está nas perguntas, escrito.
           </p>
-          <div class="mt-8 grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div class="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {
-              modulos.map((modulo) => (
-                <div>
-                  <h3 class="font-medium">{modulo.titulo}</h3>
-                  <p class="mt-1 text-sm text-muted">{modulo.texto}</p>
+              modulos.map((modulo, i) => (
+                <div
+                  class="reveal rounded-lg border border-border bg-background p-4 transition hover:border-accent/40"
+                  style={`--atraso:${(i % 3) * 0.06}s`}
+                >
+                  <h3 class="text-sm font-semibold">{modulo.titulo}</h3>
+                  <p class="mt-1.5 text-sm text-muted">{modulo.texto}</p>
                 </div>
               ))
             }
@@ -200,67 +432,400 @@ const perguntas = [
         </div>
       </section>
 
-      <!-- para quem é -->
-      <section class="mx-auto max-w-5xl px-5 py-16">
-        <h2 class="text-2xl font-semibold tracking-tight">Para quem é</h2>
-        <div class="mt-6 grid gap-6 sm:grid-cols-2">
-          <div class="rounded-xl border border-border bg-surface p-5">
-            <h3 class="font-semibold">Serve bem</h3>
-            <ul class="mt-2 space-y-1.5 text-sm text-muted">
-              <li>· Oficina de 1 a 10 pessoas, mecânica geral.</li>
-              <li>· Quem já faz orçamento por WhatsApp e quer parar de perder resposta.</li>
-              <li>· Quem controla peça no caderno e quer saber o custo de verdade.</li>
-            </ul>
-          </div>
-          <div class="rounded-xl border border-border bg-surface p-5">
-            <h3 class="font-semibold">Ainda não serve</h3>
-            <ul class="mt-2 space-y-1.5 text-sm text-muted">
-              <li>· Quem precisa emitir nota fiscal por aqui (está no plano, ainda não existe).</li>
-              <li>· Concessionária com várias filiais e estoque por local.</li>
-              <li>· Quem quer cobrar cartão dentro do sistema — hoje o pagamento é registrado, não processado.</li>
+      <!-- ============== MECÂNICO NO CELULAR ============== -->
+      <section class="mx-auto max-w-6xl px-5 py-16">
+        <div class="reveal rounded-2xl border border-border bg-gradient-to-br from-accent-soft to-surface p-8 sm:p-12">
+          <div class="grid items-center gap-8 lg:grid-cols-[1.1fr_.9fr]">
+            <div>
+              <p class="text-xs font-semibold tracking-widest text-accent uppercase">No celular do mecânico</p>
+              <h2 class="mt-3 text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
+                Ele abre e já vê só os carros dele
+              </h2>
+              <p class="mt-4 text-muted">
+                Um botão por carro, cronômetro no topo, foto direto da câmera.
+                O mecânico faz o dia inteiro sem abrir menu — e <strong class="text-foreground">não vê
+                valor nenhum</strong>, porque o sistema não manda o preço para o papel dele.
+              </p>
+              <p class="mt-4 text-sm text-muted">
+                Instala pelo navegador, em dez segundos, sem loja de aplicativo.
+              </p>
+            </div>
+            <ul class="grid gap-3 text-sm">
+              <li class="flex items-start gap-2.5 rounded-lg border border-border bg-surface p-3">
+                <span class="mt-0.5 text-accent">✓</span> Minhas OS, com o carro e a placa
+              </li>
+              <li class="flex items-start gap-2.5 rounded-lg border border-border bg-surface p-3">
+                <span class="mt-0.5 text-accent">✓</span> Cronômetro que alimenta o relatório de tempo
+              </li>
+              <li class="flex items-start gap-2.5 rounded-lg border border-border bg-surface p-3">
+                <span class="mt-0.5 text-accent">✓</span> Foto do check-in comprimida no aparelho, para o 4G da oficina
+              </li>
+              <li class="flex items-start gap-2.5 rounded-lg border border-border bg-surface p-3">
+                <span class="mt-0.5 text-accent">✓</span> Sem custo de peça, sem financeiro
+              </li>
             </ul>
           </div>
         </div>
       </section>
 
-      <!-- perguntas -->
-      <section class="border-y border-border bg-surface">
-        <div class="mx-auto max-w-3xl px-5 py-16">
-          <h2 class="text-2xl font-semibold tracking-tight">Perguntas que a gente sempre ouve</h2>
-          <dl class="mt-8 space-y-6">
+      <!-- ============== PLANOS ============== -->
+      <section id="planos" class="border-y border-border bg-surface scroll-mt-20">
+        <div class="mx-auto max-w-6xl px-5 py-16">
+          <h2 class="reveal text-2xl font-semibold tracking-tight text-balance sm:text-3xl">Planos</h2>
+          <p class="reveal mt-3 max-w-2xl text-muted">
+            Quatorze dias no plano mais alto, sem cartão. Depois você escolhe — e ainda
+            tem sete dias de folga para decidir.
+          </p>
+          <div class="mt-10 grid gap-5 lg:grid-cols-3">
             {
-              perguntas.map((pergunta) => (
-                <div>
-                  <dt class="font-medium">{pergunta.q}</dt>
-                  <dd class="mt-1 text-sm text-muted">{pergunta.a}</dd>
+              planos.map((plano, i) => (
+                <div
+                  class={`reveal relative flex flex-col rounded-xl border bg-background p-6 ${
+                    plano.destaque ? 'border-accent shadow-lg lg:-translate-y-3' : 'border-border'
+                  }`}
+                  style={`--atraso:${i * 0.08}s`}
+                >
+                  {plano.destaque && (
+                    <span class="absolute -top-3 left-6 rounded-full bg-accent px-3 py-1 text-xs font-medium text-accent-foreground">
+                      Mais escolhido
+                    </span>
+                  )}
+                  <h3 class="text-lg font-semibold">{plano.nome}</h3>
+                  <p class="mt-1 text-sm text-muted">{plano.para}</p>
+                  <p class="mt-5 text-3xl font-semibold tabular-nums">
+                    R$ {plano.mensal}
+                    <span class="text-base font-normal text-muted">/mês</span>
+                  </p>
+                  <p class="mt-1 text-xs text-muted">ou R$ {plano.anual.toLocaleString('pt-BR')} por ano — dez meses pelo preço de doze</p>
+                  <ul class="mt-5 flex-1 space-y-2 text-sm">
+                    {plano.inclui.map((item) => (
+                      <li class="flex items-start gap-2">
+                        <span class="mt-0.5 text-accent">✓</span>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                  <p class="mt-5 border-t border-border pt-4 text-xs text-muted">{plano.limites}</p>
+                  <a
+                    class={`mt-5 rounded-md px-5 py-3 text-center text-sm font-medium transition ${
+                      plano.destaque
+                        ? 'bg-accent text-accent-foreground hover:bg-accent-hover'
+                        : 'border border-border hover:bg-surface-muted'
+                    }`}
+                    href={`${APP_URL}/criar-conta`}
+                  >
+                    Começar o teste
+                  </a>
                 </div>
               ))
             }
-          </dl>
+          </div>
+          <p class="reveal mt-8 text-sm text-muted">
+            Atrasou o pagamento? Você tem sete dias de folga, e depois o sistema trava a
+            escrita — <strong class="text-foreground">mas nunca a leitura</strong>. Seus dados continuam
+            visíveis e exportáveis. A gente não sequestra a oficina de ninguém.
+          </p>
         </div>
       </section>
 
-      <!-- chamada final -->
-      <section class="mx-auto max-w-5xl px-5 py-16 text-center">
-        <h2 class="text-2xl font-semibold tracking-tight">Teste com uma OS de verdade</h2>
-        <p class="mx-auto mt-2 max-w-xl text-muted">
-          Crie a conta da oficina, abra uma ordem de serviço e mande o orçamento para o seu próprio WhatsApp. Dá para
-          ver o fluxo inteiro em dez minutos.
-        </p>
-        <a
-          class="mt-6 inline-block rounded-md bg-accent px-5 py-3 text-sm font-medium text-accent-foreground hover:bg-accent-hover"
-          href={`${APP_URL}/criar-conta`}
-        >
-          Criar a conta da minha oficina
-        </a>
+      <!-- ============== AS TRÊS PRIMEIRAS (prova social honesta) ============== -->
+      <section class="mx-auto max-w-6xl px-5 py-16">
+        <div class="reveal rounded-2xl border-2 border-dashed border-accent/40 bg-accent-soft/40 p-8 sm:p-12">
+          <p class="text-xs font-semibold tracking-widest text-accent uppercase">Estamos começando</p>
+          <h2 class="mt-3 max-w-3xl text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
+            Ainda não temos depoimento para mostrar. E não vamos inventar um.
+          </h2>
+          <p class="mt-4 max-w-2xl text-muted">
+            O OficinaOS está pronto e sendo colocado nas primeiras oficinas agora. Em vez de
+            encher esta página de elogio de gente que não existe, a gente prefere te fazer
+            um convite honesto:
+          </p>
+          <div class="mt-7 grid gap-5 sm:grid-cols-3">
+            <div class="rounded-xl border border-border bg-surface p-5">
+              <p class="text-2xl font-semibold text-accent">1</p>
+              <h3 class="mt-2 font-semibold">Preço travado</h3>
+              <p class="mt-1.5 text-sm text-muted">
+                O valor de hoje vale enquanto você for cliente, mesmo quando a tabela subir.
+              </p>
+            </div>
+            <div class="rounded-xl border border-border bg-surface p-5">
+              <p class="text-2xl font-semibold text-accent">2</p>
+              <h3 class="mt-2 font-semibold">A gente vai até você</h3>
+              <p class="mt-1.5 text-sm text-muted">
+                Implantação presencial: seus serviços, sua hora técnica e o app no celular
+                de cada mecânico. Em uma hora.
+              </p>
+            </div>
+            <div class="rounded-xl border border-border bg-surface p-5">
+              <p class="text-2xl font-semibold text-accent">3</p>
+              <h3 class="mt-2 font-semibold">Você manda no que vem depois</h3>
+              <p class="mt-1.5 text-sm text-muted">
+                O que te incomodar vira prioridade. Falar direto com quem escreve o sistema
+                é o que você não tem em sistema grande.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============== FORMULÁRIO ============== -->
+      <section id="quero-ver" class="border-y border-border bg-surface scroll-mt-20">
+        <div class="mx-auto grid max-w-6xl gap-10 px-5 py-16 lg:grid-cols-[1fr_1fr]">
+          <div class="reveal">
+            <h2 class="text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
+              Quer ver funcionando na sua oficina?
+            </h2>
+            <p class="mt-4 text-muted">
+              Deixe seu WhatsApp que a gente chama. Em quinze minutos você vê o orçamento
+              saindo e o cliente aprovando pelo celular — com um carro seu, de verdade.
+            </p>
+            <p class="mt-4 text-muted">Prefere falar agora?</p>
+            <a
+              class="mt-3 inline-flex items-center gap-2 rounded-md bg-[#25D366] px-6 py-3.5 text-sm font-medium text-white transition hover:-translate-y-0.5 hover:brightness-95"
+              href={zap('Oi! Vi o OficinaOS no site e queria ver funcionando na minha oficina.')}
+              target="_blank"
+              rel="noopener"
+            >
+              <svg viewBox="0 0 24 24" class="size-4 fill-current" aria-hidden="true">
+                <path d="M12 2a10 10 0 00-8.6 15L2 22l5.2-1.4A10 10 0 1012 2zm0 18a8 8 0 01-4.1-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8 8 0 1112 20zm4.4-6c-.2-.1-1.4-.7-1.6-.8-.2-.1-.4-.1-.5.1l-.7.9c-.1.2-.3.2-.5.1a6.6 6.6 0 01-3.2-2.8c-.1-.2 0-.4.1-.5l.4-.5.2-.4v-.4l-.7-1.7c-.2-.4-.4-.4-.5-.4h-.5a1 1 0 00-.7.3A2.9 2.9 0 006 8.9c0 1.7 1.2 3.3 1.4 3.5a11 11 0 004.3 3.8c1.6.6 2 .5 2.4.5.5 0 1.4-.6 1.6-1.1.2-.6.2-1 .1-1.1l-.4-.2z" />
+              </svg>
+              Chamar no WhatsApp
+            </a>
+          </div>
+
+          <form id="form-interesse" class="reveal rounded-xl border border-border bg-background p-6" style="--atraso:.1s" novalidate>
+            <div class="grid gap-4">
+              <label class="grid gap-1.5 text-sm">
+                <span class="font-medium">Seu nome</span>
+                <input
+                  name="name"
+                  required
+                  autocomplete="name"
+                  class="h-11 rounded-md border border-border bg-surface px-3 text-sm outline-none focus:border-accent-bright"
+                  placeholder="Como te chamam"
+                />
+              </label>
+              <label class="grid gap-1.5 text-sm">
+                <span class="font-medium">WhatsApp</span>
+                <input
+                  name="phone"
+                  required
+                  inputmode="tel"
+                  autocomplete="tel"
+                  class="h-11 rounded-md border border-border bg-surface px-3 text-sm outline-none focus:border-accent-bright"
+                  placeholder="(35) 99841-6972"
+                />
+              </label>
+              <label class="grid gap-1.5 text-sm">
+                <span class="font-medium">Nome da oficina <span class="font-normal text-muted">(opcional)</span></span>
+                <input
+                  name="workshopName"
+                  class="h-11 rounded-md border border-border bg-surface px-3 text-sm outline-none focus:border-accent-bright"
+                  placeholder="Auto Center…"
+                />
+              </label>
+              <label class="grid gap-1.5 text-sm">
+                <span class="font-medium">E-mail <span class="font-normal text-muted">(opcional)</span></span>
+                <input
+                  name="email"
+                  type="email"
+                  autocomplete="email"
+                  class="h-11 rounded-md border border-border bg-surface px-3 text-sm outline-none focus:border-accent-bright"
+                  placeholder="voce@email.com"
+                />
+              </label>
+
+              <!-- campo-armadilha: pessoa nenhuma vê, robô preenche -->
+              <div class="armadilha" aria-hidden="true">
+                <label>Não preencha este campo<input name="website" tabindex="-1" autocomplete="off" /></label>
+              </div>
+
+              <button
+                type="submit"
+                class="h-12 rounded-md bg-accent text-sm font-medium text-accent-foreground transition hover:bg-accent-hover disabled:opacity-60"
+              >
+                Quero ver funcionando
+              </button>
+              <p id="form-aviso" class="text-sm" role="status" aria-live="polite"></p>
+              <p class="text-xs text-muted">
+                A gente usa seu contato só para falar com você sobre o OficinaOS. Nada de lista
+                de terceiro, nada de spam.
+              </p>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- ============== PERGUNTAS ============== -->
+      <section class="mx-auto max-w-3xl px-5 py-16">
+        <h2 class="reveal text-2xl font-semibold tracking-tight sm:text-3xl">Perguntas que sempre fazem</h2>
+        <div class="mt-8 divide-y divide-border">
+          {
+            perguntas.map((item) => (
+              <details class="reveal group py-4">
+                <summary class="flex cursor-pointer list-none items-center justify-between gap-4 font-medium">
+                  {item.q}
+                  <span class="text-accent transition group-open:rotate-45">+</span>
+                </summary>
+                <p class="mt-3 text-sm text-muted" set:html={item.a.replace(/\*\*(.+?)\*\*/g, '<strong class="text-foreground">$1</strong>')} />
+              </details>
+            ))
+          }
+        </div>
+      </section>
+
+      <!-- ============== CHAMADA FINAL ============== -->
+      <section class="border-t border-border bg-foreground text-background">
+        <div class="mx-auto max-w-4xl px-5 py-16 text-center">
+          <h2 class="reveal text-2xl font-semibold tracking-tight text-balance sm:text-4xl">
+            Amanhã de manhã o primeiro carro entra.<br />Que tal ele já entrar no sistema?
+          </h2>
+          <div class="reveal mt-8 flex flex-wrap justify-center gap-3">
+            <a
+              class="rounded-md bg-accent px-7 py-3.5 text-sm font-medium text-accent-foreground transition hover:-translate-y-0.5 hover:bg-accent-hover"
+              href={`${APP_URL}/criar-conta`}
+            >
+              Testar 14 dias grátis
+            </a>
+            <a
+              class="rounded-md border border-background/30 px-7 py-3.5 text-sm font-medium transition hover:-translate-y-0.5 hover:bg-background/10"
+              href="#quero-ver"
+            >
+              Falar com a gente
+            </a>
+          </div>
+          <p class="reveal mt-4 text-sm opacity-70">Sem cartão. Sem contrato. Sem instalar nada.</p>
+        </div>
       </section>
     </main>
 
     <footer class="border-t border-border">
-      <div class="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-5 py-8 text-sm text-muted">
-        <span>OficinaOS · sistema de gestão para oficinas mecânicas</span>
-        <a class="hover:underline" href={`${APP_URL}/entrar`}>Entrar no sistema</a>
+      <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-5 py-8 text-sm text-muted">
+        <span>© {new Date().getFullYear()} OficinaOS</span>
+        <div class="flex flex-wrap gap-5">
+          <a class="hover:text-foreground" href={`${APP_URL}/entrar`}>Entrar</a>
+          <a class="hover:text-foreground" href="#planos">Planos</a>
+          <a class="hover:text-foreground" href={zap('Oi! Vim do site do OficinaOS.')} target="_blank" rel="noopener">
+            WhatsApp
+          </a>
+        </div>
       </div>
     </footer>
+
+    <!-- botão flutuante do WhatsApp -->
+    <a
+      class="fixed right-5 bottom-5 z-50 flex size-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition hover:scale-105"
+      href={zap('Oi! Vi o OficinaOS no site e queria entender como funciona.')}
+      target="_blank"
+      rel="noopener"
+      aria-label="Falar no WhatsApp"
+    >
+      <svg viewBox="0 0 24 24" class="size-7 fill-current" aria-hidden="true">
+        <path d="M12 2a10 10 0 00-8.6 15L2 22l5.2-1.4A10 10 0 1012 2zm0 18a8 8 0 01-4.1-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8 8 0 1112 20zm4.4-6c-.2-.1-1.4-.7-1.6-.8-.2-.1-.4-.1-.5.1l-.7.9c-.1.2-.3.2-.5.1a6.6 6.6 0 01-3.2-2.8c-.1-.2 0-.4.1-.5l.4-.5.2-.4v-.4l-.7-1.7c-.2-.4-.4-.4-.5-.4h-.5a1 1 0 00-.7.3A2.9 2.9 0 006 8.9c0 1.7 1.2 3.3 1.4 3.5a11 11 0 004.3 3.8c1.6.6 2 .5 2.4.5.5 0 1.4-.6 1.6-1.1.2-.6.2-1 .1-1.1l-.4-.2z" />
+      </svg>
+    </a>
+
+    <script is:inline>
+      (function () {
+        var semAnimacao = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        /* aparece ao rolar. Sem animação pedida, tudo já nasce visível. */
+        var alvos = document.querySelectorAll('.reveal');
+        if (semAnimacao || !('IntersectionObserver' in window)) {
+          alvos.forEach(function (el) { el.classList.add('visivel'); });
+        } else {
+          var obs = new IntersectionObserver(
+            function (entradas) {
+              entradas.forEach(function (e) {
+                if (e.isIntersecting) { e.target.classList.add('visivel'); obs.unobserve(e.target); }
+              });
+            },
+            { rootMargin: '0px 0px -10% 0px', threshold: 0.1 },
+          );
+          alvos.forEach(function (el) { obs.observe(el); });
+        }
+
+        /* os números contam ao entrar na tela */
+        document.querySelectorAll('.conta').forEach(function (el) {
+          var ate = Number(el.dataset.ate || 0);
+          if (semAnimacao || !('IntersectionObserver' in window)) {
+            el.textContent = ate.toLocaleString('pt-BR');
+            return;
+          }
+          var o = new IntersectionObserver(function (entradas) {
+            if (!entradas[0].isIntersecting) return;
+            o.disconnect();
+            var inicio = performance.now();
+            (function passo(agora) {
+              var t = Math.min((agora - inicio) / 1100, 1);
+              var suave = 1 - Math.pow(1 - t, 3);
+              el.textContent = Math.round(ate * suave).toLocaleString('pt-BR');
+              if (t < 1) requestAnimationFrame(passo);
+            })(inicio);
+          }, { threshold: 0.4 });
+          o.observe(el);
+        });
+
+        /* máscara do telefone, enquanto digita */
+        var campoTel = document.querySelector('input[name="phone"]');
+        if (campoTel) {
+          campoTel.addEventListener('input', function () {
+            var d = campoTel.value.replace(/\D/g, '').slice(0, 11);
+            campoTel.value =
+              d.length <= 2 ? d
+              : d.length <= 6 ? '(' + d.slice(0, 2) + ') ' + d.slice(2)
+              : d.length <= 10 ? '(' + d.slice(0, 2) + ') ' + d.slice(2, 6) + '-' + d.slice(6)
+              : '(' + d.slice(0, 2) + ') ' + d.slice(2, 7) + '-' + d.slice(7);
+          });
+        }
+
+        /* o formulário grava no banco e leva para o WhatsApp */
+        var form = document.getElementById('form-interesse');
+        var aviso = document.getElementById('form-aviso');
+        if (form) {
+          form.addEventListener('submit', async function (evento) {
+            evento.preventDefault();
+            var botao = form.querySelector('button[type="submit"]');
+            var dados = Object.fromEntries(new FormData(form).entries());
+
+            if (!dados.name || String(dados.name).trim().length < 2) {
+              aviso.textContent = 'Diga seu nome para a gente saber como te chamar.';
+              aviso.className = 'text-sm text-accent';
+              return;
+            }
+            if (String(dados.phone).replace(/\D/g, '').length < 10) {
+              aviso.textContent = 'Informe o WhatsApp com DDD.';
+              aviso.className = 'text-sm text-accent';
+              return;
+            }
+
+            botao.disabled = true;
+            botao.textContent = 'Enviando…';
+            aviso.textContent = '';
+            try {
+              var r = await fetch('/api/v1/prospects', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify(dados),
+              });
+              if (!r.ok) throw new Error('falhou');
+              form.innerHTML =
+                '<div class="py-6 text-center">' +
+                '<p class="text-4xl">✅</p>' +
+                '<p class="mt-3 text-lg font-semibold">Recebemos seu contato</p>' +
+                '<p class="mt-2 text-sm text-muted">A gente chama no WhatsApp. Se preferir adiantar, fale agora:</p>' +
+                '<a class="mt-5 inline-flex items-center gap-2 rounded-md bg-[#25D366] px-6 py-3 text-sm font-medium text-white" ' +
+                'href="' + document.querySelector('a[href*="wa.me"]').getAttribute('href') + '" target="_blank" rel="noopener">' +
+                'Chamar no WhatsApp</a></div>';
+            } catch (erro) {
+              aviso.textContent = 'Não consegui enviar agora. Chama a gente no WhatsApp que resolvemos na hora.';
+              aviso.className = 'text-sm text-accent';
+              botao.disabled = false;
+              botao.textContent = 'Quero ver funcionando';
+            }
+          });
+        }
+      })();
+    </script>
   </body>
 </html>

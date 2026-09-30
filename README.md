@@ -13,7 +13,7 @@ O diferencial inicial é um fluxo:
 
 ## Status
 
-**MVP 1, MVP 2 e V3 entregues: E1 a E41.** O sistema faz o dia inteiro de uma
+**MVP 1, MVP 2 e V3 entregues: E1 a E42.** O sistema faz o dia inteiro de uma
 oficina — da placa na recepção ao dinheiro no caixa e à nota de serviço.
 
 O que ainda **não** é real, e está rotulado como tal dentro do produto:
@@ -162,9 +162,10 @@ mensagem para o cliente — ela deixa pronto.
 | E39. Tutoriais em vídeo | ✅ 29/09/2026 |
 | E40. Os planos valem de verdade | ✅ 29/09/2026 |
 | E41. Pronto para publicar: IP real, carência do teste e área da plataforma | ✅ 29/09/2026 |
+| E42. Landing nova, com captura de interessados para o remarketing | ✅ 30/09/2026 |
 
 O detalhe de cada etapa, com o critério de pronto e o que ficou de fora, está em
-[docs/ROADMAP.md](docs/ROADMAP.md). As decisões técnicas e de produto (D1 a D79),
+[docs/ROADMAP.md](docs/ROADMAP.md). As decisões técnicas e de produto (D1 a D81),
 com a alternativa descartada e o porquê, estão em
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -211,9 +212,9 @@ Toda etapa só fecha com `npm run check` verde. Além disso:
 
 | Camada | Números |
 |---|---|
-| Testes de unidade e de API | **860 testes em 81 arquivos**, verdes, contra um Postgres de teste recriado a cada execução |
+| Testes de unidade e de API | **886 testes em 85 arquivos**, verdes, contra um Postgres de teste recriado a cada execução |
 | Ponta a ponta | 24 cenários Playwright, do painel no desktop ao cliente aprovando num celular |
-| Banco | 64 migrations aplicadas em ordem, com isolamento por oficina (RLS forçado) |
+| Banco | 67 migrations aplicadas em ordem, com isolamento por oficina (RLS forçado) |
 
 ---
 
@@ -412,10 +413,10 @@ A regra de dependência entre camadas está em
 
 | Documento | Conteúdo |
 |---|---|
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Decisões D1–D79 com a alternativa descartada, pastas, multi-tenant, autenticação, permissões, fluxos, segurança, riscos |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Decisões D1–D81 com a alternativa descartada, pastas, multi-tenant, autenticação, permissões, fluxos, segurança, riscos |
 | [docs/DATABASE.md](docs/DATABASE.md) | Convenções, isolamento por RLS, ERD, tabelas, índices, seeds |
 | [docs/API.md](docs/API.md) | Convenções REST, erros, rate limits, endpoints por fase |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | Etapas E1–E41 com critério de pronto, integrações futuras, métricas |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | Etapas E1–E42 com critério de pronto, integrações futuras, métricas |
 | [docs/DEPLOY.md](docs/DEPLOY.md) | Servidor, DNS, segredos, backup, restore e rollback |
 
 ---

@@ -78,6 +78,7 @@ export * from './schemas/charges';
 export * from './billing';
 export * from './schemas/billing';
 export * from './schemas/platform';
+export * from './schemas/prospects';
 export * from './enums/automations';
 export * from './automations';
 export * from './schemas/automations';

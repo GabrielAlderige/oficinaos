@@ -19,6 +19,7 @@ import {
   Settings,
   Target,
   type LucideIcon,
+  UserPlus,
   Users,
   Wrench,
 } from 'lucide-react';
@@ -151,6 +152,7 @@ const NAV: NavGroup[] = [
     // some inteiro para quem não é da plataforma: o grupo só existe se tiver item
     label: 'Plataforma',
     items: [
+      { to: '/plataforma/interessados', label: 'Interessados', icon: UserPlus, platformOnly: true },
       { to: '/plataforma/oficinas', label: 'Oficinas', icon: Building2, platformOnly: true },
       { to: '/plataforma/catalogo', label: 'Catálogo de veículos', icon: Car, platformOnly: true },
       { to: '/plataforma/tutoriais', label: 'Aulas', icon: GraduationCap, platformOnly: true },

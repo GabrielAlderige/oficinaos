@@ -23,6 +23,9 @@ const GLOBAL_TABLES = new Set([
   // as aulas do tutorial (E39) também são da PLATAFORMA: mesma aula para
   // todas as oficinas. O PROGRESSO é de cada uma e tem organization_id.
   'tutorial_lessons',
+  // interessados da landing (E42): quem preenche o formulário do site ainda
+  // NÃO tem oficina, então não há organization_id para amarrar
+  'prospects',
 ]);
 
 describe('guarda do RLS', () => {

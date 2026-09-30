@@ -56,9 +56,20 @@
 
 {$LANDING_DOMAIN::8080} {
 	encode zstd gzip
-	root * /srv/site
-	try_files {path} {path}/ /index.html
-	file_server
+
+	# o formulário de interessados posta em /api/v1/prospects (E42). Servir a
+	# API no MESMO domínio da landing evita CORS por completo: o navegador
+	# nunca conversa com outra origem, e não é preciso abrir o WEB_ORIGINS da
+	# API para o domínio do site.
+	handle /api/* {
+		reverse_proxy api:3333
+	}
+
+	handle {
+		root * /srv/site
+		try_files {path} {path}/ /index.html
+		file_server
+	}
 
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"

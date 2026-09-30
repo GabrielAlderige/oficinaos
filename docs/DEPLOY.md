@@ -187,6 +187,11 @@ Depois, dentro do painel:
 > desenvolvimento, de propósito: dado inventado não nasce junto com dado real
 > no servidor de quem trabalha.
 
+> **O WhatsApp do site.** A landing usa um número fixo no código
+> (`apps/landing/src/pages/index.astro`, constante `WHATSAPP`). Hoje é o
+> pessoal; quando a empresa tiver o dela, troque ali e reconstrua a imagem
+> `web` — é uma linha.
+
 ### 6.1 Virar administrador da plataforma
 
 A marca é da CONTA, não da oficina, e só se liga uma vez, direto no banco:
@@ -199,6 +204,7 @@ Depois disso aparecem três telas que a oficina nunca vê:
 
 | Tela | Para quê |
 |---|---|
+| `/plataforma/interessados` | quem preencheu o formulário do site, e o botão que **baixa a planilha** do remarketing |
 | `/plataforma/oficinas` | todas as oficinas, com a situação da assinatura, e **estender o teste** com motivo registrado |
 | `/plataforma/catalogo` | preencher a ficha do carro que as oficinas pedem |
 | `/plataforma/tutoriais` | cadastrar as aulas em vídeo |

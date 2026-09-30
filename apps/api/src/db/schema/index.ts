@@ -24,3 +24,4 @@ export * from './commissions';
 export * from './packages';
 export * from './vehicle-specs';
 export * from './tutorials';
+export * from './prospects';
