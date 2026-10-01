@@ -20,6 +20,7 @@
     "e2e:ui": "playwright test --ui",
     "check": "npm run typecheck && npm run lint && npm run test && npm run build",
     "db:setup": "npm run db:setup -w @oficinaos/api",
+    "db:test:up": "wsl -u root -e pg_ctlcluster 17 main start",
     "db:generate": "npm run db:generate -w @oficinaos/api --",
     "db:migrate": "npm run db:migrate -w @oficinaos/api --",
     "db:seed:demo": "npm run db:seed:demo -w @oficinaos/api --",
