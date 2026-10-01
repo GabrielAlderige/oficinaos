@@ -177,6 +177,42 @@ describe('financeiro', () => {
     expect(emUso.json().code).toBe('FINANCE_CATEGORY_IN_USE');
   });
 
+  /**
+   * Filtro de período na lista (E44).
+   *
+   * O que precisa ficar travado: o ATALHO ("últimos 7 dias") é resolvido no
+   * servidor, com o fuso da oficina. Se fosse calculado no navegador, uma
+   * oficina de São Paulo depois das 21h pediria o dia seguinte e perderia os
+   * lançamentos de hoje.
+   */
+  it('a lista filtra por período, e a data explícita vence o atalho', async () => {
+    await criarLancamento({
+      direction: 'PAYABLE', categoryId: categoriaAluguel,
+      description: 'Vence hoje', amountCents: 1000, dueDate: hoje(),
+    });
+    await criarLancamento({
+      direction: 'PAYABLE', categoryId: categoriaAluguel,
+      description: 'Vence em 20 dias', amountCents: 2000, dueDate: emDias(20),
+    });
+
+    const descricoes = async (busca: string) =>
+      ((await get(`/api/v1/finance/entries?direction=PAYABLE&filter=all&${busca}`)).json() as {
+        data: { description: string }[];
+      }).data.map((l) => l.description);
+
+    const seteDias = await descricoes('period=last7');
+    expect(seteDias, 'o que vence hoje está dentro dos últimos 7 dias').toContain('Vence hoje');
+    expect(seteDias, 'o que vence daqui a 20 dias, não').not.toContain('Vence em 20 dias');
+
+    const trintaDias = await descricoes('period=last30');
+    expect(trintaDias, 'olhando para trás, o de daqui a 20 dias continua fora').not.toContain('Vence em 20 dias');
+
+    // data explícita manda: a pessoa escolheu o dia, não há o que interpretar
+    const explicito = await descricoes(`period=last7&from=${emDias(19)}&to=${emDias(21)}`);
+    expect(explicito, 'o from/to vence o atalho').toEqual(['Vence em 20 dias']);
+    expect(explicito).not.toContain('Vence hoje');
+  });
+
   // ============================= conta a pagar ===============================
 
   it('conta a pagar avulsa: baixa parcial, baixa final e cancelamento da baixa', async () => {

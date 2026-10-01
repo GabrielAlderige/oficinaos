@@ -342,13 +342,15 @@ export function isWithinBusinessHours(
 
 // ------------------------------ períodos ----------------------------------
 
-export const DASHBOARD_PERIODS = ['today', 'week', 'month', 'custom'] as const;
+export const DASHBOARD_PERIODS = ['today', 'week', 'month', 'last7', 'last30', 'custom'] as const;
 export type DashboardPeriod = (typeof DASHBOARD_PERIODS)[number];
 
 export const DASHBOARD_PERIOD_LABELS: Record<DashboardPeriod, string> = {
   today: 'Hoje',
   week: 'Esta semana',
   month: 'Este mês',
+  last7: 'Últimos 7 dias',
+  last30: 'Últimos 30 dias',
   custom: 'Período',
 };
 
@@ -375,6 +377,16 @@ export function periodRange(
         return [startOfWeek(hoje), addDays(startOfWeek(hoje), 6)];
       case 'month':
         return [startOfMonth(hoje), addDays(addMonths(startOfMonth(hoje), 1), -1)];
+      /**
+       * "Últimos 7 dias" CONTA HOJE: são 6 dias atrás até hoje, não 7 atrás.
+       * Quem pergunta "como foi a semana" quer o dia de hoje incluído — e um
+       * intervalo de 8 dias chamado de 7 faria o total não bater com a soma
+       * que a pessoa faz de cabeça.
+       */
+      case 'last7':
+        return [addDays(hoje, -6), hoje];
+      case 'last30':
+        return [addDays(hoje, -29), hoje];
       case 'custom': {
         const de = custom?.from ?? hoje;
         const ate = custom?.to ?? hoje;

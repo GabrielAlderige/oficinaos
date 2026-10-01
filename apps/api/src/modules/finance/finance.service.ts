@@ -210,9 +210,20 @@ export class FinanceService {
   async list(auth: AuthContext, query: FinancialListQuery): Promise<FinancialList> {
     return withTenant(this.deps.db, auth, async (tx) => {
       const hoje = await hojeNaOficina(tx, auth.organizationId);
-      const { rows, total } = await repo.listEntries(tx, auth.organizationId, query, hoje);
-      const resumo = await repo.summary(tx, auth.organizationId, query.direction, hoje);
       const tz = await readTimezone(tx, auth.organizationId);
+      /**
+       * O atalho de período vira data AQUI, com o fuso da OFICINA. Data
+       * explícita que a pessoa digitou tem precedência: ela já escolheu o dia.
+       */
+      const comPeriodo: FinancialListQuery =
+        query.period && query.period !== 'custom' && !query.from && !query.to
+          ? (() => {
+              const janela = periodRange(query.period, tz);
+              return { ...query, from: janela.fromDay, to: janela.toDay };
+            })()
+          : query;
+      const { rows, total } = await repo.listEntries(tx, auth.organizationId, comPeriodo, hoje);
+      const resumo = await repo.summary(tx, auth.organizationId, query.direction, hoje);
       const mes = periodRange('month', tz);
       const noMes =
         query.direction === 'RECEIVABLE'

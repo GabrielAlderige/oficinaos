@@ -1,9 +1,6 @@
 import {
-  DASHBOARD_PERIOD_LABELS,
-  DASHBOARD_PERIODS,
   formatReportCell,
   REPORTS,
-  type DashboardPeriod,
   type ReportKey,
 } from '@oficinaos/shared';
 import { ChartNoAxesColumn, Download } from 'lucide-react';
@@ -16,9 +13,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTrigger } from '../../compon
 import { cn } from '../../lib/cn';
 import { errorMessage } from '../../lib/errors';
 import { useCan } from '../../lib/session';
+import { aplicarPeriodo, PeriodPicker, type Periodo } from '../../components/PeriodPicker';
 import { useDownloadReport, useReport } from './api';
-
-const PERIODOS = DASHBOARD_PERIODS.filter((periodo) => periodo !== 'custom');
 
 /** Colunas de número alinham à direita: é assim que a coluna se lê de cima a baixo. */
 const NUMERICOS = new Set(['money', 'number', 'quantity', 'percent', 'minutes']);
@@ -62,29 +58,19 @@ export function ReportsDialog() {
 
 function Conteudo() {
   const [key, setKey] = useState<ReportKey>('revenue');
-  const [period, setPeriod] = useState<DashboardPeriod>('month');
-  const consulta = useReport({ key, period });
+  const [periodo, setPeriodo] = useState<Periodo>({ period: 'month' });
+  const consulta = useReport({ key, ...periodo });
   const baixar = useDownloadReport();
   const dados = consulta.data;
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <label className="sr-only" htmlFor="relatorio-periodo">
-          Período
-        </label>
-        <select
-          id="relatorio-periodo"
-          value={period}
-          onChange={(event) => setPeriod(event.target.value as DashboardPeriod)}
-          className="h-9 rounded-md border border-border bg-surface px-2 text-sm"
-        >
-          {PERIODOS.map((opcao) => (
-            <option key={opcao} value={opcao}>
-              {DASHBOARD_PERIOD_LABELS[opcao]}
-            </option>
-          ))}
-        </select>
+        <PeriodPicker
+          idPrefix="relatorio"
+          valor={periodo}
+          onChange={(patch) => setPeriodo((anterior) => aplicarPeriodo(anterior, patch))}
+        />
         <Button
           variant="secondary"
           size="sm"
@@ -92,7 +78,7 @@ function Conteudo() {
           loading={baixar.isPending}
           onClick={async () => {
             try {
-              const nome = await baixar.mutateAsync({ key, period });
+              const nome = await baixar.mutateAsync({ key, ...periodo });
               toast.success(`${nome} baixado.`);
             } catch (err) {
               toast.error(errorMessage(err));

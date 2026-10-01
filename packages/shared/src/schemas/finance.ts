@@ -102,6 +102,13 @@ export const financialListQuerySchema = z.object({
   categoryId: z.uuid().optional(),
   customerId: z.uuid().optional(),
   supplierId: z.uuid().optional(),
+  /**
+   * Atalho de período (hoje, semana, mês, últimos 7/30). Resolvido no SERVIDOR,
+   * porque quem sabe o fuso da oficina é a API: "hoje" calculado no navegador
+   * vira o dia seguinte depois das 21h no horário de Brasília.
+   * Quando vem junto de `from`/`to`, as datas explícitas mandam.
+   */
+  period: z.enum(DASHBOARD_PERIODS).optional(),
   from: isoDate.optional(),
   to: isoDate.optional(),
   page: z.coerce.number().int().min(1).default(1),

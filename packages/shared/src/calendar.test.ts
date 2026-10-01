@@ -215,6 +215,10 @@ describe('mensagem para o cliente', () => {
   });
 });
 
+/** Quantos dias o intervalo cobre, contando as duas pontas. */
+const diasEntre = (de: string, ate: string): number =>
+  Math.round((Date.parse(`${ate}T00:00:00Z`) - Date.parse(`${de}T00:00:00Z`)) / 86_400_000) + 1;
+
 describe('período do dashboard', () => {
   // 2026-09-13 é um domingo; 11:00Z é 08:00 em SP e 07:00 em Manaus
   const agora = at('2026-09-13T11:00:00Z');
@@ -236,6 +240,24 @@ describe('período do dashboard', () => {
     expect([semana.fromDay, semana.toDay]).toEqual(['2026-09-07', '2026-09-13']);
     const mes = periodRange('month', SP, undefined, agora);
     expect([mes.fromDay, mes.toDay]).toEqual(['2026-09-01', '2026-09-30']);
+  });
+
+  it('"últimos 7 dias" CONTA hoje — são 7 dias, não 8', () => {
+    const sete = periodRange('last7', SP, undefined, agora);
+    expect([sete.fromDay, sete.toDay]).toEqual(['2026-09-07', '2026-09-13']);
+    // o nome promete sete: se virasse 2026-09-06 seriam oito, e o total na tela
+    // não bateria com a conta que o dono faz de cabeça
+    expect(diasEntre(sete.fromDay, sete.toDay)).toBe(7);
+
+    const trinta = periodRange('last30', SP, undefined, agora);
+    expect([trinta.fromDay, trinta.toDay]).toEqual(['2026-08-15', '2026-09-13']);
+    expect(diasEntre(trinta.fromDay, trinta.toDay)).toBe(30);
+  });
+
+  it('"últimos 7 dias" também vira no calendário da oficina, não no do servidor', () => {
+    // 2026-09-13T02:00Z ainda é dia 12 em SP: a janela tem de terminar no dia 12
+    const antesDaMeiaNoite = periodRange('last7', SP, undefined, at('2026-09-13T02:00:00Z'));
+    expect([antesDaMeiaNoite.fromDay, antesDaMeiaNoite.toDay]).toEqual(['2026-09-06', '2026-09-12']);
   });
 
   it('período escolhido inclui o último dia inteiro, mesmo de trás para frente', () => {

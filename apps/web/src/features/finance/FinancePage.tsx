@@ -5,6 +5,7 @@ import { useSearchParams } from 'react-router';
 import { Button } from '../../components/ui/button';
 import { Alert, Card, PageHeader, Skeleton } from '../../components/ui/display';
 import { EmptyState, Pagination, SearchInput } from '../../components/ui/list-parts';
+import { aplicarPeriodo, PeriodPicker, type Periodo, type PeriodoPatch } from '../../components/PeriodPicker';
 import { cn } from '../../lib/cn';
 import { errorMessage } from '../../lib/errors';
 import { useCan } from '../../lib/session';
@@ -57,6 +58,41 @@ function FinancePage({ direction }: { direction: FinancialDirection }) {
   const [busca, setBusca] = useState(params.get('q') ?? '');
   const q = useDebouncedValue(busca.trim(), 300);
   const [criando, setCriando] = useState(false);
+  /**
+   * O período fica na URL junto do resto dos filtros: quem manda o link para o
+   * contador manda a mesma lista que está vendo, não a do mês corrente.
+   */
+  const periodo: Periodo = {
+    period: (params.get('periodo') as Periodo['period']) ?? 'month',
+    from: params.get('de') ?? undefined,
+    to: params.get('ate') ?? undefined,
+  };
+  /**
+   * Atualiza a partir do estado ANTERIOR, não do `params` que o render capturou:
+   * quem digita a data inicial e a final em seguida escreve duas vezes antes do
+   * primeiro render chegar, e a segunda gravação apagaria a primeira.
+   */
+  const trocarPeriodo = (patch: PeriodoPatch) => {
+    setParams(
+      (anterior) => {
+        const atual: Periodo = {
+          period: (anterior.get('periodo') as Periodo['period']) ?? 'month',
+          from: anterior.get('de') ?? undefined,
+          to: anterior.get('ate') ?? undefined,
+        };
+        const novo = aplicarPeriodo(atual, patch);
+        const proximo = new URLSearchParams(anterior);
+        proximo.set('periodo', novo.period);
+        if (novo.from) proximo.set('de', novo.from);
+        else proximo.delete('de');
+        if (novo.to) proximo.set('ate', novo.to);
+        else proximo.delete('ate');
+        proximo.delete('page');
+        return proximo;
+      },
+      { replace: true },
+    );
+  };
   const [aberto, setAberto] = useState<string | null>(null);
 
   useEffect(() => {
@@ -76,7 +112,7 @@ function FinancePage({ direction }: { direction: FinancialDirection }) {
     setParams(proximo, { replace: true });
   };
 
-  const consulta = useFinancialEntries({ direction, filter, q, page });
+  const consulta = useFinancialEntries({ direction, filter, q, page, ...periodo });
   const dados = consulta.data;
   const resumo = dados?.summary;
 
@@ -119,6 +155,10 @@ function FinancePage({ direction }: { direction: FinancialDirection }) {
             placeholder={direction === 'RECEIVABLE' ? 'Cliente, descrição ou número da OS' : 'Fornecedor, descrição ou número da compra'}
             label="Buscar lançamentos"
           />
+          <div className="flex flex-wrap items-end gap-2">
+            <PeriodPicker idPrefix="financeiro" valor={periodo} onChange={trocarPeriodo} />
+            <p className="pb-2 text-xs text-muted">pela data de vencimento</p>
+          </div>
           <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filtrar por situação">
             {FILTROS.map((opcao) => {
               const ativo = opcao.valor === filter;

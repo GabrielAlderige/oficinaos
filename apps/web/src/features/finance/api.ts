@@ -23,6 +23,11 @@ export interface FinanceListParams {
   direction: FinancialDirection;
   filter: FinancialListFilter;
   q: string;
+  /** atalho de período; o servidor resolve com o fuso da oficina */
+  period?: DashboardPeriod;
+  /** data explícita de vencimento: tem precedência sobre o atalho */
+  from?: string;
+  to?: string;
   page: number;
   pageSize?: number;
 }
@@ -52,6 +57,9 @@ export function useFinancialEntries(params: FinanceListParams) {
           direction: params.direction,
           filter: params.filter,
           q: params.q,
+          period: params.period,
+          from: params.from,
+          to: params.to,
           page: params.page,
           pageSize: params.pageSize ?? 25,
         })}`,
