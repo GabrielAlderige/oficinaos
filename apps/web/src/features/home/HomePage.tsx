@@ -85,11 +85,21 @@ export function HomePage() {
             esquerda, o que precisa de gente à direita, sem rolar.
           */}
           <div className="grid gap-4 lg:grid-cols-3 lg:items-start">
-            <div className="space-y-4 lg:order-2">
+            {/*
+              `min-w-0` nas duas colunas porque filho de grid nasce com
+              `min-width: auto` e se recusa a encolher abaixo do conteúdo: um
+              único trecho sem onde quebrar trava a coluna e o painel passa a
+              rolar de lado, sem nada no CSS dela indicando largura.
+
+              Não foi isto que causou o estouro de 438px que o teste pegou (era
+              a tabela de leitor de tela do gráfico), mas é a rede que impede o
+              próximo conteúdo comprido de fazer o mesmo.
+            */}
+            <div className="min-w-0 space-y-4 lg:order-2">
               <AttentionPanel />
             </div>
 
-            <div className="space-y-4 lg:order-1 lg:col-span-2">
+            <div className="min-w-0 space-y-4 lg:order-1 lg:col-span-2">
               <PeriodoEscolhido periodo={periodo} onTrocar={trocarPeriodo} />
               <DinheiroDoPeriodo dados={dados} />
               <MetricChart periodo={{ period: periodo }} podeVerDinheiro={dados.billedCents !== null} />

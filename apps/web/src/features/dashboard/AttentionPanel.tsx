@@ -32,7 +32,13 @@ function Grupo({ grupo }: { grupo: AttentionGroup }) {
           </p>
           <ul className="mt-1.5 space-y-1">
             {grupo.items.map((item) => (
-              <li key={item.id} className="text-sm">
+              /*
+                `break-words` porque esta linha tem trechos que não quebram
+                sozinhos: o valor sai do Intl com espaço RÍGIDO entre o "R$" e o
+                número, e nome de cliente ou placa não têm onde partir. Sem
+                isto, numa tela estreita, o texto escapa do cartão.
+              */
+              <li key={item.id} className="break-words text-sm">
                 <Link to={item.to} className="hover:text-accent hover:underline">
                   {item.label}
                 </Link>

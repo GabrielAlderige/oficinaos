@@ -159,20 +159,30 @@ export function MetricChart({ periodo, podeVerDinheiro }: { periodo: Periodo; po
               </div>
             </div>
 
-            {/* o mesmo dado em tabela: passar o mouse acrescenta, nunca é o único caminho */}
-            <table className="sr-only">
-              <caption>
-                {CHART_METRIC_LABELS[metric]} por dia — {dados!.period.label}
-              </caption>
-              <tbody>
-                {pontos.map((ponto) => (
-                  <tr key={ponto.day}>
-                    <th scope="row">{diaCurto(ponto.day)}</th>
-                    <td>{formatarValor(ponto.value, dados!.unit)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            {/*
+              O mesmo dado em tabela: passar o mouse acrescenta, nunca é o único
+              caminho.
+
+              O `sr-only` vai na DIV, não na tabela. Tabela ignora `overflow`, e
+              com a classe nela o elemento não colapsava para 1px — ficava com
+              304px de largura invisível, empurrando a rolagem horizontal da
+              página em tela estreita.
+            */}
+            <div className="sr-only">
+              <table>
+                <caption>
+                  {CHART_METRIC_LABELS[metric]} por dia — {dados!.period.label}
+                </caption>
+                <tbody>
+                  {pontos.map((ponto) => (
+                    <tr key={ponto.day}>
+                      <th scope="row">{diaCurto(ponto.day)}</th>
+                      <td>{formatarValor(ponto.value, dados!.unit)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </>
         )}
       </div>
