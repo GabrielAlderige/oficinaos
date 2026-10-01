@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { DASHBOARD_PERIODS } from '../calendar';
-import { REPORT_COLUMN_FORMATS, REPORT_KEYS } from '../enums/reports';
+import { REPORT_COLUMN_FORMATS, REPORT_KEYS, REPORT_PACK_KEYS } from '../enums/reports';
 
 /**
  * Relatórios (E15). A resposta traz as COLUNAS junto com as linhas: a tela
@@ -16,8 +16,8 @@ export const reportQuerySchema = z.object({
   to: isoDate.optional(),
   /** quantas linhas no máximo (os rankings cortam nas primeiras) */
   limit: z.coerce.number().int().min(1).max(500).default(100),
-  /** `csv` devolve o arquivo pronto para o Excel */
-  format: z.enum(['json', 'csv']).default('json'),
+  /** `csv` devolve a planilha; `pdf`, o documento para ler e arquivar */
+  format: z.enum(['json', 'csv', 'pdf']).default('json'),
 });
 
 export const reportColumnSchema = z.object({
@@ -39,6 +39,37 @@ export const reportSchema = z.object({
   summary: z.string().nullable(),
 });
 
+/** Uma seção do pacote, com a mesma forma de um relatório sozinho. */
+export const reportSectionSchema = z.object({
+  key: z.enum(REPORT_KEYS),
+  title: z.string(),
+  question: z.string(),
+  columns: z.array(reportColumnSchema),
+  rows: z.array(z.record(z.string(), z.union([z.string(), z.number(), z.null()]))),
+  totals: z.record(z.string(), z.union([z.string(), z.number(), z.null()])).nullable(),
+  summary: z.string().nullable(),
+});
+
+/** O pacote: várias seções, um período só, um documento só. */
+export const reportPackSchema = z.object({
+  key: z.enum(REPORT_PACK_KEYS),
+  title: z.string(),
+  question: z.string(),
+  period: z.object({ from: z.string(), to: z.string(), label: z.string() }),
+  sections: z.array(reportSectionSchema),
+});
+
+export const reportPackListSchema = z.object({
+  data: z.array(
+    z.object({
+      key: z.enum(REPORT_PACK_KEYS),
+      title: z.string(),
+      question: z.string(),
+      sections: z.array(z.string()),
+    }),
+  ),
+});
+
 export const reportListSchema = z.object({
   data: z.array(z.object({ key: z.enum(REPORT_KEYS), title: z.string(), question: z.string(), snapshot: z.boolean() })),
 });
@@ -46,3 +77,5 @@ export const reportListSchema = z.object({
 export type ReportQuery = z.output<typeof reportQuerySchema>;
 export type Report = z.infer<typeof reportSchema>;
 export type ReportColumnDto = z.infer<typeof reportColumnSchema>;
+export type ReportPack = z.infer<typeof reportPackSchema>;
+export type ReportSection = z.infer<typeof reportSectionSchema>;

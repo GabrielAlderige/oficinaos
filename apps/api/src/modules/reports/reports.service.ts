@@ -1,4 +1,5 @@
 import {
+  type CabecalhoDoRelatorio,
   formatBRL,
   lucroEstimado,
   periodRange,
@@ -8,12 +9,20 @@ import {
   reportToCsv,
   type Report,
   type ReportKey,
+  type ReportPack,
+  type ReportPackKey,
   type ReportQuery,
+  REPORT_PACK_BY_KEY,
+  REPORT_PACKS,
+  reportPackToCsv,
 } from '@oficinaos/shared';
 import type { AuthContext, ServiceDeps } from '../../core/auth-context';
 import { readTimezone } from '../../core/org-settings';
-import { withTenant } from '../../db/tenant';
+import { eq } from 'drizzle-orm';
+import { organizations } from '../../db/schema';
+import { withTenant, type Tx } from '../../db/tenant';
 import * as financeRepo from '../finance/finance.repository';
+import { gerarPdfDoRelatorio } from './reports.pdf';
 import { REPORT_QUERIES, type Janela, type ReportResult } from './reports.queries';
 
 const MESES = [
@@ -75,14 +84,142 @@ export class ReportsService {
     });
   }
 
+  /**
+   * Quem é a oficina e quando o arquivo saiu — o que transforma uma grade de
+   * números num documento que alguém consegue arquivar.
+   */
+  private async cabecalho(
+    tx: Tx,
+    organizationId: string,
+    doc: { titulo: string; pergunta: string; periodo: string },
+  ): Promise<CabecalhoDoRelatorio> {
+    const [org] = await tx
+      .select({ name: organizations.name })
+      .from(organizations)
+      .where(eq(organizations.id, organizationId));
+    const tz = await readTimezone(tx, organizationId);
+    return {
+      organizacao: org?.name ?? 'Oficina',
+      titulo: doc.titulo,
+      pergunta: doc.pergunta,
+      periodo: doc.periodo,
+      emitidoEm: new Intl.DateTimeFormat('pt-BR', {
+        dateStyle: 'short',
+        timeStyle: 'short',
+        timeZone: tz,
+      }).format(new Date()),
+    };
+  }
+
   /** O CSV pronto para o Excel em português, com o nome do arquivo. */
   async csv(auth: AuthContext, key: ReportKey, query: ReportQuery): Promise<{ fileName: string; content: string }> {
     const relatorio = await this.get(auth, key, query);
-    const linhas = relatorio.totals ? [...relatorio.rows, relatorio.totals] : relatorio.rows;
+    const cabecalho = await withTenant(this.deps.db, auth, (tx) =>
+      this.cabecalho(tx, auth.organizationId, doc(relatorio)),
+    );
     return {
       fileName: reportFileName(relatorio.title, relatorio.period.from, relatorio.period.to),
-      content: reportToCsv(relatorio.columns, linhas),
+      content: reportToCsv(relatorio.columns, relatorio.rows, { cabecalho, totals: relatorio.totals }),
     };
+  }
+
+  /** O PDF para ler e arquivar — o mesmo número do CSV, formatado para humano. */
+  async pdf(auth: AuthContext, key: ReportKey, query: ReportQuery): Promise<{ fileName: string; content: Buffer }> {
+    const relatorio = await this.get(auth, key, query);
+    const cabecalho = await withTenant(this.deps.db, auth, (tx) =>
+      this.cabecalho(tx, auth.organizationId, doc(relatorio)),
+    );
+    return {
+      fileName: reportFileName(relatorio.title, relatorio.period.from, relatorio.period.to, 'pdf'),
+      content: await gerarPdfDoRelatorio(cabecalho, [
+        {
+          titulo: relatorio.title,
+          pergunta: relatorio.question,
+          columns: relatorio.columns,
+          rows: relatorio.rows,
+          totals: relatorio.totals,
+          summary: relatorio.summary,
+        },
+      ]),
+    };
+  }
+
+  listPacks(): { data: { key: ReportPackKey; title: string; question: string; sections: string[] }[] } {
+    return {
+      data: REPORT_PACKS.map((pacote) => ({
+        key: pacote.key,
+        title: pacote.title,
+        question: pacote.question,
+        sections: pacote.sections.map((chave) => REPORT_BY_KEY[chave].title),
+      })),
+    };
+  }
+
+  /**
+   * O pacote: cada seção é um relatório que já existe, consultado com o MESMO
+   * período. Nenhuma consulta nova — se o número da seção divergisse do número
+   * do relatório sozinho, a oficina teria dois "faturamento de setembro".
+   */
+  async pack(auth: AuthContext, key: ReportPackKey, query: ReportQuery): Promise<ReportPack> {
+    const info = REPORT_PACK_BY_KEY[key];
+    const secoes = [];
+    let periodo: Report['period'] | null = null;
+    for (const chave of info.sections) {
+      const relatorio = await this.get(auth, chave, query);
+      periodo ??= relatorio.period;
+      secoes.push({
+        key: chave,
+        title: relatorio.title,
+        question: relatorio.question,
+        columns: relatorio.columns,
+        rows: relatorio.rows,
+        totals: relatorio.totals,
+        summary: relatorio.summary,
+      });
+    }
+    return {
+      key,
+      title: info.title,
+      question: info.question,
+      period: periodo ?? { from: query.from ?? '', to: query.to ?? '', label: '' },
+      sections: secoes,
+    };
+  }
+
+  async packCsv(
+    auth: AuthContext,
+    key: ReportPackKey,
+    query: ReportQuery,
+  ): Promise<{ fileName: string; content: string }> {
+    const pacote = await this.pack(auth, key, query);
+    const cabecalho = await this.cabecalhoDoPacote(auth, pacote);
+    return {
+      fileName: reportFileName(pacote.title, pacote.period.from, pacote.period.to),
+      content: reportPackToCsv(cabecalho, pacote.sections.map(paraSecao)),
+    };
+  }
+
+  async packPdf(
+    auth: AuthContext,
+    key: ReportPackKey,
+    query: ReportQuery,
+  ): Promise<{ fileName: string; content: Buffer }> {
+    const pacote = await this.pack(auth, key, query);
+    const cabecalho = await this.cabecalhoDoPacote(auth, pacote);
+    return {
+      fileName: reportFileName(pacote.title, pacote.period.from, pacote.period.to, 'pdf'),
+      content: await gerarPdfDoRelatorio(cabecalho, pacote.sections.map(paraSecao)),
+    };
+  }
+
+  private async cabecalhoDoPacote(auth: AuthContext, pacote: ReportPack): Promise<CabecalhoDoRelatorio> {
+    return withTenant(this.deps.db, auth, (tx) =>
+      this.cabecalho(tx, auth.organizationId, {
+        titulo: pacote.title,
+        pergunta: pacote.question,
+        periodo: pacote.period.label,
+      }),
+    );
   }
 
   /** Lucro estimado: as mesmas contas da tela de fluxo de caixa (E13). */
@@ -123,3 +260,20 @@ export class ReportsService {
     };
   }
 }
+
+/** O que identifica o documento, tirado de um relatório. */
+const doc = (relatorio: Report) => ({
+  titulo: relatorio.title,
+  pergunta: relatorio.question,
+  periodo: relatorio.period.label,
+});
+
+/** Seção do pacote no formato que o CSV e o PDF consomem. */
+const paraSecao = (secao: ReportPack['sections'][number]) => ({
+  titulo: secao.title,
+  pergunta: secao.question,
+  columns: secao.columns,
+  rows: secao.rows,
+  totals: secao.totals,
+  summary: secao.summary,
+});

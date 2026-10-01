@@ -428,7 +428,9 @@ menor prazo (o estoque tem prazo zero) e ⭐ custo-benefício, que soma ao total
 | Método | Rota | Permissão | Fase |
 |---|---|---|---|
 | GET | `/reports` → a lista dos nove relatórios, cada um com a pergunta que responde | `reports:read` | 2 |
-| GET | `/reports/{key}?period=&from=&to=&limit=&format=json\|csv` — `key` é `revenue`, `profit`, `services`, `parts`, `customers`, `vehicles`, `mechanics`, `approval` ou `inventory`. A resposta traz **colunas + linhas + totais + uma frase de leitura**: a tela desenha qualquer relatório com o mesmo componente. Com `format=csv` vem o arquivo pronto para o Excel em português (BOM, `;`, dinheiro como número com vírgula) | `reports:read` | 2 |
+| GET | `/reports/{key}?period=&from=&to=&limit=&format=json\|csv` — `key` é `revenue`, `profit`, `services`, `parts`, `customers`, `vehicles`, `mechanics`, `approval` ou `inventory`. A resposta traz **colunas + linhas + totais + uma frase de leitura**: a tela desenha qualquer relatório com o mesmo componente. Com `format=csv|pdf` vem o arquivo pronto para o Excel em português (BOM, `;`, dinheiro como número com vírgula) | `reports:read` | 2 |
+| GET | `/reports/pacotes` → os cinco pacotes e as seções de cada um | `reports:read` | 3 |
+| GET | `/reports/pacotes/{key}?period=&from=&to=&format=` → vários relatórios num documento só, no mesmo período; `csv` separa as seções, `pdf` sai de uma peça (E44) | `reports:read` | 3 |
 
 O `profit` é o mesmo lucro do financeiro (E13), com a mesma regra — dois
 números diferentes para "lucro" seria o pior resultado possível. O `inventory`

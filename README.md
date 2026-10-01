@@ -165,7 +165,7 @@ mensagem para o cliente — ela deixa pronto.
 | E41. Pronto para publicar: IP real, carência do teste e área da plataforma | ✅ 29/09/2026 |
 | E42. Landing nova, com captura de interessados para o remarketing | ✅ 30/09/2026 |
 | E43. Busca por chassi na ficha do carro: marca e ano, sem chutar o modelo | ✅ 30/09/2026 |
-| E44. Período detalhado no financeiro e nos relatórios (fase 1 de 4) | ◐ 01/10/2026 |
+| E44. Período detalhado, CSV melhor, PDF e relatórios por seção | ✅ 01/10/2026 |
 
 O detalhe de cada etapa, com o critério de pronto e o que ficou de fora, está em
 [docs/ROADMAP.md](docs/ROADMAP.md). As decisões técnicas e de produto (D1 a D81),

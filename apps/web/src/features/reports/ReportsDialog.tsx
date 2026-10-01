@@ -1,9 +1,11 @@
 import {
   formatReportCell,
+  REPORT_PACKS,
   REPORTS,
   type ReportKey,
+  type ReportPackKey,
 } from '@oficinaos/shared';
-import { ChartNoAxesColumn, Download } from 'lucide-react';
+import { ChartNoAxesColumn, Download, FileText } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '../../components/ui/button';
@@ -14,7 +16,7 @@ import { cn } from '../../lib/cn';
 import { errorMessage } from '../../lib/errors';
 import { useCan } from '../../lib/session';
 import { aplicarPeriodo, PeriodPicker, type Periodo } from '../../components/PeriodPicker';
-import { useDownloadReport, useReport } from './api';
+import { useDownloadReport, useDownloadReportPack, useReport } from './api';
 
 /** Colunas de número alinham à direita: é assim que a coluna se lê de cima a baixo. */
 const NUMERICOS = new Set(['money', 'number', 'quantity', 'percent', 'minutes']);
@@ -58,10 +60,28 @@ export function ReportsDialog() {
 
 function Conteudo() {
   const [key, setKey] = useState<ReportKey>('revenue');
+  /**
+   * O pacote não é mostrado na tela, só baixado. Ver nove tabelas empilhadas
+   * num popup não ajuda ninguém — o pacote existe para virar anexo de e-mail.
+   */
+  const [pacote, setPacote] = useState<ReportPackKey | null>(null);
   const [periodo, setPeriodo] = useState<Periodo>({ period: 'month' });
   const consulta = useReport({ key, ...periodo });
   const baixar = useDownloadReport();
+  const baixarPacote = useDownloadReportPack();
   const dados = consulta.data;
+
+  const salvar = async (formato: 'csv' | 'pdf') => {
+    try {
+      const nome = pacote
+        ? await baixarPacote.mutateAsync({ key: pacote, formato, ...periodo })
+        : await baixar.mutateAsync({ key, formato, ...periodo });
+      toast.success(`${nome} baixado.`);
+    } catch (err) {
+      toast.error(errorMessage(err));
+    }
+  };
+  const baixando = baixar.isPending || baixarPacote.isPending;
 
   return (
     <div className="space-y-4">
@@ -71,23 +91,51 @@ function Conteudo() {
           valor={periodo}
           onChange={(patch) => setPeriodo((anterior) => aplicarPeriodo(anterior, patch))}
         />
-        <Button
-          variant="secondary"
-          size="sm"
-          className="ml-auto"
-          loading={baixar.isPending}
-          onClick={async () => {
-            try {
-              const nome = await baixar.mutateAsync({ key, ...periodo });
-              toast.success(`${nome} baixado.`);
-            } catch (err) {
-              toast.error(errorMessage(err));
-            }
-          }}
-        >
-          <Download />
-          Baixar CSV
-        </Button>
+        <span className="ml-auto flex gap-2">
+          <Button variant="secondary" size="sm" loading={baixando} onClick={() => salvar('csv')}>
+            <Download />
+            CSV
+          </Button>
+          <Button variant="secondary" size="sm" loading={baixando} onClick={() => salvar('pdf')}>
+            <FileText />
+            PDF
+          </Button>
+        </span>
+      </div>
+
+      <div className="rounded-lg border border-border p-3">
+        <p className="mb-2 text-xs font-medium text-muted">
+          Vários relatórios num arquivo só, para mandar ao contador
+        </p>
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Escolher pacote de relatórios">
+          {REPORT_PACKS.map((opcao) => {
+            const ativo = opcao.key === pacote;
+            return (
+              <button
+                key={opcao.key}
+                type="button"
+                aria-pressed={ativo}
+                title={opcao.question}
+                onClick={() => setPacote(ativo ? null : opcao.key)}
+                className={cn(
+                  'rounded-full border px-3 py-1 text-sm transition-colors',
+                  ativo
+                    ? 'border-accent-bright bg-accent-soft font-medium text-foreground'
+                    : 'border-border text-muted hover:text-foreground',
+                )}
+              >
+                {opcao.title}
+              </button>
+            );
+          })}
+        </div>
+        {pacote && (
+          <p className="mt-2 text-xs text-muted">
+            Os botões acima vão baixar <strong>{REPORT_PACKS.find((o) => o.key === pacote)?.title}</strong>, com{' '}
+            {REPORT_PACKS.find((o) => o.key === pacote)?.sections.length} seções. Clique de novo para voltar ao
+            relatório sozinho.
+          </p>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-1.5" role="group" aria-label="Escolher relatório">

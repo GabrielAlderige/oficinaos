@@ -240,6 +240,74 @@ describe('relatórios', () => {
     expect(csv, 'a linha de total vai junto').toContain('Total;1;520,00');
   });
 
+  it('o CSV diz de QUEM e de QUANDO é a planilha, antes da tabela', async () => {
+    const csv = (await get('/api/v1/reports/revenue?period=month&format=csv')).body;
+    // sem isto, o que chega no contador é uma grade de números sem dono nem data
+    expect(csv, 'o nome da oficina abre o arquivo').toContain('Oficina Teste');
+    expect(csv).toContain('Período;');
+    expect(csv).toContain('Emitido em;');
+    // o cabeçalho vem ANTES das colunas, senão o Excel acha que é parte da grade
+    expect(csv.indexOf('Emitido em;')).toBeLessThan(csv.indexOf('Dia;OS finalizadas'));
+  });
+
+  // ================================== PDF ====================================
+
+  it('o PDF sai como PDF de verdade, com o nome do arquivo certo', async () => {
+    const res = await get('/api/v1/reports/revenue?period=month&format=pdf');
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.headers['content-type']).toContain('application/pdf');
+    expect(String(res.headers['content-disposition'])).toContain('faturamento-');
+    expect(String(res.headers['content-disposition']), 'a extensão acompanha o formato').toContain('.pdf');
+    // a assinatura do arquivo: sem isto, o navegador baixa um texto com nome de PDF
+    expect(res.rawPayload.subarray(0, 5).toString()).toBe('%PDF-');
+    expect(res.rawPayload.length).toBeGreaterThan(900);
+  });
+
+  // =============================== pacotes ===================================
+
+  it('o pacote junta várias seções no MESMO período, sem consulta nova', async () => {
+    const res = await get('/api/v1/reports/pacotes/financeiro?period=month');
+    expect(res.statusCode, res.body).toBe(200);
+    const pacote = res.json() as {
+      title: string;
+      period: { label: string };
+      sections: { key: string; title: string; rows: unknown[]; totals: Record<string, unknown> | null }[];
+    };
+    expect(pacote.sections.map((s) => s.key)).toEqual(['revenue', 'profit', 'approval']);
+
+    // o número da seção é o MESMO do relatório sozinho: dois "faturamento de
+    // setembro" com valores diferentes é o pior resultado possível
+    const sozinho = await relatorio('revenue');
+    const naSecao = pacote.sections.find((s) => s.key === 'revenue')!;
+    expect(naSecao.totals).toEqual(sozinho.totals);
+    expect(naSecao.rows).toEqual(sozinho.rows);
+    expect(pacote.period.label).toBe(sozinho.period.label);
+  });
+
+  it('o pacote sai em CSV com as seções separadas, e em PDF de uma peça só', async () => {
+    const csv = await get('/api/v1/reports/pacotes/financeiro?period=month&format=csv');
+    expect(csv.statusCode, csv.body).toBe(200);
+    expect(csv.body.charCodeAt(0), 'só a primeira seção leva o BOM').toBe(0xfeff);
+    // as três seções, uma embaixo da outra, cada uma com seu título
+    expect(csv.body).toContain('Faturamento');
+    expect(csv.body).toContain('Lucro estimado');
+    expect(csv.body).toContain('Aprovação de orçamentos');
+    expect(csv.body.indexOf('Faturamento')).toBeLessThan(csv.body.indexOf('Lucro estimado'));
+
+    const pdf = await get('/api/v1/reports/pacotes/geral?period=month&format=pdf');
+    expect(pdf.statusCode).toBe(200);
+    expect(pdf.rawPayload.subarray(0, 5).toString()).toBe('%PDF-');
+    expect(String(pdf.headers['content-disposition'])).toContain('geral-');
+  });
+
+  it('a lista de pacotes diz o que cada um traz', async () => {
+    const res = await get('/api/v1/reports/pacotes');
+    expect(res.statusCode).toBe(200);
+    const { data } = res.json() as { data: { key: string; sections: string[] }[] };
+    expect(data.map((p) => p.key)).toEqual(['financeiro', 'estoque', 'operacao', 'clientes', 'geral']);
+    expect(data.find((p) => p.key === 'geral')!.sections.length).toBeGreaterThan(5);
+  });
+
   // ================================ acesso ===================================
 
   it('relatório é de quem vê dinheiro: atendente e mecânico não entram', async () => {
@@ -247,6 +315,7 @@ describe('relatórios', () => {
     for (const s of [atendente, mecanico]) {
       expect((await get('/api/v1/reports', s)).statusCode).toBe(403);
       expect((await get('/api/v1/reports/revenue', s)).statusCode).toBe(403);
+      expect((await get('/api/v1/reports/pacotes/geral', s)).statusCode, 'o pacote segue a mesma regra').toBe(403);
     }
     const financeiro = await addMember(t.app, dono, 'FINANCE', 'Fábio Financeiro');
     expect((await get('/api/v1/reports/profit', financeiro)).statusCode).toBe(200);

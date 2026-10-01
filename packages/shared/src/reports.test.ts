@@ -48,8 +48,45 @@ describe('CSV do relatório', () => {
     expect(csv).toContain('"Disco; ""ventilado""\naro 15"');
   });
 
+  it('o cabeçalho diz de QUEM e de QUANDO é a planilha', () => {
+    const csv = reportToCsv(colunas, [{ nome: 'Troca de óleo', quantidade: 12, valor: 145_000 }], {
+      cabecalho: {
+        organizacao: 'Oficina do Gabriel',
+        titulo: 'Serviços',
+        pergunta: 'Quais serviços a oficina mais faz?',
+        periodo: '1 a 30 de setembro',
+        emitidoEm: '01/10/2026 16:22',
+      },
+    });
+    // sem isto, o que chega no contador é uma grade de números sem dono nem data
+    expect(csv).toContain('Oficina do Gabriel');
+    expect(csv).toContain('Período;1 a 30 de setembro');
+    expect(csv).toContain('Emitido em;01/10/2026 16:22');
+    // e a tabela continua logo abaixo, separada por uma linha vazia
+    expect(csv).toContain('\r\n\r\nServiço;Quantidade;Faturado\r\n');
+  });
+
+  it('o total fecha embaixo, separado da tabela', () => {
+    const csv = reportToCsv(colunas, [{ nome: 'Troca de óleo', quantidade: 12, valor: 145_000 }], {
+      totals: { quantidade: 12, valor: 145_000 },
+    });
+    // a primeira coluna não tem total próprio: vira o rótulo
+    expect(csv).toContain('\r\n\r\nTOTAL;12;1450,00');
+  });
+
+  it('sem cabeçalho e sem total, o arquivo é exatamente o de antes', () => {
+    const csv = reportToCsv(colunas, [{ nome: 'Troca de óleo', quantidade: 12, valor: 145_000 }]);
+    expect(csv).toBe(
+      `${String.fromCharCode(0xfeff)}Serviço;Quantidade;Faturado\r\nTroca de óleo;12;1450,00\r\n`,
+    );
+  });
+
   it('o nome do arquivo não tem acento nem espaço', () => {
     expect(reportFileName('Lucro estimado', '2026-09-01', '2026-09-30')).toBe('lucro-estimado-2026-09-01-a-2026-09-30.csv');
+    // o PDF reaproveita o mesmo nome, só trocando a extensão
+    expect(reportFileName('Lucro estimado', '2026-09-01', '2026-09-30', 'pdf')).toBe(
+      'lucro-estimado-2026-09-01-a-2026-09-30.pdf',
+    );
     expect(reportFileName('Aprovação de orçamentos', '2026-01-01', '2026-01-31')).toBe(
       'aprovacao-de-orcamentos-2026-01-01-a-2026-01-31.csv',
     );
