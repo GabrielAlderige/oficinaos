@@ -84,6 +84,20 @@ export const catalogVehicleSummarySchema = catalogVehicleFieldsSchema.extend({
   updatedAt: z.string(),
 });
 
+/**
+ * O que a busca devolve quando o texto era um chassi (E43). A tela mostra isto
+ * para a pessoa saber POR QUE a lista encolheu — e poder corrigir se o chassi
+ * estiver errado.
+ */
+export const chassiLidoSchema = z.object({
+  vin: z.string(),
+  make: z.string().nullable(),
+  /** todos os anos que o código admite: o ciclo do chassi repete de 30 em 30 anos */
+  years: z.array(z.number().int()),
+  resumo: z.string(),
+});
+export type ChassiLido = z.infer<typeof chassiLidoSchema>;
+
 export const catalogSearchQuerySchema = z.object({
   q: z.string().trim().max(100).optional(),
   /** só o administrador da plataforma enxerga rascunho */

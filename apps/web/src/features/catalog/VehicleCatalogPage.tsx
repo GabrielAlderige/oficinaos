@@ -33,6 +33,15 @@ export function VehicleCatalogPage() {
 
   const achou = resultados.data?.data ?? [];
   const procurou = q.length >= 2 && !resultados.isPending;
+  /**
+   * Chassi (E43): quando o texto era um chassi, o servidor devolve o que
+   * conseguiu ler dele. A tela mostra isso porque a lista encolheu de propósito
+   * — sem esse aviso, quem digitou um caractere errado acha que o carro não
+   * existe no catálogo.
+   */
+  const chassi = resultados.data?.chassi;
+  // chassi não serve de sugestão ao pedir um carro: ninguém preenche ficha de VIN
+  const sugestao = chassi ? (chassi.make ?? '') : q;
 
   return (
     <>
@@ -48,7 +57,7 @@ export function VehicleCatalogPage() {
             onChange={setBusca}
             autoFocus
             label="Buscar carro na ficha"
-            placeholder="Ex.: Gol 2013, Onix 1.0, HB20"
+            placeholder="Ex.: Gol 2013, Onix 1.0, HB20 — ou cole o chassi"
           />
           <p className="mt-2 text-xs text-muted">
             {cobertura.isPending
@@ -61,6 +70,19 @@ export function VehicleCatalogPage() {
       </Card>
 
       {resultados.isError && <Alert variant="danger">{errorMessage(resultados.error)}</Alert>}
+
+      {chassi && (
+        <Alert variant={chassi.make ? 'info' : 'warning'} className="mb-4">
+          <span>
+            <strong>Chassi lido:</strong> {chassi.resumo}.{' '}
+            {!chassi.make
+              ? 'Não conheço este fabricante, então a lista não foi filtrada por marca. Confira o chassi ou busque pelo modelo.'
+              : achou.length > 0
+                ? 'O chassi não diz o modelo — ele é código de cada montadora. Escolha abaixo.'
+                : 'O chassi não diz o modelo — ele é código de cada montadora.'}
+          </span>
+        </Alert>
+      )}
 
       {q.length < 2 ? (
         <Card>
@@ -80,8 +102,16 @@ export function VehicleCatalogPage() {
         <Card>
           <EmptyState
             icon={Hammer}
-            title={`“${q}” ainda está em desenvolvimento`}
-            description="Este carro ainda não entrou no catálogo. Estamos preenchendo aos poucos, começando pelos mais pedidos — peça o seu e ele entra na fila."
+            title={
+              chassi
+                ? `Nenhuma ficha para ${chassi.resumo}`
+                : `“${q}” ainda está em desenvolvimento`
+            }
+            description={
+              chassi
+                ? 'O chassi foi lido, mas ainda não temos ficha desse carro nesse ano. Peça e ele entra na fila de quem preenche.'
+                : 'Este carro ainda não entrou no catálogo. Estamos preenchendo aos poucos, começando pelos mais pedidos — peça o seu e ele entra na fila.'
+            }
             action={<Button onClick={() => setPedindo(true)}>Pedir este carro</Button>}
           />
         </Card>
@@ -121,7 +151,7 @@ export function VehicleCatalogPage() {
         </DialogContent>
       </Dialog>
 
-      <PedirCarroDialog aberto={pedindo} onFechar={() => setPedindo(false)} sugestao={q} />
+      <PedirCarroDialog aberto={pedindo} onFechar={() => setPedindo(false)} sugestao={sugestao} />
     </>
   );
 }

@@ -4,6 +4,7 @@ import type {
   CatalogVehicle,
   CatalogVehicleRequest,
   CatalogVehicleSummary,
+  ChassiLido,
   CreateCatalogVehicleInput,
   Page,
   RequestCatalogVehicleInput,
@@ -31,7 +32,7 @@ export function useCatalogSearch(q: string, rascunhos = false, enabled = true) {
   return useQuery({
     queryKey: fichaKeys.busca(q, rascunhos),
     queryFn: () =>
-      api<Page<CatalogVehicleSummary>>(
+      api<Page<CatalogVehicleSummary> & { chassi?: ChassiLido }>(
         `/vehicle-catalog?q=${encodeURIComponent(q)}&incluirRascunhos=${rascunhos}`,
       ),
     enabled,

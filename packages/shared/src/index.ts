@@ -76,6 +76,7 @@ export * from './enums/charges';
 export * from './charges';
 export * from './schemas/charges';
 export * from './billing';
+export * from './vin';
 export * from './schemas/billing';
 export * from './schemas/platform';
 export * from './schemas/prospects';

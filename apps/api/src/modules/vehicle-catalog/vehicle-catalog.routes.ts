@@ -11,6 +11,7 @@ import {
   paginated,
   requestCatalogVehicleSchema,
   updateCatalogVehicleSchema,
+  chassiLidoSchema,
 } from '@oficinaos/shared';
 import { clientInfo, getAuth } from '../../core/auth-context';
 
@@ -35,7 +36,12 @@ export const vehicleCatalogRoutes: FastifyPluginAsyncZod = async (app) => {
     '/',
     {
       config: { auth: 'authenticated' },
-      schema: { querystring: catalogSearchQuerySchema, response: { 200: paginated(catalogVehicleSummarySchema) } },
+      schema: {
+        querystring: catalogSearchQuerySchema,
+        // a leitura do chassi (E43) sai junto com a página: a tela precisa
+        // dizer por que a lista encolheu
+        response: { 200: paginated(catalogVehicleSummarySchema).extend({ chassi: chassiLidoSchema.optional() }) },
+      },
     },
     async (request) => service.search(getAuth(request), request.query),
   );

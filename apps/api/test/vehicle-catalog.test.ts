@@ -88,6 +88,80 @@ describe('ficha do carro', () => {
     expect((foraDaFaixa.json() as { data: Ficha[] }).data, 'e 2020 não está').toHaveLength(0);
   });
 
+  /**
+   * Chassi no mesmo campo da busca (E43).
+   *
+   * O chassi entrega marca e ano — nunca o modelo. O que precisa ficar travado
+   * aqui é o ano: o código repete de 30 em 30 anos e o chassi não desempata,
+   * então a ficha serve se cobrir QUALQUER um dos candidatos. Filtrar só pelo
+   * mais recente esconderia a ficha do carro velho de quem tem um no elevador.
+   */
+  describe('busca por chassi', () => {
+    // 9BW = Volkswagen do Brasil. A 10ª posição é o ano-modelo
+    const vinVw = (ano: string) => `9BWZZZ377${ano}T004251`;
+
+    it('filtra por marca e ano do chassi, sem inventar o modelo', async () => {
+      // 'D' é 2013 (e 1983): pega o Gol 2013-2016 criado acima
+      const achou = await get(`/api/v1/vehicle-catalog?q=${vinVw('D')}`, oficina);
+      const corpo = achou.json() as { data: Ficha[]; chassi: { make: string; years: number[]; resumo: string } };
+      expect(corpo.chassi.make).toBe('Volkswagen');
+      expect(corpo.chassi.years, 'os dois candidatos do ciclo, sem chute').toEqual([2013, 1983]);
+      expect(corpo.data.map((f) => f.model)).toContain('Gol');
+      // a tela precisa poder explicar por que a lista encolheu
+      expect(corpo.chassi.resumo).toBe('Volkswagen, ano-modelo 1983 ou 2013');
+    });
+
+    it('marca errada no chassi não traz a ficha', async () => {
+      // 9BG é Chevrolet: o Gol não pode aparecer
+      const outra = await get('/api/v1/vehicle-catalog?q=9BGZZZ377DT004251', oficina);
+      expect((outra.json() as { data: Ficha[] }).data.map((f) => f.model)).not.toContain('Gol');
+    });
+
+    it('acha a ficha do carro VELHO pelo candidato antigo do ciclo', async () => {
+      // uma ficha que só existe no passado: fecha em 2000
+      const antiga = await post(
+        '/api/v1/vehicle-catalog',
+        {
+          make: 'Volkswagen',
+          model: 'Quantum',
+          yearFrom: 1997,
+          yearTo: 2000,
+          specs: [{ key: 'oleo_motor', group: 'MOTOR', value: '20W50 mineral · 4,0 L' }],
+        },
+        plataforma,
+      );
+      expect(antiga.statusCode, antiga.body).toBe(201);
+      await patch(`/api/v1/vehicle-catalog/${(antiga.json() as Ficha).id}`, { isPublished: true }, plataforma);
+
+      // 'V' é 1997 e 2027. Só o 1997 alcança o Quantum
+      const achou = await get(`/api/v1/vehicle-catalog?q=${vinVw('V')}`, oficina);
+      const corpo = achou.json() as { data: Ficha[]; chassi: { years: number[] } };
+      expect(corpo.chassi.years).toEqual([2027, 1997]);
+      expect(
+        corpo.data.map((f) => f.model),
+        'chutar 2027 esconderia o Quantum de quem tem um na oficina',
+      ).toContain('Quantum');
+      expect(
+        corpo.data.map((f) => f.model),
+        'e o filtro continua filtrando: 2013-2016 não cobre 1997 nem 2027',
+      ).not.toContain('Gol');
+    });
+
+    it('fabricante desconhecido não vira chute de marca', async () => {
+      const achou = await get('/api/v1/vehicle-catalog?q=ZZZZZZ377DT004251', oficina);
+      const corpo = achou.json() as { data: Ficha[]; chassi: { make: string | null; resumo: string } };
+      expect(corpo.chassi.make, 'melhor não reconhecer do que mostrar a ficha de outro carro').toBeNull();
+      expect(corpo.chassi.resumo).toContain('marca não reconhecida');
+      // sem filtro de marca, o ano ainda vale: o Gol 2013-2016 cobre 2013
+      expect(corpo.data.map((f) => f.model)).toContain('Gol');
+    });
+
+    it('texto que não é chassi continua busca comum', async () => {
+      const achou = await get('/api/v1/vehicle-catalog?q=gol', oficina);
+      expect((achou.json() as { chassi?: unknown }).chassi, 'sem faixa de chassi na tela').toBeUndefined();
+    });
+  });
+
   it('a oficina lê a ficha inteira, com a especificação', async () => {
     const lida = (await get(`/api/v1/vehicle-catalog/${ficha.id}`, oficina)).json() as Ficha;
     expect(lida.specs.find((s) => s.key === 'oleo_motor')?.value).toBe('5W30 sintético · 3,5 L');

@@ -8,6 +8,8 @@ import {
   type RequestCatalogVehicleInput,
   SPEC_ITEM_BY_KEY,
   type UpdateCatalogVehicleInput,
+  lerChassi,
+  resumoDoChassi,
 } from '@oficinaos/shared';
 import { recordActivity } from '../../core/audit';
 import type { AuthContext, ClientInfo, ServiceDeps } from '../../core/auth-context';
@@ -64,12 +66,50 @@ export class VehicleCatalogService {
   async search(
     auth: AuthContext,
     input: { q?: string; incluirRascunhos: boolean; page: number; pageSize: number },
-  ): Promise<{ data: CatalogVehicleSummary[]; meta: { page: number; pageSize: number; total: number } }> {
+  ): Promise<{
+    data: CatalogVehicleSummary[];
+    meta: { page: number; pageSize: number; total: number };
+    chassi?: { vin: string; make: string | null; years: number[]; resumo: string };
+  }> {
     // rascunho só existe para quem preenche: a oficina não pode ver meia ficha
     const rascunhos = input.incluirRascunhos && auth.isPlatformAdmin;
+
+    /**
+     * Chassi no MESMO campo da busca (E43): quem cola 17 caracteres quer a
+     * ficha daquele carro, não uma busca por texto. Dois campos obrigariam a
+     * pessoa a escolher onde digitar antes de saber a diferença.
+     *
+     * O chassi entrega marca e ano — nunca o modelo, que é proprietário de
+     * cada montadora. Então ele FILTRA a lista em vez de escolher a ficha: de
+     * 292 para três ou quatro, e quem decide o modelo é quem está olhando.
+     */
+    const chassi = input.q ? lerChassi(input.q) : null;
+    /**
+     * O código do ano repete de 30 em 30 anos e o chassi não desempata, então
+     * a ficha serve se cobrir QUALQUER um dos candidatos. Filtrar só pelo mais
+     * recente esconderia a ficha do Gol 1997 ao ler o mesmo `V` de 2027.
+     */
+    const porChassi = chassi
+      ? [
+          ...(chassi.make ? [eq(catalogVehicles.make, chassi.make)] : []),
+          ...(chassi.years.length
+            ? [
+                or(
+                  ...chassi.years.map(
+                    (ano) => sql`(
+                      (catalog_vehicles.year_from is null or catalog_vehicles.year_from <= ${ano})
+                      and (catalog_vehicles.year_to is null or catalog_vehicles.year_to >= ${ano})
+                    )`,
+                  ),
+                ),
+              ]
+            : []),
+        ]
+      : [];
+
     const filtros = [
       ...(rascunhos ? [] : [isNotNull(catalogVehicles.publishedAt)]),
-      ...(input.q ? [veiculoCombina(input.q)] : []),
+      ...(chassi ? porChassi : input.q ? [veiculoCombina(input.q)] : []),
     ].filter(Boolean);
     const onde = filtros.length ? and(...filtros) : undefined;
 
@@ -91,6 +131,16 @@ export class VehicleCatalogService {
       return {
         data: linhas.map(({ veiculo, preenchidos }) => this.resumo(veiculo, preenchidos)),
         meta: { page: input.page, pageSize: input.pageSize, total: total?.total ?? 0 },
+        ...(chassi
+          ? {
+              chassi: {
+                vin: chassi.vin,
+                make: chassi.make,
+                years: chassi.years,
+                resumo: resumoDoChassi(chassi),
+              },
+            }
+          : {}),
       };
     });
   }
