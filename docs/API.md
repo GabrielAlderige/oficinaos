@@ -269,7 +269,7 @@ própria oficina.
 | Método | Rota | Permissão | Fase |
 |---|---|---|---|
 | GET | `/vehicle-catalog/coverage` → quantos carros publicados existem (a tela promete só o que pode cumprir) | autenticado | 3 |
-| GET | `/vehicle-catalog?q=&incluirRascunhos=` → busca por marca, modelo, versão e **ano dentro da faixa**; rascunho só sai para administrador da plataforma | autenticado | 3 |
+| GET | `/vehicle-catalog?q=&incluirRascunhos=` → busca por marca, modelo, versão e **ano dentro da faixa**; se `q` tiver cara de **chassi** (17 caracteres, sem I/O/Q), filtra pela marca e pelos anos que o chassi admite e devolve `chassi: { vin, make, years, resumo }` (E43); rascunho só sai para administrador da plataforma | autenticado | 3 |
 | GET | `/vehicle-catalog/{id}` → a ficha inteira, agrupada (motor, filtros, freios, suspensão, elétrica, fluidos, pneus) | autenticado | 3 |
 | POST | `/vehicle-catalog/requests` `{ make, model, year?, note? }` — "não achei o meu carro" | autenticado | 3 |
 | GET | `/vehicle-catalog/requests/queue` → a fila, agrupada, contando **oficinas** e não cliques | `platform-admin` | 3 |
@@ -378,7 +378,7 @@ escolha que já virou pedido vivo → 422 `SUPPLIER_QUOTE_ORDERED`.
 
 | Método | Rota | Permissão | Fase |
 |---|---|---|---|
-| GET | `/finance/entries?direction=RECEIVABLE\|PAYABLE&filter=open\|overdue\|due_soon\|paid\|canceled\|all&q=&categoryId=&customerId=&supplierId=&from=&to=&page=` → `{ data, meta, summary }`. `situation` já vem com **vencida** resolvida pelo dia de hoje na oficina; o resumo traz em aberto, vencido, vence em 7 dias e o recebido/pago no mês | `finance:read` | 2 |
+| GET | `/finance/entries?direction=RECEIVABLE\|PAYABLE&filter=open\|overdue\|due_soon\|paid\|canceled\|all&q=&categoryId=&customerId=&supplierId=&period=&from=&to=&page=` → `{ data, meta, summary }`. `period` é atalho (`today`, `week`, `month`, `last7`, `last30`) resolvido no servidor com o fuso da oficina; `from`/`to` são datas de **vencimento** e têm precedência sobre o atalho (E44). `situation` já vem com **vencida** resolvida pelo dia de hoje na oficina; o resumo traz em aberto, vencido, vence em 7 dias e o recebido/pago no mês | `finance:read` | 2 |
 | POST | `/finance/entries` `{ direction, categoryId, description, amountCents, dueDate, customerId?, supplierId?, notes?, installments? }` → 201 `{ data: [parcelas] }`. Com `installments > 1` nasce o carnê inteiro: mensal, sem perder centavo (a sobra vai para a primeira) | `finance:write` | 2 |
 | GET | `/finance/entries/{id}` → lançamento + baixas | `finance:read` | 2 |
 | PATCH | `/finance/entries/{id}` — descrição, categoria, vencimento, observação e valor. Valor de conta de OS → 422 `FINANCE_ENTRY_MIRRORED` (ele vem da OS); abaixo do já baixado → 422 `FINANCE_EXCEEDS_BALANCE` | `finance:write` | 2 |

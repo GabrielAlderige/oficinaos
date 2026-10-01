@@ -13,7 +13,7 @@ O diferencial inicial é um fluxo:
 
 ## Status
 
-**MVP 1, MVP 2 e V3 entregues: E1 a E42.** O sistema faz o dia inteiro de uma
+**MVP 1, MVP 2 e V3 entregues: E1 a E43.** O sistema faz o dia inteiro de uma
 oficina — da placa na recepção ao dinheiro no caixa e à nota de serviço.
 
 O que ainda **não** é real, e está rotulado como tal dentro do produto:
@@ -75,8 +75,9 @@ com a **fonte** de cada valor (manual do fabricante, ano e página). Está no me
 sem exigir permissão, porque o mecânico usa tanto quanto o dono, e também abre
 **de dentro da OS**, já com o carro daquele serviço escrito na busca.
 
-> **292 fichas publicadas, 1.905 especificações, 10 marcas** — Toyota, Fiat,
-> Chevrolet, Honda, Volkswagen, Renault, Nissan, Hyundai, Kia e Jeep. Cada valor
+> **304 fichas publicadas, 1.938 especificações, 11 marcas** — Toyota, Fiat,
+> Chevrolet, Honda, Volkswagen, Renault, Nissan, Hyundai, Kia, Citroën e Jeep.
+> Cada valor
 > carrega manual, ano e página. Sem fonte, a oficina lê "Sem fonte — confirme
 > antes de aplicar".
 
@@ -163,6 +164,8 @@ mensagem para o cliente — ela deixa pronto.
 | E40. Os planos valem de verdade | ✅ 29/09/2026 |
 | E41. Pronto para publicar: IP real, carência do teste e área da plataforma | ✅ 29/09/2026 |
 | E42. Landing nova, com captura de interessados para o remarketing | ✅ 30/09/2026 |
+| E43. Busca por chassi na ficha do carro: marca e ano, sem chutar o modelo | ✅ 30/09/2026 |
+| E44. Período detalhado no financeiro e nos relatórios (fase 1 de 4) | ◐ 01/10/2026 |
 
 O detalhe de cada etapa, com o critério de pronto e o que ficou de fora, está em
 [docs/ROADMAP.md](docs/ROADMAP.md). As decisões técnicas e de produto (D1 a D81),
@@ -416,7 +419,7 @@ A regra de dependência entre camadas está em
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Decisões D1–D81 com a alternativa descartada, pastas, multi-tenant, autenticação, permissões, fluxos, segurança, riscos |
 | [docs/DATABASE.md](docs/DATABASE.md) | Convenções, isolamento por RLS, ERD, tabelas, índices, seeds |
 | [docs/API.md](docs/API.md) | Convenções REST, erros, rate limits, endpoints por fase |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | Etapas E1–E42 com critério de pronto, integrações futuras, métricas |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | Etapas E1–E44 com critério de pronto, integrações futuras, métricas |
 | [docs/DEPLOY.md](docs/DEPLOY.md) | Servidor, DNS, segredos, backup, restore e rollback |
 
 ---
