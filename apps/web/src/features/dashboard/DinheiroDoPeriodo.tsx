@@ -1,4 +1,4 @@
-import { formatBRL, type DashboardSummary } from '@oficinaos/shared';
+import { formatBRL, type DashboardPeriod, type DashboardSummary } from '@oficinaos/shared';
 import { Link } from 'react-router';
 import { Card } from '../../components/ui/display';
 import { cn } from '../../lib/cn';
@@ -15,8 +15,20 @@ import { cn } from '../../lib/cn';
  * faturado foi recebido" seria uma conta que não fecha. A comparação visual
  * conta a história sem afirmar o que não dá para afirmar.
  */
+/** Como chamar o período de comparação, ao lado do valor dele. */
+const ANTERIOR: Record<DashboardPeriod, string> = {
+  today: 'ontem',
+  week: 'semana passada',
+  month: 'mês passado',
+  last7: '7 dias antes',
+  last30: '30 dias antes',
+  custom: 'período anterior',
+};
+
 export function DinheiroDoPeriodo({ dados }: { dados: DashboardSummary }) {
   if (dados.billedCents === null) return null;
+  const antes = ANTERIOR[dados.period.period];
+  const comparacao = (valor: number | null) => (valor === null ? undefined : `${antes}: ${formatBRL(valor)}`);
 
   const faturado = dados.billedCents;
   const recebido = dados.receivedCents ?? 0;
@@ -40,6 +52,7 @@ export function DinheiroDoPeriodo({ dados }: { dados: DashboardSummary }) {
           proporcao={faturado / maior}
           detalhe={`${dados.completedOrders} ${dados.completedOrders === 1 ? 'OS finalizada' : 'OS finalizadas'}`}
           classe="bg-accent"
+          comparacao={comparacao(dados.previous.billedCents)}
           destaque
         />
         {dados.receivedCents !== null && (
@@ -49,6 +62,7 @@ export function DinheiroDoPeriodo({ dados }: { dados: DashboardSummary }) {
             proporcao={recebido / maior}
             detalhe="dinheiro que entrou no caixa"
             classe="bg-success"
+            comparacao={comparacao(dados.previous.receivedCents)}
             to="/financeiro/receber"
           />
         )}
@@ -68,6 +82,7 @@ function Barra({
   proporcao,
   detalhe,
   classe,
+  comparacao,
   destaque = false,
   to,
 }: {
@@ -76,6 +91,8 @@ function Barra({
   proporcao: number;
   detalhe: string;
   classe: string;
+  /** o mesmo número no período anterior, para o "R$ 0,00" do dia 1º ter referência */
+  comparacao?: string;
   destaque?: boolean;
   to?: string;
 }) {
@@ -91,7 +108,10 @@ function Barra({
       <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-surface-muted" aria-hidden="true">
         <div className={cn('h-full rounded-full', classe)} style={{ width: `${Math.max(2, proporcao * 100)}%` }} />
       </div>
-      <p className="mt-1 text-xs text-muted">{detalhe}</p>
+      <p className="mt-1 flex flex-wrap justify-between gap-x-3 text-xs text-muted">
+        <span>{detalhe}</span>
+        {comparacao && <span className="tabular">{comparacao}</span>}
+      </p>
     </>
   );
 

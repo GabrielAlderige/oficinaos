@@ -36,6 +36,17 @@ export const dashboardSummarySchema = z.object({
   billedCents: money,
   receivedCents: money,
   avgTicketCents: money,
+  /**
+   * Os mesmos dois números no período anterior (ver `previousPeriodRange`):
+   * no começo do mês "este mês" é quase zero, e sem referência a tela parece
+   * quebrada.
+   */
+  previous: z.object({
+    from: z.string(),
+    to: z.string(),
+    billedCents: money,
+    receivedCents: money,
+  }),
   /** situação do pátio, agora — independe do período escolhido */
   openByStatus: z.array(z.object({ status: z.enum(WORK_ORDER_STATUSES), count: z.number().int() })),
   awaitingApproval: z.number().int(),

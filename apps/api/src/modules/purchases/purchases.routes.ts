@@ -59,7 +59,7 @@ export const purchaseOrderRoutes: FastifyPluginAsyncZod = async (app) => {
       config: { auth: 'purchases:read' },
       schema: { response: { 200: purchaseSuggestionsSchema } },
     },
-    async (request) => service.suggestions(getAuth(request)),
+    async (request) => app.services.purchaseInsights.suggestions(getAuth(request)),
   );
 
   app.post(
@@ -162,7 +162,7 @@ export const workOrderPurchaseRoutes: FastifyPluginAsyncZod = async (app) => {
 
 /** O que a oficina já fez com o fornecedor (a ficha dele). */
 export const supplierHistoryRoutes: FastifyPluginAsyncZod = async (app) => {
-  const service = app.services.purchases;
+  const service = app.services.purchaseInsights;
 
   app.get(
     '/:id/history',
@@ -176,7 +176,7 @@ export const supplierHistoryRoutes: FastifyPluginAsyncZod = async (app) => {
 
 /** Histórico de preço da peça: é custo, então é de quem vê custo. */
 export const partPriceHistoryRoutes: FastifyPluginAsyncZod = async (app) => {
-  const service = app.services.purchases;
+  const service = app.services.purchaseInsights;
 
   app.get(
     '/:id/price-history',

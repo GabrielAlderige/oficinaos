@@ -247,7 +247,7 @@ export const workOrderRoutes: FastifyPluginAsyncZod = async (app) => {
       config: { auth: 'work_orders:read' },
       schema: { params: idParamSchema, response: { 200: z.object({ data: z.array(inspectionSchema) }) } },
     },
-    async (request) => ({ data: await service.inspections(getAuth(request), request.params.id) }),
+    async (request) => ({ data: await app.services.inspections.list(getAuth(request), request.params.id) }),
   );
 
   app.post(
@@ -258,7 +258,7 @@ export const workOrderRoutes: FastifyPluginAsyncZod = async (app) => {
     },
     async (request, reply) => {
       reply.code(201);
-      return service.createInspection(getAuth(request), request.params.id, request.body, clientInfo(request));
+      return app.services.inspections.create(getAuth(request), request.params.id, request.body, clientInfo(request));
     },
   );
 

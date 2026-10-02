@@ -403,6 +403,32 @@ export function periodRange(
   };
 }
 
+/**
+ * O período de comparação, logo antes do escolhido.
+ *
+ * "Este mês" compara com o mês passado INTEIRO, não com os mesmos dias dele:
+ * no dia 2 a pergunta do dono é "quanto foi o mês passado", e "1º e 2 de
+ * setembro" não responde nada. Os outros andam para trás o mesmo número de
+ * dias: hoje → ontem, esta semana → a anterior, últimos 30 → os 30 antes.
+ */
+export function previousPeriodRange(
+  period: DashboardPeriod,
+  fromDay: string,
+  toDay: string,
+  timeZone: string,
+): { from: Date; to: Date; fromDay: string; toDay: string } {
+  const [primeiro, ultimo] =
+    period === 'month'
+      ? [addMonths(startOfMonth(fromDay), -1), addDays(startOfMonth(fromDay), -1)]
+      : [addDays(fromDay, -daysBetween(fromDay, toDay).length), addDays(fromDay, -1)];
+  return {
+    from: fromDayKey(primeiro, 0, timeZone),
+    to: fromDayKey(addDays(ultimo, 1), 0, timeZone),
+    fromDay: primeiro,
+    toDay: ultimo,
+  };
+}
+
 /** Soma meses no calendário, prendendo no último dia (31/01 + 1 mês = 28/02). */
 export function addMonths(key: string, months: number): string {
   const { year, month, day } = parseDayKey(key);

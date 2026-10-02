@@ -6,6 +6,7 @@ import {
   minutesOfDay,
   formatMinutes,
   periodRange,
+  previousPeriodRange,
   type AttentionGroup,
   type ChartQuery,
   type DashboardAttention,
@@ -86,6 +87,9 @@ export class DashboardService {
       const aprovacoes = await repo.aprovacoesNoPeriodo(tx, organizationId, janela);
       const pendentes = await repo.orcamentosPendentes(tx, organizationId);
       const usados = await repo.maisUsados(tx, organizationId, janela);
+      const anterior = previousPeriodRange(query.period, info.from, info.to, timezone);
+      const finalizadasAntes = await repo.finalizadasNoPeriodo(tx, organizationId, anterior);
+      const recebidoAntes = await repo.recebidoNoPeriodo(tx, organizationId, anterior);
 
       const faturado = Number(finalizadas.billed);
       const dinheiro = veDinheiro(auth);
@@ -95,6 +99,12 @@ export class DashboardService {
         period: info,
         billedCents: comDinheiro(faturado),
         receivedCents: comDinheiro(recebido),
+        previous: {
+          from: anterior.fromDay,
+          to: anterior.toDay,
+          billedCents: comDinheiro(Number(finalizadasAntes.billed)),
+          receivedCents: comDinheiro(recebidoAntes),
+        },
         // ticket médio de zero OS é zero, não divisão por zero
         avgTicketCents: comDinheiro(finalizadas.orders ? Math.round(faturado / finalizadas.orders) : 0),
         openByStatus: patio.porStatus.map((linha) => ({

@@ -1,4 +1,5 @@
 import {
+  dayKey,
   ErrorCode,
   precoDoCiclo,
   proximoVencimento,
@@ -19,11 +20,6 @@ import type { AvisoDeCobranca } from '../../integrations/payments';
 import { countSeats as contarVagas } from '../members/members.repository';
 import * as orgRepo from '../organizations/organizations.repository';
 import * as repo from './billing.repository';
-
-const hojeNaOficina = (timezone: string): string =>
-  new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(
-    new Date(),
-  );
 
 const inicioDoMes = (): Date => {
   const agora = new Date();
@@ -132,7 +128,7 @@ export class BillingService {
       const plano = await this.planoEscolhido(tx, input.plan, input.cycle);
       const oficina = await orgRepo.findOrganization(tx, auth.organizationId);
       if (!oficina) throw notFound('Oficina não encontrada.');
-      const hoje = hojeNaOficina(oficina.timezone);
+      const hoje = dayKey(new Date(), oficina.timezone);
       // quem ainda está em teste só começa a pagar quando o teste acabar
       const emTeste = assinatura.status === 'TRIALING' && (assinatura.trialEndsAt?.getTime() ?? 0) > Date.now();
       const vencimento = emTeste
@@ -312,7 +308,7 @@ export class BillingService {
       amountCents: preco,
       cycle: assinatura.billingCycle,
       description: `OficinaOS — plano ${plano.name}`,
-      nextDueDate: hojeNaOficina(oficina.timezone),
+      nextDueDate: dayKey(new Date(), oficina.timezone),
       cliente: {
         name: oficina.legalName ?? oficina.name,
         document: oficina.document,

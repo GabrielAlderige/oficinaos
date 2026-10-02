@@ -81,7 +81,7 @@ test('a oficina cronometra o serviço, lê os relatórios e baixa a planilha', a
     await captura(page, 'relatorios-03-popup-faturamento');
 
     const baixando = page.waitForEvent('download');
-    await popup.getByRole('button', { name: 'Baixar CSV' }).click();
+    await popup.getByRole('button', { name: 'CSV', exact: true }).click();
     const arquivo = await baixando;
     expect(arquivo.suggestedFilename()).toMatch(/^faturamento-\d{4}-\d{2}-\d{2}-a-\d{4}-\d{2}-\d{2}\.csv$/);
 

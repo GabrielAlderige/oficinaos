@@ -45,6 +45,7 @@ import {
   supplierHistoryRoutes,
   workOrderPurchaseRoutes,
 } from './modules/purchases/purchases.routes';
+import { PurchaseInsightsService } from './modules/purchases/purchase-insights.service';
 import { PurchasesService } from './modules/purchases/purchases.service';
 import { financeRoutes } from './modules/finance/finance.routes';
 import { partsSearchRoutes, supplierPriceListRoutes } from './modules/parts-search/parts-search.routes';
@@ -85,6 +86,7 @@ import { uploadRoutes, workOrderAttachmentRoutes } from './modules/uploads/uploa
 import { UploadsService } from './modules/uploads/uploads.service';
 import { workOrderRoutes } from './modules/work-orders/work-orders.routes';
 import { TrackingService } from './modules/work-orders/tracking.service';
+import { InspectionsService } from './modules/work-orders/inspections.service';
 import { WorkOrdersService } from './modules/work-orders/work-orders.service';
 import { memberRoutes } from './modules/members/members.routes';
 import { MembersService } from './modules/members/members.service';
@@ -112,6 +114,7 @@ export interface Services {
   catalogServices: ServicesService;
   parts: PartsService;
   workOrders: WorkOrdersService;
+  inspections: InspectionsService;
   uploads: UploadsService;
   quotes: QuotesService;
   notifications: NotificationsService;
@@ -121,6 +124,7 @@ export interface Services {
   suppliers: SuppliersService;
   supplierQuotes: SupplierQuotesService;
   purchases: PurchasesService;
+  purchaseInsights: PurchaseInsightsService;
   finance: FinanceService;
   partsSearch: PartsSearchService;
   reports: ReportsService;
@@ -235,6 +239,7 @@ export async function buildApp({
     catalogServices: new ServicesService(deps),
     parts: new PartsService(deps),
     workOrders,
+    inspections: new InspectionsService(deps),
     uploads: new UploadsService(deps),
     quotes: new QuotesService(deps, messaging),
     notifications: new NotificationsService(deps),
@@ -244,6 +249,7 @@ export async function buildApp({
     suppliers: new SuppliersService(deps),
     supplierQuotes: new SupplierQuotesService(deps),
     purchases: new PurchasesService(deps),
+    purchaseInsights: new PurchaseInsightsService(deps),
     // o financeiro baixa conta de OS registrando o pagamento no caixa (E7)
     finance: new FinanceService(deps, payments),
     // a oferta escolhida vira item da OS pelo service da OS, não por aqui

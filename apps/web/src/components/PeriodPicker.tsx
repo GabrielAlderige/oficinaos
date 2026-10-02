@@ -1,6 +1,7 @@
-import { DASHBOARD_PERIOD_LABELS, type DashboardPeriod } from '@oficinaos/shared';
+import { DASHBOARD_PERIOD_LABELS, dayKey, type DashboardPeriod } from '@oficinaos/shared';
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
+import { useMe } from '../lib/session';
 import { Input } from './ui/input';
 
 /**
@@ -122,17 +123,24 @@ export function PeriodPicker({
       : 'custom',
   );
   const modo: Modo = valor.period !== 'custom' ? valor.period : modoDeData;
+  /**
+   * O dia de hoje NO RELÓGIO DA OFICINA. `toISOString()` dá o dia em UTC: em
+   * São Paulo, depois das 21h, já é amanhã — e no último dia do mês "escolher
+   * mês" abria no mês seguinte.
+   */
+  const { organization } = useMe();
+  const hojeNaOficina = () => dayKey(new Date(), organization.timezone);
 
   const trocarModo = (novo: Modo) => {
     if (novo === 'mes-escolhido' || novo === 'custom') setModoDeData(novo);
     // atalho não usa data: limpa as duas para não sobrar lixo na URL
     if (ehAtalho(novo)) return onChange({ period: novo, from: null, to: null });
     if (novo === 'mes-escolhido') {
-      const mes = (valor.from ?? new Date().toISOString().slice(0, 10)).slice(0, 7);
+      const mes = (valor.from ?? hojeNaOficina()).slice(0, 7);
       return onChange({ period: 'custom', from: `${mes}-01`, to: fimDoMes(mes) });
     }
     // intervalo livre: começa no que já estava, para a pessoa não perder o que escolheu
-    const hoje = new Date().toISOString().slice(0, 10);
+    const hoje = hojeNaOficina();
     return onChange({ period: 'custom', from: valor.from ?? hoje, to: valor.to ?? hoje });
   };
 

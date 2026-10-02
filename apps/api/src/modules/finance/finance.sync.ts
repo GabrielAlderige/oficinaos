@@ -1,11 +1,10 @@
 import {
-  dayKey,
   devidoCents,
   distribuirPagamento,
   statusDoLancamento,
   type SystemFinancialCategoryKey,
 } from '@oficinaos/shared';
-import { readTimezone } from '../../core/org-settings';
+import { hojeNaOficina } from '../../core/org-settings';
 import type { Tx } from '../../db/tenant';
 import * as paymentsRepo from '../payments/payments.repository';
 import * as repo from './finance.repository';
@@ -20,11 +19,6 @@ import * as repo from './finance.repository';
  * cliente aprovou e o pago é a soma dos pagamentos daquela OS (a verdade do
  * caixa continua sendo `payments`, da E7). Nada é contado duas vezes.
  */
-
-/** Hoje no calendário da oficina — "vence hoje" em Manaus não é o do servidor. */
-export async function hojeNaOficina(tx: Tx, organizationId: string): Promise<string> {
-  return dayKey(new Date(), await readTimezone(tx, organizationId));
-}
 
 async function categoriaDoSistema(
   tx: Tx,

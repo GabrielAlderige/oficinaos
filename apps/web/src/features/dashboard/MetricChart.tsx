@@ -85,7 +85,8 @@ export function MetricChart({ periodo, podeVerDinheiro }: { periodo: Periodo; po
       <div className="border-t border-border px-5 pt-6 pb-4">
         {grafico.isPending ? (
           <Skeleton className="h-28 w-full sm:h-44" />
-        ) : !pontos.length ? (
+        ) : !pontos.length || maior === 0 ? (
+          // tudo zero desenhava uma régua de "R$ 0,01" sobre colunas vazias
           <p className="py-12 text-center text-sm text-muted">Sem movimento no período.</p>
         ) : (
           <>

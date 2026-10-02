@@ -181,7 +181,7 @@ function WorkOrderDetail({ order }: { order: WorkOrder }) {
         ))}
       </nav>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <div className={cn('space-y-6', aba !== 'servico' && 'hidden')}>
           <Card>
             <CardHeader
@@ -218,11 +218,15 @@ function WorkOrderDetail({ order }: { order: WorkOrder }) {
                   >
                     <span className="min-w-0">
                       <span className="flex flex-wrap items-center gap-2">
-                        <span className="truncate text-sm font-medium">{item.description}</span>
+                        {/* quebra em vez de cortar: com os campos de preço ao lado, sobram uns
+                            170 px, e "Alinhamento e balancea…" não diz qual serviço é */}
+                        <span className="min-w-0 text-sm font-medium [overflow-wrap:anywhere]">{item.description}</span>
                         {item.isOptional && <Badge tone="info">Recomendado</Badge>}
                         {item.sourcing !== 'STOCK' && <Badge>{ITEM_SOURCING_LABELS[item.sourcing]}</Badge>}
                       </span>
-                      <span className="block truncate text-xs text-muted">
+                      {/* cada pedaço inteiro numa linha: quebrar no meio deixava o "6" de
+                          "disponível: 6" sozinho embaixo */}
+                      <span className="flex flex-wrap gap-x-1 text-xs text-muted">
                         {[
                           WORK_ORDER_ITEM_TYPE_LABELS[item.type],
                           item.brand,
@@ -230,7 +234,12 @@ function WorkOrderDetail({ order }: { order: WorkOrder }) {
                           item.type === 'PART' && item.availableQuantity !== null && `disponível: ${formatQuantity(Math.round(item.availableQuantity * 1000))}`,
                         ]
                           .filter(Boolean)
-                          .join(' · ')}
+                          .map((parte, indice) => (
+                            <span key={indice} className="whitespace-nowrap">
+                              {indice > 0 && '· '}
+                              {parte}
+                            </span>
+                          ))}
                       </span>
                       {/* cronômetro do serviço (E15): quem executa aperta aqui */}
                       <ItemTimer order={order} item={item} />

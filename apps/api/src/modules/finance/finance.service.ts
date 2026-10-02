@@ -41,7 +41,8 @@ import type { Tx } from '../../db/tenant';
 import { withTenant } from '../../db/tenant';
 import type { PaymentsService } from '../payments/payments.service';
 import * as repo from './finance.repository';
-import { hojeNaOficina, syncWorkOrderEntries } from './finance.sync';
+import { hojeNaOficina } from '../../core/org-settings';
+import { syncWorkOrderEntries } from './finance.sync';
 
 const MESES_CURTOS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 const diaEMes = (key: string) => `${key.slice(8)}/${key.slice(5, 7)}`;

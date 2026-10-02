@@ -1,4 +1,5 @@
 import {
+  dayKey,
   cobrancaAberta,
   devidoCents,
   disponivelParaCobrar,
@@ -25,12 +26,6 @@ import { registrarPagamentoDaCobranca, recalcularPagamentoDaOs } from '../paymen
 import * as paymentRepo from '../payments/payments.repository';
 import * as workOrderRepo from '../work-orders/work-orders.repository';
 import * as repo from './charges.repository';
-
-/** Hoje no relógio da oficina, em 'YYYY-MM-DD'. */
-const hojeNaOficina = (timezone: string): string =>
-  new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(
-    new Date(),
-  );
 
 /**
  * Cobrança online (V3, E19).
@@ -139,7 +134,7 @@ export class ChargesService {
       const cliente = await customerRepo.findCustomer(tx, auth.organizationId, order.customerId);
       if (!cliente) throw notFound('Cliente não encontrado.');
       const oficina = await orgRepo.findOrganization(tx, auth.organizationId);
-      const hoje = hojeNaOficina(oficina?.timezone ?? 'America/Sao_Paulo');
+      const hoje = dayKey(new Date(), oficina?.timezone ?? 'America/Sao_Paulo');
       const dueDate = input.dueDate ?? vencimentoPadrao(hoje, input.method);
       if (dueDate < hoje) {
         throw new AppError(422, ErrorCode.BAD_REQUEST, 'Vencimento no passado', 'Escolha uma data de hoje em diante.');

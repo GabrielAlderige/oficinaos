@@ -13,10 +13,31 @@ import { useIsPhone } from '../../lib/use-media-query';
  * Então o aviso não bloqueia: ele diz o que a pessoa vai enfrentar e oferece
  * o caminho curto (voltar) e o caminho teimoso (abrir mesmo assim). Bloquear
  * seria decidir pela oficina numa hora em que só ela sabe se dá ou não.
+ *
+ * A escolha vale até fechar a aba: quem já disse "abrir mesmo assim" no
+ * financeiro não quer ouvir a mesma pergunta cada vez que volta a ele.
  */
+const CHAVE = (titulo: string) => `oficinaos:abrir-no-celular:${titulo}`;
+
+function jaEscolheu(titulo: string): boolean {
+  try {
+    return sessionStorage.getItem(CHAVE(titulo)) === '1';
+  } catch {
+    return false;
+  }
+}
+
 export function DesktopHint({ titulo, children }: { titulo: string; children: ReactNode }) {
   const celular = useIsPhone();
-  const [continuar, setContinuar] = useState(false);
+  const [continuar, setContinuarAgora] = useState(() => jaEscolheu(titulo));
+  const setContinuar = (valor: boolean) => {
+    setContinuarAgora(valor);
+    try {
+      sessionStorage.setItem(CHAVE(titulo), '1');
+    } catch {
+      // sem armazenamento: vale só até sair da tela
+    }
+  };
   // a tela some do caminho de quem já está no computador
   if (!celular || continuar) return <>{children}</>;
 

@@ -191,7 +191,13 @@ function SidebarContent({ collapsed, onToggle, onNavigate }: {
 
       <OrganizationSwitcher collapsed={collapsed} />
 
-      <nav aria-label="Principal" className="flex flex-1 flex-col gap-4 overflow-y-auto">
+      {/* o menu rola quando não cabe; o esmaecido no pé avisa que há mais embaixo
+          (antes o último item aparecia cortado ao meio, parecendo defeito), e o
+          pb-6 deixa o último item subir acima dele no fim da rolagem */}
+      <nav
+        aria-label="Principal"
+        className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pb-6 [mask-image:linear-gradient(to_bottom,black_calc(100%-1.5rem),transparent)]"
+      >
         {grupos.map((grupo, indice) => (
           <div key={grupo.label ?? indice} className="flex flex-col gap-0.5">
             {grupo.label && !collapsed && (
@@ -210,7 +216,7 @@ function SidebarContent({ collapsed, onToggle, onNavigate }: {
                 title={collapsed ? label : undefined}
                 className={({ isActive }) =>
                   cn(
-                    'flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium transition-colors',
+                    'flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors',
                     isActive
                       ? 'bg-accent-soft text-foreground'
                       : 'text-muted hover:bg-surface-muted hover:text-foreground',
@@ -286,7 +292,7 @@ export function AppShell() {
         >
           {!telaCheia && <EmailVerificationNotice />}
           {avisoDeDesktop ? (
-            <DesktopHint titulo={avisoDeDesktop}>
+            <DesktopHint key={avisoDeDesktop} titulo={avisoDeDesktop}>
               <Outlet />
             </DesktopHint>
           ) : (

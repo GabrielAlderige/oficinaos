@@ -1,5 +1,5 @@
 import { ROLE_LABELS } from '@oficinaos/shared';
-import { Check, ChevronRight, ChevronsUpDown, LogOut, Moon, ShieldCheck, Sun } from 'lucide-react';
+import { Check, ChevronRight, ChevronsUpDown, LogOut, Moon, ShieldCheck, Sun, X } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useMatches, useNavigate } from 'react-router';
 import { toast } from 'sonner';
@@ -19,6 +19,7 @@ import { errorMessage } from '../../lib/errors';
 import { formatDate, initials } from '../../lib/format';
 import { useMe, useSession } from '../../lib/session';
 import { useTheme } from '../../lib/theme';
+import { usePersistentState } from '../../lib/use-persistent-state';
 import { useCrumbLabels } from './crumbs';
 
 export function ThemeToggle() {
@@ -172,13 +173,20 @@ export function UserMenu() {
  * não existe — e é justamente quem trabalha pelo celular que costuma nunca
  * abrir o e-mail. O aviso não bloqueia nada: só diz o que está em jogo (a
  * recuperação de senha) e oferece o reenvio.
+ *
+ * Dá para fechar: ele aparecia no topo de TODA tela, e no celular tomava um
+ * quinto dela. Fechado, some por um dia e volta — esquecer de vez seria
+ * deixar a oficina sem como recuperar a senha.
  */
+const UM_DIA_MS = 24 * 60 * 60 * 1000;
+
 export function EmailVerificationNotice() {
   const { user } = useMe();
   const [enviando, setEnviando] = useState(false);
   const [enviado, setEnviado] = useState(false);
+  const [fechadoEm, setFechadoEm] = usePersistentState<number>(`oficinaos:aviso-email:${user.id}`, 0);
 
-  if (user.emailVerifiedAt || enviado) return null;
+  if (user.emailVerifiedAt || enviado || Date.now() - fechadoEm < UM_DIA_MS) return null;
 
   return (
     <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-warning/40 bg-warning-soft px-4 py-3 text-sm">
@@ -205,6 +213,15 @@ export function EmailVerificationNotice() {
       >
         Reenviar link
       </Button>
+      <button
+        type="button"
+        onClick={() => setFechadoEm(Date.now())}
+        aria-label="Fechar o aviso até amanhã"
+        title="Fechar até amanhã"
+        className="-mr-1 grid size-8 place-items-center rounded-md text-muted hover:bg-warning/15 hover:text-foreground"
+      >
+        <X className="size-4" aria-hidden="true" />
+      </button>
     </div>
   );
 }

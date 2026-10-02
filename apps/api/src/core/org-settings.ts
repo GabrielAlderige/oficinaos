@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
 import {
+  dayKey,
   DEFAULT_ORGANIZATION_SETTINGS,
   type OrganizationSettings,
   organizationSettingsSchema,
@@ -34,4 +35,13 @@ export async function readTimezone(tx: Tx, organizationId: string): Promise<stri
     .where(eq(organizations.id, organizationId))
     .limit(1);
   return row?.timezone ?? 'America/Sao_Paulo';
+}
+
+/**
+ * Hoje no calendário da oficina, em 'YYYY-MM-DD'. "Vence hoje" em Manaus não é
+ * o dia do servidor, e depois das 21h em São Paulo o UTC já virou o dia.
+ * Antes havia cinco cópias desta conta espalhadas pelos módulos.
+ */
+export async function hojeNaOficina(tx: Tx, organizationId: string): Promise<string> {
+  return dayKey(new Date(), await readTimezone(tx, organizationId));
 }

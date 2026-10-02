@@ -1,5 +1,6 @@
 import { and, between, desc, eq, sql } from 'drizzle-orm';
 import {
+  dayKey,
   can,
   comissaoGanhaCents,
   devidoCents,
@@ -16,16 +17,10 @@ import { recordActivity } from '../../core/audit';
 import type { AuthContext, ClientInfo, ServiceDeps } from '../../core/auth-context';
 import { commissionByOrder } from '../../core/commissions';
 import { AppError } from '../../core/errors';
-import { readOrganizationSettings } from '../../core/org-settings';
+import { readOrganizationSettings, readTimezone } from '../../core/org-settings';
 import { commissionPayouts, customers, users, vehicles, workOrders } from '../../db/schema';
 import { withTenant, type Tx } from '../../db/tenant';
 import * as paymentRepo from '../payments/payments.repository';
-
-/** Hoje no relógio da oficina, em 'YYYY-MM-DD'. */
-const hojeNaOficina = (timezone: string): string =>
-  new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(
-    new Date(),
-  );
 
 const primeiroDiaDoMes = (dia: string) => `${dia.slice(0, 7)}-01`;
 
@@ -50,8 +45,8 @@ export class CommissionsService {
   async report(auth: AuthContext, query: CommissionQuery): Promise<CommissionReport> {
     return withTenant(this.deps.db, auth, async (tx) => {
       const settings = await readOrganizationSettings(tx, auth.organizationId);
-      const timezone = await this.timezone(tx, auth.organizationId);
-      const hoje = hojeNaOficina(timezone);
+      const timezone = await readTimezone(tx, auth.organizationId);
+      const hoje = dayKey(new Date(), timezone);
       const atalho =
         query.period && query.period !== 'custom' && !query.from && !query.to
           ? periodRange(query.period, timezone)
@@ -280,12 +275,5 @@ export class CommissionsService {
       .from(users)
       .where(sql`${users.id} in (${sql.join(ids.map((valor) => sql`${valor}::uuid`), sql`, `)})`);
     return new Map(linhas.map((linha) => [linha.id, linha.name]));
-  }
-
-  private async timezone(tx: Tx, organizationId: string): Promise<string> {
-    const { rows } = await tx.execute<{ timezone: string }>(
-      sql`select timezone from organizations where id = ${organizationId}`,
-    );
-    return rows[0]?.timezone ?? 'America/Sao_Paulo';
   }
 }

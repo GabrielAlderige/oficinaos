@@ -15,6 +15,7 @@ import {
   minutesOfDay,
   monthGrid,
   periodRange,
+  previousPeriodRange,
   overlaps,
   startOfWeek,
   wallClock,
@@ -218,6 +219,32 @@ describe('mensagem para o cliente', () => {
 /** Quantos dias o intervalo cobre, contando as duas pontas. */
 const diasEntre = (de: string, ate: string): number =>
   Math.round((Date.parse(`${ate}T00:00:00Z`) - Date.parse(`${de}T00:00:00Z`)) / 86_400_000) + 1;
+
+describe('período de comparação', () => {
+  const anterior = (period: Parameters<typeof previousPeriodRange>[0], de: string, ate: string) => {
+    const faixa = previousPeriodRange(period, de, ate, SP);
+    return [faixa.fromDay, faixa.toDay];
+  };
+
+  it('"este mês" compara com o mês passado inteiro, mesmo no dia 2', () => {
+    expect(anterior('month', '2026-10-01', '2026-10-31')).toEqual(['2026-09-01', '2026-09-30']);
+    expect(anterior('month', '2026-03-01', '2026-03-31'), 'fevereiro tem 28').toEqual(['2026-02-01', '2026-02-28']);
+    expect(anterior('month', '2026-01-01', '2026-01-31'), 'vira o ano').toEqual(['2025-12-01', '2025-12-31']);
+  });
+
+  it('os outros andam para trás o mesmo número de dias', () => {
+    expect(anterior('today', '2026-10-02', '2026-10-02')).toEqual(['2026-10-01', '2026-10-01']);
+    expect(anterior('week', '2026-09-28', '2026-10-04')).toEqual(['2026-09-21', '2026-09-27']);
+    expect(anterior('last30', '2026-09-03', '2026-10-02')).toEqual(['2026-08-04', '2026-09-02']);
+    expect(anterior('custom', '2026-09-10', '2026-09-12')).toEqual(['2026-09-07', '2026-09-09']);
+  });
+
+  it('as bordas são meia-noite da oficina', () => {
+    const faixa = previousPeriodRange('today', '2026-10-02', '2026-10-02', SP);
+    expect(faixa.from.toISOString()).toBe('2026-10-01T03:00:00.000Z');
+    expect(faixa.to.toISOString()).toBe('2026-10-02T03:00:00.000Z');
+  });
+});
 
 describe('período do dashboard', () => {
   // 2026-09-13 é um domingo; 11:00Z é 08:00 em SP e 07:00 em Manaus

@@ -19,6 +19,7 @@ interface TestSummary {
   billedCents: number | null;
   receivedCents: number | null;
   avgTicketCents: number | null;
+  previous: { from: string; to: string; billedCents: number | null; receivedCents: number | null };
   openByStatus: { status: string; count: number }[];
   vehiclesInShop: number;
   appointmentsToday: number;
@@ -176,6 +177,25 @@ describe('dashboard', () => {
     expect(depois.completedOrders).toBeGreaterThan(1);
     expect(depois.avgTicketCents).toBe(Math.round(depois.billedCents! / depois.completedOrders));
     expect(depois.avgTicketCents).not.toBe(depois.billedCents);
+  });
+
+  it('traz o período anterior, para o começo do mês ter referência', async () => {
+    const hoje = await resumo();
+    // um período que começa AMANHÃ tem hoje como período anterior
+    const amanha = new Date(`${hoje.period.from}T12:00:00Z`);
+    amanha.setUTCDate(amanha.getUTCDate() + 1);
+    const dia = amanha.toISOString().slice(0, 10);
+    const futuro = (await get(`/api/v1/dashboard/summary?period=custom&from=${dia}&to=${dia}`)).json() as TestSummary;
+
+    expect([futuro.previous.from, futuro.previous.to]).toEqual([hoje.period.from, hoje.period.to]);
+    expect(futuro.billedCents, 'amanhã ainda não faturou').toBe(0);
+    expect(futuro.previous.billedCents, 'o anterior é o faturado de hoje').toBe(hoje.billedCents);
+    expect(futuro.previous.receivedCents, 'e o recebido de hoje').toBe(hoje.receivedCents);
+    expect(hoje.billedCents, 'o teste só prova algo se hoje tiver movimento').toBeGreaterThan(0);
+
+    const doMecanico = (await get(`/api/v1/dashboard/summary?period=custom&from=${dia}&to=${dia}`, mecanico)).json() as TestSummary;
+    expect(doMecanico.previous.billedCents, 'sem permissão, o anterior também é nulo').toBeNull();
+    expect(doMecanico.previous.receivedCents).toBeNull();
   });
 
   it('quem não pode ver dinheiro recebe nulo, não zero', async () => {

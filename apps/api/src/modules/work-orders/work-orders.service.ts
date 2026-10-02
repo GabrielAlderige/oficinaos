@@ -1,7 +1,5 @@
 import {
   can,
-  type CreateInspectionInput,
-  type AttachmentStatus,
   type CreateWorkOrderInput,
   type DeliverWorkOrderInput,
   effectiveQuoteStatus,
@@ -9,7 +7,6 @@ import {
   discountCentsFor,
   effectiveServicePrice,
   ErrorCode,
-  type Inspection,
   isDiscountWithinLimit,
   lineTotalCents,
   milliToDecimal,
@@ -30,7 +27,6 @@ import {
   WORK_ORDER_STATUS_LABELS,
   WORK_ORDER_TRANSITIONS,
   type WorkOrderBoard,
-  isEditable,
 } from '@oficinaos/shared';
 import type { z } from 'zod';
 import { diffChanges, recordActivity } from '../../core/audit';
@@ -61,6 +57,7 @@ import type { Tx } from '../../db/tenant';
 import { withTenant } from '../../db/tenant';
 import type { MessagingService } from '../messaging/messaging.service';
 import type { PackagesService } from '../packages/packages.service';
+import { findWorkOrderOrThrow, lockEditableWorkOrder } from './work-orders.guards';
 import * as repo from './work-orders.repository';
 
 type OrderPatch = Partial<typeof workOrders.$inferInsert>;
@@ -81,15 +78,6 @@ const milli = (value: string) => parseQuantity(value) ?? 0;
 const toMilli = (value: number) => parseQuantity(value) ?? 0;
 
 const canSeeCost = (auth: AuthContext) => can(auth.role, 'parts:view_cost');
-
-function versionConflict() {
-  return new AppError(
-    409,
-    ErrorCode.WORK_ORDER_VERSION_CONFLICT,
-    'A OS mudou',
-    'Outra pessoa salvou esta OS antes de você. Recarregue para ver o que mudou e tente de novo.',
-  );
-}
 
 export class WorkOrdersService {
   constructor(
@@ -217,75 +205,6 @@ export class WorkOrdersService {
         createdAt: row.createdAt.toISOString(),
       }));
     });
-  }
-
-  async inspections(auth: AuthContext, id: string): Promise<Inspection[]> {
-    return withTenant(this.deps.db, auth, async (tx) => {
-      await this.mustExist(tx, auth, id);
-      const rows = await repo.listInspections(tx, auth.organizationId, id);
-      if (!rows.length) return [];
-
-      // a assinatura e as fotos da entrega (E28) vêm em UMA consulta para as
-      // inspeções todas: uma por inspeção transformaria o check-in do dia em
-      // uma dúzia de idas ao banco
-      const anexos = await repo.listInspectionAttachments(
-        tx,
-        auth.organizationId,
-        rows.map(({ inspection }) => inspection.id),
-      );
-
-      return rows.map(({ inspection, performedByName }) => {
-        const meus = anexos.filter((anexo) => anexo.inspectionId === inspection.id);
-        const assinatura = meus.find((anexo) => anexo.id === inspection.signatureAttachmentId) ?? null;
-        return {
-          id: inspection.id,
-          type: inspection.type,
-          odometerKm: inspection.odometerKm,
-          fuelLevel: inspection.fuelLevel,
-          checklist: inspection.checklist.map((entry) => ({ ...entry, note: entry.note ?? '' })),
-          damages: inspection.damages.map((damage) => ({
-            ...damage,
-            note: damage.note ?? '',
-            attachmentId: damage.attachmentId ?? null,
-          })),
-          accessories: inspection.accessories,
-          notes: inspection.notes ?? '',
-          performedByName,
-          performedAt: inspection.performedAt.toISOString(),
-          customerAcknowledgedAt: isoOrNull(inspection.customerAcknowledgedAt),
-          signerName: inspection.signerName,
-          signature: assinatura ? this.anexoDto(assinatura) : null,
-          photos: meus.filter((anexo) => anexo.id !== inspection.signatureAttachmentId).map((a) => this.anexoDto(a)),
-        };
-      });
-    });
-  }
-
-  /** O anexo como a tela precisa: com a URL assinada, que é a credencial (E5). */
-  private anexoDto(row: {
-    id: string;
-    kind: 'PHOTO' | 'VIDEO' | 'DOCUMENT';
-    fileName: string | null;
-    mimeType: string;
-    sizeBytes: number;
-    caption: string | null;
-    visibleToCustomer: boolean;
-    status: AttachmentStatus;
-    storageKey: string;
-    createdAt: Date;
-  }) {
-    return {
-      id: row.id,
-      kind: row.kind,
-      fileName: row.fileName,
-      mimeType: row.mimeType,
-      sizeBytes: row.sizeBytes,
-      caption: row.caption,
-      visibleToCustomer: row.visibleToCustomer,
-      status: row.status,
-      url: this.deps.storage.signDownload(row.storageKey).url,
-      createdAt: row.createdAt.toISOString(),
-    };
   }
 
   // ------------------------------------------------------------- escrita
@@ -1080,115 +999,15 @@ export class WorkOrdersService {
     });
   }
 
-  /** Check-in e check-out: o que o carro era quando entrou, para não sobrar discussão. */
-  async createInspection(
-    auth: AuthContext,
-    id: string,
-    input: CreateInspectionInput,
-    client: ClientInfo,
-  ): Promise<Inspection> {
-    return withTenant(this.deps.db, auth, async (tx) => {
-      const order = await this.lockEditable(tx, auth, id);
-
-      // o km do check-in é o km do carro: vale a mesma regra do cadastro (E3)
-      if (input.odometerKm !== null) {
-        const vehicle = await repo.lockVehicleOdometer(tx, auth.organizationId, order.vehicleId);
-        assertOdometerNotDecreasing({
-          previousKm: vehicle?.odometerKm ?? null,
-          nextKm: input.odometerKm,
-          confirmed: input.confirmOdometerDecrease,
-          field: 'body.odometerKm',
-        });
-      }
-
-      const row = await repo.insertInspection(tx, {
-        organizationId: auth.organizationId,
-        workOrderId: id,
-        vehicleId: order.vehicleId,
-        type: input.type,
-        odometerKm: input.odometerKm,
-        fuelLevel: input.fuelLevel,
-        checklist: input.checklist,
-        damages: input.damages,
-        accessories: input.accessories,
-        notes: blankToNull(input.notes),
-        performedBy: auth.userId,
-      });
-      if (input.odometerKm !== null) {
-        await this.applyChange(tx, order, { odometerKm: input.odometerKm });
-        await repo.updateVehicleOdometer(tx, order.vehicleId, input.odometerKm);
-        await repo.insertOdometerReading(tx, {
-          organizationId: auth.organizationId,
-          vehicleId: order.vehicleId,
-          km: input.odometerKm,
-          source: input.type === 'CHECK_IN' ? 'CHECK_IN' : 'WORK_ORDER',
-          workOrderId: id,
-          recordedBy: auth.userId,
-        });
-      }
-
-      await repo.insertEvent(tx, {
-        organizationId: auth.organizationId,
-        workOrderId: id,
-        type: input.type,
-        data: {
-          odometerKm: input.odometerKm,
-          issues: input.checklist.filter((entry) => entry.state === 'ISSUE').length,
-          damages: input.damages.length,
-        },
-        actorUserId: auth.userId,
-      });
-      await recordActivity(tx, {
-        organizationId: auth.organizationId,
-        actorUserId: auth.userId,
-        action: `work_order.${input.type.toLowerCase()}`,
-        entityType: 'work_order',
-        entityId: id,
-        metadata: { number: order.number, odometerKm: input.odometerKm },
-        ...client,
-      });
-
-      return {
-        id: row.id,
-        type: row.type,
-        odometerKm: row.odometerKm,
-        fuelLevel: row.fuelLevel,
-        checklist: input.checklist,
-        damages: input.damages,
-        accessories: input.accessories,
-        notes: row.notes ?? '',
-        performedByName: null,
-        performedAt: row.performedAt.toISOString(),
-        customerAcknowledgedAt: isoOrNull(row.customerAcknowledgedAt),
-        signerName: row.signerName,
-        signature: null,
-        photos: [],
-      };
-    });
-  }
-
   // ------------------------------------------------------------ internos
 
-  private async mustExist(tx: Tx, auth: AuthContext, id: string) {
-    const header = await repo.findWorkOrder(tx, auth.organizationId, { id });
-    if (!header) throw notFound('OS não encontrada.');
-    return header;
+  /** As travas moram em `./work-orders.guards`: o check-in usa as mesmas. */
+  private mustExist(tx: Tx, auth: AuthContext, id: string) {
+    return findWorkOrderOrThrow(tx, auth.organizationId, id);
   }
 
-  /** Trava a OS, confere se ainda aceita mudança e (quando enviada) a versão. */
-  private async lockEditable(tx: Tx, auth: AuthContext, id: string, version?: number) {
-    const order = await repo.lockWorkOrder(tx, auth.organizationId, id);
-    if (!order) throw notFound('OS não encontrada.');
-    if (!isEditable(order.status)) {
-      throw new AppError(
-        409,
-        ErrorCode.WORK_ORDER_NOT_EDITABLE,
-        'OS encerrada',
-        `Esta OS está "${WORK_ORDER_STATUS_LABELS[order.status]}" e não aceita mais alterações.`,
-      );
-    }
-    if (version !== undefined && version !== order.version) throw versionConflict();
-    return order;
+  private lockEditable(tx: Tx, auth: AuthContext, id: string, version?: number) {
+    return lockEditableWorkOrder(tx, auth.organizationId, id, version);
   }
 
   private assertItemEditable(auth: AuthContext, approvalStatus: string) {

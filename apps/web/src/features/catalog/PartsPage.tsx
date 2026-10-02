@@ -106,7 +106,7 @@ export function PartsPage() {
       <Card>
         <div className="flex flex-col gap-2 border-b border-border p-3 sm:flex-row">
           <SearchInput value={search} onChange={setSearch} placeholder="Nome, código, marca ou carro" label="Buscar peças" className="flex-1" autoFocus />
-          <div className="sm:w-44">
+          <div className="sm:w-52">
             <Select aria-label="Categoria" value={categoryId ?? ''} onChange={(e) => setParams(withParam(params, 'categoria', e.target.value))}>
               <option value="">Todas as categorias</option>
               {categories.data?.map((c) => (
