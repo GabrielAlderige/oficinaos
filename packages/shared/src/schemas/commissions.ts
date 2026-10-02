@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { DASHBOARD_PERIODS } from '../calendar';
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida');
 
@@ -53,6 +54,11 @@ export const commissionReportSchema = z.object({
 });
 
 export const commissionQuerySchema = z.object({
+  /**
+   * Atalho (hoje, semana, mês, últimos 7/30), resolvido no fuso da oficina,
+   * igual ao financeiro. Datas explícitas mandam sobre ele.
+   */
+  period: z.enum(DASHBOARD_PERIODS).optional(),
   from: isoDate.optional(),
   to: isoDate.optional(),
   mechanicId: z.uuid().optional(),

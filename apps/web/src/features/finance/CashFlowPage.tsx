@@ -1,12 +1,7 @@
-import {
-  DASHBOARD_PERIOD_LABELS,
-  DASHBOARD_PERIODS,
-  formatBRL,
-  type CashFlowStep,
-  type DashboardPeriod,
-} from '@oficinaos/shared';
+import { formatBRL, type CashFlowStep } from '@oficinaos/shared';
 import { ArrowDownRight, ArrowUpRight, Plus } from 'lucide-react';
 import { useState } from 'react';
+import { PeriodPicker, usePeriodoNaUrl } from '../../components/PeriodPicker';
 import { Button } from '../../components/ui/button';
 import { Alert, Card, CardHeader, PageHeader, Skeleton } from '../../components/ui/display';
 import { cn } from '../../lib/cn';
@@ -24,8 +19,6 @@ const PASSOS: { valor: CashFlowStep; rotulo: string }[] = [
   { valor: 'month', rotulo: 'Por mês' },
 ];
 
-const PERIODOS = DASHBOARD_PERIODS.filter((p) => p !== 'custom');
-
 /**
  * O caixa da oficina no período: o que entrou, o que saiu e o que ainda vence.
  *
@@ -34,12 +27,12 @@ const PERIODOS = DASHBOARD_PERIODS.filter((p) => p !== 'custom');
  * mouse acrescenta, nunca é o único caminho para o valor.
  */
 export function CashFlowPage() {
-  const [period, setPeriod] = useState<DashboardPeriod>('month');
+  const [periodo, trocarPeriodo] = usePeriodoNaUrl();
   const [lancando, setLancando] = useState(false);
   const podeMexer = useCan('finance:write');
   const [step, setStep] = useState<CashFlowStep>('day');
-  const fluxo = useCashFlow({ period, step });
-  const lucro = useProfit({ period });
+  const fluxo = useCashFlow({ ...periodo, step });
+  const lucro = useProfit(periodo);
   const dados = fluxo.data;
   const maior = Math.max(1, ...(dados?.buckets ?? []).flatMap((b) => [b.inCents, b.outCents]));
 
@@ -50,21 +43,7 @@ export function CashFlowPage() {
         description="O dinheiro que entrou e saiu, e o que ainda vence no período."
         actions={
           <>
-            <label className="sr-only" htmlFor="fluxo-periodo">
-              Período
-            </label>
-            <select
-              id="fluxo-periodo"
-              value={period}
-              onChange={(event) => setPeriod(event.target.value as DashboardPeriod)}
-              className="h-9 rounded-md border border-border bg-surface px-2 text-sm"
-            >
-              {PERIODOS.map((opcao) => (
-                <option key={opcao} value={opcao}>
-                  {DASHBOARD_PERIOD_LABELS[opcao]}
-                </option>
-              ))}
-            </select>
+            <PeriodPicker idPrefix="fluxo" valor={periodo} onChange={trocarPeriodo} />
             {/* a despesa se lança aqui, que é onde ela muda alguma coisa: sem
                 isso, o caixa só teria entradas e o "lucro" seria mentira */}
             {podeMexer && (
@@ -186,19 +165,23 @@ export function CashFlowPage() {
                 </span>
               </p>
 
-              <table className="sr-only">
-                <caption>Entradas e saídas por período</caption>
-                <tbody>
-                  {dados.buckets.map((balde) => (
-                    <tr key={balde.key}>
-                      <th scope="row">{balde.label}</th>
-                      <td>Entrou {formatBRL(balde.inCents)}</td>
-                      <td>Saiu {formatBRL(balde.outCents)}</td>
-                      <td>Acumulado {formatBRL(balde.runningCents)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              {/* tabela não encolhe até o 1 px do sr-only: cresce com o conteúdo
+                  e fazia o celular rolar de lado. A div é que esconde. */}
+              <div className="sr-only">
+                <table>
+                  <caption>Entradas e saídas por período</caption>
+                  <tbody>
+                    {dados.buckets.map((balde) => (
+                      <tr key={balde.key}>
+                        <th scope="row">{balde.label}</th>
+                        <td>Entrou {formatBRL(balde.inCents)}</td>
+                        <td>Saiu {formatBRL(balde.outCents)}</td>
+                        <td>Acumulado {formatBRL(balde.runningCents)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </>
           )}
         </div>

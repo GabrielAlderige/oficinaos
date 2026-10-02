@@ -1,5 +1,6 @@
 import { DASHBOARD_PERIOD_LABELS, type DashboardPeriod } from '@oficinaos/shared';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { Input } from './ui/input';
 
 /**
@@ -32,6 +33,47 @@ export function aplicarPeriodo(anterior: Periodo, patch: PeriodoPatch): Periodo 
   const campo = (chave: 'from' | 'to'): string | undefined =>
     chave in patch ? (patch[chave] ?? undefined) : anterior[chave];
   return { period: patch.period, from: campo('from'), to: campo('to') };
+}
+
+/**
+ * O período guardado na URL (`periodo`, `de`, `ate`), igual em toda tela que o
+ * usa: o link que a oficina manda para o contador abre o mesmo recorte.
+ *
+ * Quem digita a data inicial e a final em seguida escreve duas vezes antes do
+ * primeiro render chegar, e a segunda gravação partiria da URL velha e apagaria
+ * a primeira. A forma de função do `setSearchParams` NÃO resolve: o React
+ * Router entrega a ela os params do último render, não os da escrita anterior.
+ * Por isso a última escrita fica guardada até a URL alcançá-la.
+ */
+export function usePeriodoNaUrl(padrao: DashboardPeriod = 'month') {
+  const [params, setParams] = useSearchParams();
+  const escritaPendente = useRef<URLSearchParams | null>(null);
+  const chave = params.toString();
+  // a URL mudou: ela volta a ser a verdade (inclusive se outra coisa a mudou)
+  useEffect(() => {
+    escritaPendente.current = null;
+  }, [chave]);
+
+  const ler = (origem: URLSearchParams): Periodo => ({
+    period: (origem.get('periodo') as DashboardPeriod | null) ?? padrao,
+    from: origem.get('de') ?? undefined,
+    to: origem.get('ate') ?? undefined,
+  });
+  const trocar = (patch: PeriodoPatch) => {
+    const anterior = escritaPendente.current ?? params;
+    const novo = aplicarPeriodo(ler(anterior), patch);
+    const proximo = new URLSearchParams(anterior);
+    proximo.set('periodo', novo.period);
+    if (novo.from) proximo.set('de', novo.from);
+    else proximo.delete('de');
+    if (novo.to) proximo.set('ate', novo.to);
+    else proximo.delete('ate');
+    // período novo é lista nova: volta para a primeira página
+    proximo.delete('page');
+    escritaPendente.current = proximo;
+    setParams(proximo, { replace: true });
+  };
+  return [ler(params), trocar] as const;
 }
 
 /** Primeiro os períodos do calendário (hoje, semana, mês), depois os corridos. */
@@ -125,7 +167,7 @@ export function PeriodPicker({
             <Input
               id={`${idPrefix}-mes`}
               type="month"
-              className="w-40"
+              className="w-48"
               value={(valor.from ?? '').slice(0, 7)}
               onChange={(e) => {
                 const mes = e.target.value;

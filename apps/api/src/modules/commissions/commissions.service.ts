@@ -4,6 +4,7 @@ import {
   comissaoGanhaCents,
   devidoCents,
   ErrorCode,
+  periodRange,
   type CommissionByMechanic,
   type CommissionOrder,
   type CommissionPayout,
@@ -51,8 +52,12 @@ export class CommissionsService {
       const settings = await readOrganizationSettings(tx, auth.organizationId);
       const timezone = await this.timezone(tx, auth.organizationId);
       const hoje = hojeNaOficina(timezone);
-      const from = query.from ?? primeiroDiaDoMes(hoje);
-      const to = query.to ?? hoje;
+      const atalho =
+        query.period && query.period !== 'custom' && !query.from && !query.to
+          ? periodRange(query.period, timezone)
+          : null;
+      const from = atalho?.fromDay ?? query.from ?? primeiroDiaDoMes(hoje);
+      const to = atalho?.toDay ?? query.to ?? hoje;
 
       // quem não administra só enxerga a própria comissão
       const veTudo = can(auth.role, 'commissions:manage');

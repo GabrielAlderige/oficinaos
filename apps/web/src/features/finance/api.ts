@@ -187,13 +187,15 @@ export function useCancelSettlement() {
 // ----------------------------- comissões (E26) -----------------------------
 
 export const commissionKeys = {
-  report: (params: { from: string; to: string }) => ['commissions', 'report', params] as const,
+  report: (params: Omit<FinancePeriodParams, 'step'>) => ['commissions', 'report', params] as const,
 };
 
-export function useCommissionReport(params: { from: string; to: string }) {
+export function useCommissionReport(params: Omit<FinancePeriodParams, 'step'>) {
   return useQuery({
     queryKey: commissionKeys.report(params),
-    queryFn: () => api<CommissionReport>(`/commissions?from=${params.from}&to=${params.to}`),
+    queryFn: () => api<CommissionReport>(
+        `/commissions?${toQueryString({ period: params.period, from: params.from, to: params.to })}`,
+      ),
   });
 }
 

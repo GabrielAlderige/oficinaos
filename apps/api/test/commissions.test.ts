@@ -241,4 +241,27 @@ describe('comissão do mecânico', () => {
     );
     expect(res.statusCode).toBe(403);
   });
+
+  it('o período aceita os atalhos do financeiro, no dia da oficina', async () => {
+    const os = await osFinalizada({ servicoId: servicoComum });
+    const hoje = hojeNaOficina();
+    const comAtalho = async (consulta: string) =>
+      (await get(`/api/v1/commissions?${consulta}`)).json() as Relatorio;
+    const temAOs = (dados: Relatorio) =>
+      dados.mechanics.some((m) => m.orders.some((o) => o.number === os.number));
+
+    const doDia = await comAtalho('period=today');
+    expect([doDia.from, doDia.to], '"hoje" é o dia da oficina').toEqual([hoje, hoje]);
+    expect(temAOs(doDia), 'a OS finalizada hoje entra em "hoje"').toBe(true);
+
+    const seteDias = await comAtalho('period=last7');
+    const seisDiasAtras = new Date(`${hoje}T12:00:00Z`);
+    seisDiasAtras.setUTCDate(seisDiasAtras.getUTCDate() - 6);
+    expect(seteDias.from, '"últimos 7 dias" conta hoje').toBe(seisDiasAtras.toISOString().slice(0, 10));
+    expect(seteDias.to).toBe(hoje);
+
+    const datasMandam = await comAtalho('period=today&from=2020-01-01&to=2020-01-31');
+    expect([datasMandam.from, datasMandam.to], 'data digitada vence o atalho').toEqual(['2020-01-01', '2020-01-31']);
+    expect(temAOs(datasMandam), 'janeiro de 2020 não tem a OS de hoje').toBe(false);
+  });
 });

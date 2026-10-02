@@ -3,10 +3,11 @@ import { HandCoins, Percent } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
+import { PeriodPicker, usePeriodoNaUrl } from '../../components/PeriodPicker';
 import { Button } from '../../components/ui/button';
 import { Alert, Avatar, Card, PageHeader, Skeleton } from '../../components/ui/display';
 import { Field, fieldA11y } from '../../components/ui/field';
-import { AdornedInput, Input, Textarea } from '../../components/ui/input';
+import { AdornedInput, Textarea } from '../../components/ui/input';
 import { EmptyState } from '../../components/ui/list-parts';
 import { Dialog, DialogContent, DialogFooter, DialogHeader } from '../../components/ui/overlays';
 import { cn } from '../../lib/cn';
@@ -15,9 +16,6 @@ import { useCan } from '../../lib/session';
 import { useCommissionReport, usePayCommission } from './api';
 import { FinanceTabs } from './FinanceTabs';
 import { dataBR } from './status';
-
-const primeiroDiaDoMes = () => new Date().toISOString().slice(0, 8) + '01';
-const hoje = () => new Date().toISOString().slice(0, 10);
 
 /**
  * Comissão do mecânico (E26).
@@ -33,9 +31,8 @@ const hoje = () => new Date().toISOString().slice(0, 10);
  */
 export function CommissionsPage() {
   const podeGerir = useCan('commissions:manage');
-  const [from, setFrom] = useState(primeiroDiaDoMes);
-  const [to, setTo] = useState(hoje);
-  const relatorio = useCommissionReport({ from, to });
+  const [periodo, trocarPeriodo] = usePeriodoNaUrl();
+  const relatorio = useCommissionReport(periodo);
 
   return (
     <>
@@ -46,13 +43,11 @@ export function CommissionsPage() {
       <FinanceTabs />
 
       <div className="mb-4 flex flex-wrap items-end gap-3">
-        <Field label="De" htmlFor="comissao-de" className="w-40">
-          <Input {...fieldA11y('comissao-de')} type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-        </Field>
-        <Field label="Até" htmlFor="comissao-ate" className="w-40">
-          <Input {...fieldA11y('comissao-ate')} type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-        </Field>
-        <p className="pb-2 text-xs text-muted">Pelo dia em que a OS foi finalizada.</p>
+        <PeriodPicker idPrefix="comissao" valor={periodo} onChange={trocarPeriodo} />
+        <p className="pb-2 text-xs text-muted">
+          {relatorio.data && `${dataBR(relatorio.data.from)} a ${dataBR(relatorio.data.to)} · `}
+          pelo dia em que a OS foi finalizada.
+        </p>
       </div>
 
       {relatorio.isPending ? (
@@ -90,7 +85,7 @@ export function CommissionsPage() {
           <ul className="space-y-3">
             {relatorio.data.mechanics.map((mecanico) => (
               <li key={mecanico.mechanicUserId}>
-                <CartaoDoMecanico mecanico={mecanico} periodo={{ from, to }} podeGerir={podeGerir} />
+                <CartaoDoMecanico mecanico={mecanico} periodo={{ from: relatorio.data.from, to: relatorio.data.to }} podeGerir={podeGerir} />
               </li>
             ))}
           </ul>

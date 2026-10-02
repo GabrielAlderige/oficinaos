@@ -5,7 +5,7 @@ import { useSearchParams } from 'react-router';
 import { Button } from '../../components/ui/button';
 import { Alert, Card, PageHeader, Skeleton } from '../../components/ui/display';
 import { EmptyState, Pagination, SearchInput } from '../../components/ui/list-parts';
-import { aplicarPeriodo, PeriodPicker, type Periodo, type PeriodoPatch } from '../../components/PeriodPicker';
+import { PeriodPicker, usePeriodoNaUrl } from '../../components/PeriodPicker';
 import { cn } from '../../lib/cn';
 import { errorMessage } from '../../lib/errors';
 import { useCan } from '../../lib/session';
@@ -62,37 +62,7 @@ function FinancePage({ direction }: { direction: FinancialDirection }) {
    * O período fica na URL junto do resto dos filtros: quem manda o link para o
    * contador manda a mesma lista que está vendo, não a do mês corrente.
    */
-  const periodo: Periodo = {
-    period: (params.get('periodo') as Periodo['period']) ?? 'month',
-    from: params.get('de') ?? undefined,
-    to: params.get('ate') ?? undefined,
-  };
-  /**
-   * Atualiza a partir do estado ANTERIOR, não do `params` que o render capturou:
-   * quem digita a data inicial e a final em seguida escreve duas vezes antes do
-   * primeiro render chegar, e a segunda gravação apagaria a primeira.
-   */
-  const trocarPeriodo = (patch: PeriodoPatch) => {
-    setParams(
-      (anterior) => {
-        const atual: Periodo = {
-          period: (anterior.get('periodo') as Periodo['period']) ?? 'month',
-          from: anterior.get('de') ?? undefined,
-          to: anterior.get('ate') ?? undefined,
-        };
-        const novo = aplicarPeriodo(atual, patch);
-        const proximo = new URLSearchParams(anterior);
-        proximo.set('periodo', novo.period);
-        if (novo.from) proximo.set('de', novo.from);
-        else proximo.delete('de');
-        if (novo.to) proximo.set('ate', novo.to);
-        else proximo.delete('ate');
-        proximo.delete('page');
-        return proximo;
-      },
-      { replace: true },
-    );
-  };
+  const [periodo, trocarPeriodo] = usePeriodoNaUrl();
   const [aberto, setAberto] = useState<string | null>(null);
 
   useEffect(() => {
