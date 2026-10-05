@@ -8,6 +8,8 @@ export default defineConfig({
     // de produção: o servidor novo não pode depender de um script que só roda
     // com TypeScript instalado
     'db-setup': 'scripts/db-setup.ts',
+    // publicar o curso de Tutoriais no servidor novo (DEPLOY.md §6.2)
+    'seed-tutoriais': 'scripts/seed-tutoriais.ts',
   },
   format: ['esm'],
   platform: 'node',

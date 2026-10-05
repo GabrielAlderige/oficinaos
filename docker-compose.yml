@@ -113,6 +113,8 @@ services:
     volumes:
       - caddy_data:/data
       - caddy_config:/config
+      # os vídeos do curso de Tutoriais (fora do git): copie a pasta para cá
+      - ./tutoriais:/srv/tutoriais:ro
 
 volumes:
   pgdata:

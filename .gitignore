@@ -30,3 +30,7 @@ coverage/
 .DS_Store
 Thumbs.db
 *.log
+
+# vídeos do curso de Tutoriais: 163 MB, ficam fora do git (ver seed-tutoriais.ts)
+/tutoriais/
+/apps/web/public/tutoriais/

@@ -24,6 +24,7 @@
     "db:generate": "npm run db:generate -w @oficinaos/api --",
     "db:migrate": "npm run db:migrate -w @oficinaos/api --",
     "db:seed:demo": "npm run db:seed:demo -w @oficinaos/api --",
+    "db:seed:tutoriais": "npm run db:seed:tutoriais -w @oficinaos/api --",
     "dev:landing": "npm run dev -w @oficinaos/landing"
   },
   "devDependencies": {

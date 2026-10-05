@@ -213,6 +213,26 @@ Depois disso aparecem três telas que a oficina nunca vê:
 > de fundador precisa de 60 ou 90 dias em vez de 14; os dias contam a partir de
 > hoje e o motivo fica na trilha da oficina.
 
+### 6.2 Publicar o curso de Tutoriais
+
+As 24 aulas em vídeo (uns 24 minutos, 163 MB) **não moram no git**. Elas vão
+para a pasta `tutoriais/` ao lado do `docker-compose.yml`, e o Caddy serve em
+`https://app.<seu-domínio>/tutoriais/`.
+
+```sh
+# da sua máquina: manda os 24 MP4 para o servidor
+scp -r tutoriais/ oficinaos@IP-DO-SERVIDOR:/opt/oficinaos/tutoriais/
+
+# no servidor: recria o web (para montar a pasta) e publica as aulas
+docker compose up -d web
+docker compose exec api node dist/seed-tutoriais.js   # ou, com o código: npm run db:seed:tutoriais
+```
+
+O cadastro lê `apps/api/scripts/tutoriais-aulas.ts` e aponta cada aula para
+`${TUTORIAIS_URL}/<arquivo>` (sem a variável, `${APP_URL}/tutoriais`). Pode
+rodar de novo à vontade: ele só atualiza pelo `slug`. Para hospedar no YouTube
+no lugar, troque as aulas em `/plataforma/tutoriais`, colando o link de cada vídeo.
+
 ---
 
 ## 7. Se algo falhar

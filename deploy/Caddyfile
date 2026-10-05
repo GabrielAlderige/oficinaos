@@ -22,6 +22,15 @@
 		reverse_proxy api:3333
 	}
 
+	# os vídeos do curso (Tutoriais): ficam FORA da imagem, na pasta tutoriais/
+	# ao lado do docker-compose, porque não moram no git (163 MB). O Caddy
+	# responde com Range, então o vídeo começa a tocar antes de baixar inteiro
+	handle_path /tutoriais/* {
+		root * /srv/tutoriais
+		header Cache-Control "public, max-age=604800"
+		file_server
+	}
+
 	handle {
 		root * /srv/painel
 
@@ -44,10 +53,13 @@
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		X-Content-Type-Options nosniff
 		Referrer-Policy strict-origin-when-cross-origin
-		# o painel não é embutível em outro site
-		X-Frame-Options DENY
 		-Server
 	}
+	# o painel não é embutível em outro site. O vídeo do curso é a exceção: ele
+	# abre num iframe DO PRÓPRIO painel, e o DENY bloquearia até isso
+	@naoVideo not path /tutoriais/*
+	header @naoVideo X-Frame-Options DENY
+	header /tutoriais/* X-Frame-Options SAMEORIGIN
 
 	# o arquivo com hash no nome nunca muda: cache longo, sem revalidar
 	@imutavel path /assets/*
