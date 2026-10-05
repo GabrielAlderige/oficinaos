@@ -165,6 +165,49 @@ export async function listWorkOrders(
   return { rows, total: counted?.total ?? 0 };
 }
 
+/**
+ * Histórico de um carro ou de um cliente: as OS mais recentes primeiro, com os
+ * itens que entraram (o recusado pelo cliente não foi feito, então fica fora).
+ */
+export async function listHistory(
+  tx: Tx,
+  organizationId: string,
+  by: { vehicleId?: string; customerId?: string },
+  limit: number,
+) {
+  const rows = await withPeople(tx)
+    .where(
+      and(
+        eq(workOrders.organizationId, organizationId),
+        by.vehicleId ? eq(workOrders.vehicleId, by.vehicleId) : undefined,
+        by.customerId ? eq(workOrders.customerId, by.customerId) : undefined,
+      ),
+    )
+    .orderBy(desc(workOrders.openedAt), desc(workOrders.number))
+    .limit(limit);
+
+  const ids = rows.map((row) => row.order.id);
+  const items = ids.length
+    ? await tx
+        .select({
+          workOrderId: workOrderItems.workOrderId,
+          type: workOrderItems.type,
+          description: workOrderItems.description,
+          quantity: workOrderItems.quantity,
+        })
+        .from(workOrderItems)
+        .where(
+          and(
+            eq(workOrderItems.organizationId, organizationId),
+            inArray(workOrderItems.workOrderId, ids),
+            sql`${workOrderItems.approvalStatus} <> 'REJECTED'`,
+          ),
+        )
+        .orderBy(asc(workOrderItems.position), asc(workOrderItems.createdAt))
+    : [];
+  return { rows, items };
+}
+
 /** Contagem por status para o quadro da oficina. */
 export async function countByStatus(tx: Tx, organizationId: string) {
   return tx

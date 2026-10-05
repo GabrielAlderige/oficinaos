@@ -11,6 +11,7 @@ import type {
   WorkOrderAction,
   WorkOrderBoard,
   WorkOrderEvent,
+  WorkOrderHistoryEntry,
   WorkOrderItemInput,
   WorkOrderListItem,
   WorkOrderStatus,
@@ -65,6 +66,16 @@ export function useWorkOrders(params: WorkOrderListParams, options: { enabled?: 
       ),
     placeholderData: keepPreviousData,
     enabled: options.enabled ?? true,
+  });
+}
+
+/** As OS de um carro ou de um cliente, com o que foi feito em cada uma. */
+export function useWorkOrderHistory(by: { vehicleId: string } | { customerId: string }, enabled = true) {
+  return useQuery({
+    queryKey: [...workOrderKeys.all, 'history', by] as const,
+    queryFn: async () =>
+      (await api<{ data: WorkOrderHistoryEntry[] }>(`/work-orders/history?${toQueryString(by)}`)).data,
+    enabled,
   });
 }
 

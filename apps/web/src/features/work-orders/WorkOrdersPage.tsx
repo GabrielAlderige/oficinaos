@@ -18,8 +18,12 @@ import { PaymentBadge, StatusBadge } from './status';
 
 const GRID = 'md:grid-cols-[4.5rem_minmax(0,1.6fr)_minmax(0,1.4fr)_minmax(0,1fr)_8rem]';
 
-/** Atalhos do quadro: as situações que a oficina olha o dia inteiro. */
-const QUICK: (WorkOrderStatus | 'active')[] = ['active', 'AWAITING_APPROVAL', 'IN_PROGRESS', 'WAITING_PARTS', 'COMPLETED'];
+/**
+ * Atalhos do quadro: as situações que a oficina olha o dia inteiro, e as
+ * entregues no fim, que é onde se procura o carro que já foi embora.
+ */
+const QUICK: (WorkOrderStatus | 'active')[] = ['active', 'AWAITING_APPROVAL', 'IN_PROGRESS', 'WAITING_PARTS', 'COMPLETED', 'DELIVERED'];
+const QUICK_LABELS: Partial<Record<WorkOrderStatus | 'active', string>> = { active: 'Na oficina', DELIVERED: 'Entregues' };
 
 function isStatus(value: string | null): value is WorkOrderStatus | 'active' | 'all' {
   return value === 'active' || value === 'all' || (WORK_ORDER_STATUSES as readonly string[]).includes(value ?? '');
@@ -79,7 +83,7 @@ export function WorkOrdersPage() {
                   : 'border-border text-muted hover:bg-surface-muted hover:text-foreground',
               )}
             >
-              {value === 'active' ? 'Na oficina' : WORK_ORDER_STATUS_LABELS[value]}
+              {QUICK_LABELS[value] ?? WORK_ORDER_STATUS_LABELS[value as WorkOrderStatus]}
               {count !== undefined && <span className="ml-1.5 tabular">{count}</span>}
             </button>
           );

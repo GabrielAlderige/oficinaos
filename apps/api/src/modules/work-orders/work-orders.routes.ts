@@ -16,6 +16,8 @@ import {
   workOrderBoardSchema,
   workOrderEventSchema,
   workOrderItemInputSchema,
+  workOrderHistoryEntrySchema,
+  workOrderHistoryQuerySchema,
   workOrderListItemSchema,
   workOrderListQuerySchema,
   workOrderNoteSchema,
@@ -55,6 +57,19 @@ export const workOrderRoutes: FastifyPluginAsyncZod = async (app) => {
       schema: { querystring: workOrderListQuerySchema, response: { 200: paginated(workOrderListItemSchema) } },
     },
     async (request) => service.list(getAuth(request), request.query),
+  );
+
+  // o histórico do carro e do cliente: as OS com o que foi feito em cada uma
+  app.get(
+    '/history',
+    {
+      config: { auth: 'work_orders:read' },
+      schema: {
+        querystring: workOrderHistoryQuerySchema,
+        response: { 200: z.object({ data: z.array(workOrderHistoryEntrySchema) }) },
+      },
+    },
+    async (request) => ({ data: await service.history(getAuth(request), request.query) }),
   );
 
   app.get(

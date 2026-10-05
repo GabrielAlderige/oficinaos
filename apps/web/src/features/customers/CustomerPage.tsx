@@ -1,5 +1,5 @@
 import { CUSTOMER_SOURCE_LABELS, type Customer } from '@oficinaos/shared';
-import { Car, History, MessageCircle, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Car, MessageCircle, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { toast } from 'sonner';
@@ -14,6 +14,7 @@ import { errorMessage } from '../../lib/errors';
 import { formatDate } from '../../lib/format';
 import { useCan } from '../../lib/session';
 import { VehicleFormDialog } from '../vehicles/VehicleFormDialog';
+import { ServiceHistory } from '../work-orders/ServiceHistory';
 import { useCustomer, useCustomerVehicles, useDeleteCustomer } from './api';
 import { CustomerFormDialog } from './CustomerFormDialog';
 
@@ -164,14 +165,11 @@ function CustomerDetail({ customer }: { customer: Customer }) {
             )}
           </Card>
 
-          <Card>
-            <CardHeader title="Histórico de atendimentos" />
-            <EmptyState
-              icon={History}
-              title="Sem atendimentos por enquanto"
-              description="As ordens de serviço, os orçamentos e os pagamentos deste cliente vão aparecer aqui."
-            />
-          </Card>
+          <ServiceHistory
+            by={{ customerId: customer.id }}
+            title="Histórico de atendimentos"
+            emptyDescription="As ordens de serviço deste cliente, de todos os carros dele, vão aparecer aqui."
+          />
         </div>
 
         <div className="space-y-6">

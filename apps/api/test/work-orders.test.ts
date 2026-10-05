@@ -455,4 +455,55 @@ describe('ordem de serviço', () => {
       expect((await get('/api/v1/work-orders?status=all', other)).json().data).toEqual([]);
     });
   });
+
+  describe('histórico do carro e do cliente', () => {
+    it('mostra cada OS do carro com o que foi feito e a quilometragem, sem misturar com outro carro', async () => {
+      const s = await signup(t.app);
+      const dono = await createCustomer(t.app, s, { name: 'Marta Lima' });
+      const strada = await createVehicle(t.app, s, dono.id, { make: 'Fiat', model: 'Strada', plate: 'STR4D01' });
+      const hb20 = await createVehicle(t.app, s, dono.id, { make: 'Hyundai', model: 'HB20', plate: 'HBV2O01' });
+      const outro = await createCustomer(t.app, s, { name: 'Outro Cliente' });
+      const gol = await createVehicle(t.app, s, outro.id, { plate: 'GOL1A01' });
+
+      const revisao = await createWorkOrder(t.app, s, {
+        customerId: dono.id,
+        vehicleId: strada.id,
+        odometerKm: 41_250,
+        complaint: 'Revisão dos 40 mil',
+        items: [
+          { type: 'SERVICE', description: 'Troca de óleo', unitPriceCents: 12_000 },
+          { type: 'PART', description: 'Filtro de óleo', quantity: 2, unitPriceCents: 3_500 },
+        ],
+      });
+      const freio = await createWorkOrder(t.app, s, { customerId: dono.id, vehicleId: hb20.id });
+      await createWorkOrder(t.app, s, { customerId: outro.id, vehicleId: gol.id });
+
+      const doCarro = await get(`/api/v1/work-orders/history?vehicleId=${strada.id}`, s);
+      expect(doCarro.statusCode, doCarro.body).toBe(200);
+      expect(doCarro.json().data).toHaveLength(1);
+      expect(doCarro.json().data[0]).toMatchObject({
+        number: revisao.number,
+        odometerKm: 41_250,
+        complaint: 'Revisão dos 40 mil',
+        vehiclePlate: 'STR4D01',
+        vehicleName: 'Fiat Strada',
+        totalCents: 19_000,
+        items: [
+          { type: 'SERVICE', description: 'Troca de óleo', quantity: 1 },
+          { type: 'PART', description: 'Filtro de óleo', quantity: 2 },
+        ],
+      });
+
+      // o cliente vê os dois carros dele, o mais recente primeiro, e nada do outro cliente
+      const doCliente = (await get(`/api/v1/work-orders/history?customerId=${dono.id}`, s)).json().data;
+      expect(doCliente.map((os: { number: number }) => os.number)).toEqual([freio.number, revisao.number]);
+    });
+
+    it('exige o carro ou o cliente, e não mostra OS de outra oficina', async () => {
+      expect((await get('/api/v1/work-orders/history')).statusCode).toBe(400);
+      expect((await get(`/api/v1/work-orders/history?vehicleId=${vehicleId}&customerId=${customerId}`)).statusCode).toBe(400);
+      const other = await signup(t.app);
+      expect((await get(`/api/v1/work-orders/history?vehicleId=${vehicleId}`, other)).json().data).toEqual([]);
+    });
+  });
 });

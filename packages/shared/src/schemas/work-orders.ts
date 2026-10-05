@@ -284,6 +284,41 @@ export const workOrderListItemSchema = z.object({
 });
 
 /**
+ * Histórico de atendimentos de um carro ou de um cliente: cada OS com o que
+ * foi feito nela. Um dos dois filtros, nunca os dois e nunca nenhum.
+ */
+export const workOrderHistoryQuerySchema = z
+  .object({
+    vehicleId: z.uuid().optional(),
+    customerId: z.uuid().optional(),
+  })
+  .refine((q) => Boolean(q.vehicleId) !== Boolean(q.customerId), 'Informe o veículo ou o cliente');
+
+export const workOrderHistoryEntrySchema = z.object({
+  id: z.uuid(),
+  number: z.number().int(),
+  status: z.enum(WORK_ORDER_STATUSES),
+  paymentStatus: z.enum(PAYMENT_STATUSES),
+  openedAt: z.string(),
+  deliveredAt: z.string().nullable(),
+  odometerKm: z.number().int().nullable(),
+  totalCents: z.number().int(),
+  complaint: z.string().nullable(),
+  mechanicName: z.string().nullable(),
+  vehicleId: z.uuid(),
+  vehiclePlate: z.string().nullable(),
+  vehicleName: z.string(),
+  /** o que entrou na OS; item recusado pelo cliente não foi feito e fica de fora */
+  items: z.array(
+    z.object({
+      type: z.enum(WORK_ORDER_ITEM_TYPES),
+      description: z.string(),
+      quantity: z.number(),
+    }),
+  ),
+});
+
+/**
  * O dia do mecânico no celular (E24): os carros que estão com ele e o
  * cronômetro que ficou correndo. É uma resposta pequena de propósito — ela
  * abre no 3G da oficina, e cada campo a mais é meio segundo a mais.
@@ -410,6 +445,8 @@ export type CreateWorkOrderInput = z.output<typeof createWorkOrderSchema>;
 export type UpdateWorkOrderInput = z.output<typeof updateWorkOrderSchema>;
 export type WorkOrder = z.infer<typeof workOrderSchema>;
 export type WorkOrderListItem = z.infer<typeof workOrderListItemSchema>;
+export type WorkOrderHistoryQuery = z.output<typeof workOrderHistoryQuerySchema>;
+export type WorkOrderHistoryEntry = z.infer<typeof workOrderHistoryEntrySchema>;
 export type WorkOrderTotals = z.infer<typeof workOrderTotalsSchema>;
 export type WorkOrderEvent = z.infer<typeof workOrderEventSchema>;
 export type InspectionInput = z.output<typeof inspectionInputSchema>;

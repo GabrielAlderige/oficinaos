@@ -5,7 +5,7 @@ import {
   TRANSMISSION_LABELS,
   type Vehicle,
 } from '@oficinaos/shared';
-import { ArrowLeftRight, Gauge, History, MessageCircle, Pencil, Trash2 } from 'lucide-react';
+import { ArrowLeftRight, Gauge, MessageCircle, Pencil, Trash2 } from 'lucide-react';
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { toast } from 'sonner';
@@ -14,7 +14,6 @@ import { PlateBadge } from '../../components/plate-badge';
 import { Button } from '../../components/ui/button';
 import { Alert, Card, CardHeader, Skeleton } from '../../components/ui/display';
 import { Input } from '../../components/ui/input';
-import { EmptyState } from '../../components/ui/list-parts';
 import { ConfirmDialog, Dialog, DialogContent, DialogFooter, DialogHeader } from '../../components/ui/overlays';
 import { ApiError } from '../../lib/api-client';
 import { displayPhone, formatKm, whatsappUrl } from '../../lib/contact';
@@ -22,6 +21,7 @@ import { errorMessage } from '../../lib/errors';
 import { formatDate, formatRelative } from '../../lib/format';
 import { useCan } from '../../lib/session';
 import { CustomerSearchField, type PickedCustomer } from '../customers/CustomerSearchField';
+import { ServiceHistory } from '../work-orders/ServiceHistory';
 import { useDeleteVehicle, useOdometerReadings, useTransferVehicle, useUpdateVehicle, useVehicle } from './api';
 import { VehicleFormDialog } from './VehicleFormDialog';
 
@@ -121,14 +121,11 @@ function VehicleDetail({ vehicle }: { vehicle: Vehicle }) {
               <Info label="Observações">{vehicle.notes}</Info>
             </dl>
           </Card>
-          <Card>
-            <CardHeader title="Histórico de serviços" />
-            <EmptyState
-              icon={History}
-              title="Nenhum serviço registrado"
-              description="Os serviços, as peças trocadas e a quilometragem de cada visita vão aparecer aqui a partir da primeira ordem de serviço."
-            />
-          </Card>
+          <ServiceHistory
+            by={{ vehicleId: vehicle.id }}
+            title="Histórico de serviços"
+            emptyDescription="Os serviços, as peças trocadas e a quilometragem de cada visita vão aparecer aqui a partir da primeira ordem de serviço."
+          />
         </div>
 
         <div className="space-y-6">

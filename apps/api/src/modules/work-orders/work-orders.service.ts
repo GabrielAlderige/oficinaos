@@ -23,6 +23,8 @@ import {
   type WorkOrderItem,
   type WorkOrderItemInput,
   type MyDay,
+  type WorkOrderHistoryEntry,
+  type WorkOrderHistoryQuery,
   type WorkOrderListItem,
   WORK_ORDER_STATUS_LABELS,
   WORK_ORDER_TRANSITIONS,
@@ -170,6 +172,35 @@ export class WorkOrdersService {
         })),
         meta: { page: query.page, pageSize: query.pageSize, total },
       };
+    });
+  }
+
+  /** As 100 OS mais recentes de um carro ou de um cliente, com o que foi feito em cada uma. */
+  async history(auth: AuthContext, by: WorkOrderHistoryQuery): Promise<WorkOrderHistoryEntry[]> {
+    return withTenant(this.deps.db, auth, async (tx) => {
+      const { rows, items } = await repo.listHistory(tx, auth.organizationId, by, 100);
+      const porOs = new Map<string, WorkOrderHistoryEntry['items']>();
+      for (const item of items) {
+        const lista = porOs.get(item.workOrderId) ?? [];
+        lista.push({ type: item.type, description: item.description, quantity: Number(item.quantity) });
+        porOs.set(item.workOrderId, lista);
+      }
+      return rows.map((row) => ({
+        id: row.order.id,
+        number: row.order.number,
+        status: row.order.status,
+        paymentStatus: row.order.paymentStatus,
+        openedAt: row.order.openedAt.toISOString(),
+        deliveredAt: isoOrNull(row.order.deliveredAt),
+        odometerKm: row.order.odometerKm,
+        totalCents: row.order.totalCents,
+        complaint: row.order.complaint,
+        mechanicName: row.mechanicName,
+        vehicleId: row.vehicle.id,
+        vehiclePlate: row.vehicle.plate,
+        vehicleName: [row.vehicle.make, row.vehicle.model].filter(Boolean).join(' '),
+        items: porOs.get(row.order.id) ?? [],
+      }));
     });
   }
 
