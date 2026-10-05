@@ -186,6 +186,10 @@ const RECLAMACOES = [
  * apontam, então a ligação é desfeita antes de qualquer DELETE.
  */
 const NA_ORDEM = [
+  // nasceram depois do reset (E21 a E39) e ninguém aponta para elas: sem
+  // apagar, o delete da oficina batia na chave estrangeira e o reset morria
+  'automation_runs', 'automation_settings', 'catalog_vehicle_requests', 'commission_payouts',
+  'conversations', 'message_templates', 'messaging_channels', 'tutorial_views',
   'quote_approvals', 'quote_attachments', 'quote_items', 'quotes',
   // financeiro (E13): a baixa aponta para o lançamento, o pagamento também
   // cobrança online (E19): ela aponta para o pagamento, então sai antes dele
@@ -212,6 +216,8 @@ const NA_ORDEM = [
   // a peça aponta para o fornecedor preferido: fornecedor sai depois dela
   // pesquisa de peças (E14): a oferta aponta para a peça e para o fornecedor
   'part_offers', 'part_search_queries', 'supplier_price_list_items',
+  // pacotes de serviço (E27) apontam para a peça e para o serviço
+  'service_package_items', 'service_packages',
   'part_applications', 'parts', 'suppliers', 'part_categories', 'services', 'financial_categories',
   'odometer_readings', 'vehicles', 'customers',
   'messages', 'notifications', 'activity_logs',
@@ -828,7 +834,7 @@ async function main(): Promise<void> {
     // o deslocamento cabe no mês corrente: espalhado o bastante para o gráfico
     // ter forma, e sem jogar metade do movimento para o mês passado — foi o que
     // fez a única recusa cair fora da conta e a taxa de aprovação virar 100%
-    const DIAS = sql`make_interval(days => (number * 5) % greatest(extract(day from now())::int, 1))`;
+    const DIAS = sql`make_interval(days => (number * 37) % greatest(extract(day from now())::int, 1))`;
     await tx.execute(sql`
       update work_orders set
         opened_at    = opened_at    - ${DIAS} - interval '1 day',
@@ -840,7 +846,7 @@ async function main(): Promise<void> {
       where organization_id = ${organizationId}
     `);
     await tx.execute(sql`
-      update quotes set sent_at = sent_at - make_interval(days => (number * 5) % greatest(extract(day from now())::int, 1))
+      update quotes set sent_at = sent_at - make_interval(days => (number * 37) % greatest(extract(day from now())::int, 1))
       where organization_id = ${organizationId}
     `);
     await tx.execute(sql`
@@ -896,12 +902,43 @@ async function main(): Promise<void> {
         and coalesce(i.mechanic_user_id, w.mechanic_user_id) is not null
     `);
     // clientes novos ao longo do mês, para o gráfico ter o que mostrar
+    // dentro do mês corrente, como as OS: jogar para trás 1 a 26 dias mandava
+    // todo mundo para o mês passado no começo do mês, e o painel dizia 0
     await tx.execute(sql`
-      update customers set created_at = created_at - make_interval(days => (extract(day from created_at)::int % 26) + 1)
+      update customers
+      set created_at = created_at - make_interval(days => abs(hashtext(id::text)) % greatest(extract(day from now())::int, 1))
       where organization_id = ${organizationId}
+    `);
+    /**
+     * Quilometragem coerente com o carro e com a data: cada OS fica um pouco
+     * abaixo da km atual do carro, e mais abaixo quanto mais antiga. Antes ela
+     * saía do índice da OS, e o histórico do carro mostrava uma visita antiga
+     * com 106 mil km num Gol que hoje tem 30 mil.
+     */
+    await tx.execute(sql`
+      update work_orders w
+      set odometer_km = v.odometer_km - 350 - (extract(epoch from (now() - w.opened_at)) / 86400)::int * 55 - (w.number % 9) * 130
+      from vehicles v
+      where v.organization_id = w.organization_id and v.id = w.vehicle_id
+        and w.organization_id = ${organizationId} and w.odometer_km is not null
+    `);
+    await tx.execute(sql`
+      update vehicle_inspections i set odometer_km = w.odometer_km
+      from work_orders w
+      where w.organization_id = i.organization_id and w.id = i.work_order_id
+        and i.organization_id = ${organizationId} and i.odometer_km is not null
+    `);
+    await tx.execute(sql`
+      update odometer_readings r set km = w.odometer_km, recorded_at = w.opened_at
+      from work_orders w
+      where w.organization_id = r.organization_id and w.id = r.work_order_id
+        and r.organization_id = ${organizationId}
     `);
   });
 
+  // a conta demo é de mentira e nunca recebe e-mail: sem isto, toda tela da
+  // demonstração (e todo tutorial gravado nela) abre com o aviso de confirmar
+  await dona.db.execute(sql`update users set email_verified_at = now() where email like '%@oficinaos.dev'`);
   await dona.pool.end();
 
   const resumo = (await chamar('GET', '/dashboard/summary?period=month', undefined, dono)) as {
