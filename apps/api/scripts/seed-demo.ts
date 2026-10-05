@@ -211,7 +211,10 @@ const NA_ORDEM = [
   'supplier_quote_request_items', 'supplier_quote_requests',
   // nota fiscal (E18): o item aponta para a nota e para o item da OS
   'invoice_items', 'invoices',
-  'work_order_events', 'vehicle_inspections', 'attachments',
+  // o anexo (foto, assinatura da entrega) aponta para a vistoria: sai antes dela.
+  // Na ordem antiga o reset só quebrava depois de alguém entregar um carro com
+  // assinatura na demo — foi o que o tutorial da entrega fez
+  'work_order_events', 'attachments', 'vehicle_inspections',
   'work_order_items', 'appointments', 'work_orders',
   // a peça aponta para o fornecedor preferido: fornecedor sai depois dela
   // pesquisa de peças (E14): a oferta aponta para a peça e para o fornecedor
