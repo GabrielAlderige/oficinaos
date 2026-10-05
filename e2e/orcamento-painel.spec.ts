@@ -68,10 +68,12 @@ test('a oficina envia o orçamento, acompanha e registra a resposta', async ({ p
     await expect(doCliente.getByRole('heading', { name: 'Orçamento para seu veículo', exact: true })).toBeVisible();
     await doCliente.close();
 
-    await page.reload();
-    // o contador pode passar de 1 com uma só abertura (em dev o React monta duas
+    // SEM recarregar: o cartão se atualiza sozinho enquanto espera resposta.
+    // Antes este passo recarregava a página, e por isso nunca pegou o cartão
+    // parado em "ainda não abriu" com o cliente já tendo aberto.
+    // O contador pode passar de 1 com uma só abertura (em dev o React monta duas
     // vezes); o que a oficina precisa ver é que saiu de "ainda não abriu"
-    await expect(page.getByText(/Visto \d+ vez/)).toBeVisible();
+    await expect(page.getByText(/Visto \d+ vez/)).toBeVisible({ timeout: 10_000 });
     expect(await textoDe(page.locator('main'))).not.toContain('O cliente ainda não abriu o link');
     await captura(page, 'painel-04-visualizado');
   });

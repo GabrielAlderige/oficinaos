@@ -25,11 +25,21 @@ export function useQuotes(params: QuoteListParams) {
   });
 }
 
+/**
+ * Enquanto o orçamento espera o cliente, ele se atualiza sozinho, no mesmo
+ * ritmo da OS (E34): sem isto, o cliente aprovava pelo celular, a OS virava
+ * "Aprovada" na tela e o cartão do orçamento seguia dizendo "Aguardando
+ * resposta" e "o cliente ainda não abriu o link" até alguém recarregar.
+ * Respondido, ele para de perguntar.
+ */
 export function useQuote(id: string | null) {
   return useQuery({
     queryKey: quoteKeys.detail(id ?? 'nenhum'),
     queryFn: () => api<Quote>(`/quotes/${id}`),
     enabled: Boolean(id),
+    refetchInterval: (query) => (query.state.data?.status === 'SENT' ? 5_000 : false),
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
   });
 }
 
