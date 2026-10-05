@@ -105,7 +105,7 @@ describe('mensagem do WhatsApp', () => {
       shopName: 'Auto Center Silva',
       vehicle: { make: 'Volkswagen', model: 'Gol', plate: 'ABC1C34' },
       totalCents: 120000,
-      link: 'https://app.oficinaos.com.br/orcamento/abc123',
+      link: 'https://app.oficinaosbr.com/orcamento/abc123',
     });
     expect(message).toContain('Olá, João!');
     expect(message).toContain('Auto Center Silva');
@@ -113,7 +113,7 @@ describe('mensagem do WhatsApp', () => {
     expect(message).toContain('Volkswagen Gol (ABC1C34)');
     // o espaco do Intl vai como ESCAPE: o caractere literal vira espaco comum na escrita
     expect(message.replace(/\u00a0/g, " ")).toContain("R$ 1.200,00");
-    expect(message.endsWith('https://app.oficinaos.com.br/orcamento/abc123')).toBe(true);
+    expect(message.endsWith('https://app.oficinaosbr.com/orcamento/abc123')).toBe(true);
   });
 
   it('carro sem placa não deixa parêntese vazio', () => {

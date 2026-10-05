@@ -8,7 +8,7 @@ import { defineConfig } from 'astro/config';
  * vazio para o Google. O build sai HTML estático, sem JavaScript de runtime.
  */
 export default defineConfig({
-  site: 'https://oficinaos.com.br',
+  site: 'https://oficinaosbr.com',
   vite: { plugins: [tailwindcss()] },
   build: { inlineStylesheets: 'always' },
 });
