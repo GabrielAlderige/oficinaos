@@ -34,3 +34,7 @@ Thumbs.db
 # vídeos do curso de Tutoriais: 163 MB, ficam fora do git (ver seed-tutoriais.ts)
 /tutoriais/
 /apps/web/public/tutoriais/
+/ferramentas/tutoriais/videos/
+/ferramentas/tutoriais/cache-voz/
+/ferramentas/tutoriais/tmp/
+__pycache__/
