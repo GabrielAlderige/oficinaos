@@ -94,9 +94,9 @@ cp deploy/.env.example .env
 chmod 600 .env
 
 # gere os segredos (nunca escolha "na mão")
-echo "POSTGRES_PASSWORD=$(openssl rand -base64 36)"
-echo "APP_DB_PASSWORD=$(openssl rand -base64 36)"
-echo "OWNER_DB_PASSWORD=$(openssl rand -base64 36)"
+echo "POSTGRES_PASSWORD=$(openssl rand -hex 32)"
+echo "APP_DB_PASSWORD=$(openssl rand -hex 32)"
+echo "OWNER_DB_PASSWORD=$(openssl rand -hex 32)"
 echo "JWT_SECRET=$(openssl rand -base64 48)"
 # cifra o token do WhatsApp de cada oficina (E22); precisa ter 32 bytes
 echo "SECRETS_KEY=$(openssl rand -base64 32)"
