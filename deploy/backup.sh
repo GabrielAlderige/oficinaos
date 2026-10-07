@@ -22,8 +22,9 @@ echo "[$(date -Is)] backup começando"
 docker compose exec -T db pg_dump -U postgres -d oficinaos -Fc \
   > "$DESTINO/oficinaos_$CARIMBO.dump"
 
-# 2) as fotos do check-in e os anexos (o volume `storage` da API)
-docker compose run --rm --no-deps -v "$DESTINO:/backup" api \
+# 2) as fotos do check-in e os anexos (o volume `storage` da API), como root:
+#    a imagem roda como `node`, que não escreve na pasta de backup do host
+docker compose run --rm --no-deps --user root -v "$DESTINO:/backup" api \
   tar czf "/backup/storage_$CARIMBO.tar.gz" -C /app/storage .
 
 # 3) o .env NÃO entra aqui: ele tem os segredos, e backup de segredo junto com
