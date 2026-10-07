@@ -13,7 +13,7 @@ import { applyFieldErrors, errorMessage } from '../../lib/errors';
 import { useSession } from '../../lib/session';
 
 /** Onde moram os termos e a política de privacidade: no site, não no painel. */
-const SITE_URL = import.meta.env.VITE_SITE_URL ?? 'https://oficinaosbr.com';
+const SITE_URL = import.meta.env.VITE_SITE_URL ?? 'https://oficinaosbr.cloud';
 
 /** Cadastro curto (5 campos): o resto vira checklist dentro do painel. */
 export function SignupPage() {

@@ -8,7 +8,7 @@ import { defineConfig } from 'astro/config';
  * vazio para o Google. O build sai HTML estático, sem JavaScript de runtime.
  */
 export default defineConfig({
-  site: 'https://oficinaosbr.com',
+  site: 'https://oficinaosbr.cloud',
   vite: {
     plugins: [tailwindcss()],
     // só no `astro dev`: o formulário posta em /api/v1/prospects, que em

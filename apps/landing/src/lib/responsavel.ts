@@ -10,7 +10,7 @@ export const RESPONSAVEL = {
   nome: import.meta.env.PUBLIC_RESPONSAVEL_NOME || 'Gabriel Alderige',
   documento: import.meta.env.PUBLIC_RESPONSAVEL_DOC || '',
   cidade: import.meta.env.PUBLIC_RESPONSAVEL_CIDADE || 'Poços de Caldas/MG',
-  email: import.meta.env.PUBLIC_CONTATO_EMAIL || 'contato@oficinaosbr.com',
+  email: import.meta.env.PUBLIC_CONTATO_EMAIL || 'contato@oficinaosbr.cloud',
   whatsapp: '(35) 99755-8675',
   whatsappLink: 'https://wa.me/5535997558675',
 };

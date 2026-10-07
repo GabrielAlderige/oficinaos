@@ -103,7 +103,7 @@ services:
       target: web
       args:
         PUBLIC_RESPONSAVEL_DOC: ${RESPONSAVEL_DOC:?CPF ou CNPJ de quem responde pelos termos}
-        PUBLIC_CONTATO_EMAIL: ${CONTATO_EMAIL:-contato@oficinaosbr.com}
+        PUBLIC_CONTATO_EMAIL: ${CONTATO_EMAIL:-contato@oficinaosbr.cloud}
     image: oficinaos-web:${TAG:-latest}
     restart: unless-stopped
     depends_on:
