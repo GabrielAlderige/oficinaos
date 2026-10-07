@@ -44,6 +44,9 @@ COPY apps/web/package.json apps/web/
 COPY apps/landing/package.json apps/landing/
 COPY packages/shared/package.json packages/shared/
 RUN npm ci --omit=dev --ignore-scripts=false
+# com workspaces o npm sobe quase tudo para a raiz; a pasta da API só existe
+# quando há versão em conflito. Garante que ela exista para o COPY abaixo.
+RUN mkdir -p apps/api/node_modules
 
 # ----------------------------------- API -----------------------------------
 FROM node:24-slim AS api
