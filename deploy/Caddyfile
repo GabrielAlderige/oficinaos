@@ -90,3 +90,10 @@
 		-Server
 	}
 }
+
+# www.<dominio> → <dominio>: um endereço só para o Google e para o link
+# copiado. Sem LANDING_DOMAIN vira www.localhost, que o Caddy não tenta
+# certificar na internet.
+www.{$LANDING_DOMAIN:localhost} {
+	redir https://{$LANDING_DOMAIN:localhost}{uri} permanent
+}
