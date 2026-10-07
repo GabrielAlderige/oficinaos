@@ -231,8 +231,10 @@ para a pasta `tutoriais/` ao lado do `docker-compose.yml`, e o Caddy serve em
 scp -r tutoriais/ oficinaos@IP-DO-SERVIDOR:/opt/oficinaos/tutoriais/
 
 # no servidor: recria o web (para montar a pasta) e publica as aulas
+sudo chown oficinaos:oficinaos tutoriais   # o Docker cria a pasta como root
 docker compose up -d web
-docker compose exec api node dist/seed-tutoriais.js   # ou, com o código: npm run db:seed:tutoriais
+# pelo `migrate`: só ele tem a senha de dona do banco (DATABASE_OWNER_URL)
+docker compose --profile ferramentas run --rm -e APP_URL=https://app.<seu-domínio> migrate node dist/seed-tutoriais.js
 ```
 
 O cadastro lê `apps/api/scripts/tutoriais-aulas.ts` e aponta cada aula para
