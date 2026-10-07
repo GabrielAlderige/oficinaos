@@ -6,6 +6,7 @@ import { withTenant } from '../src/db/tenant';
 import { addMember, bearer, createCustomer, createTestApp, signup, testDb, type TestApp, type TestSession } from './helpers';
 
 interface Visao {
+  currentPeriodEnd: string | null;
   plan: string;
   planName: string;
   status: string;
@@ -87,6 +88,14 @@ describe('assinatura do SaaS', () => {
     t = await createTestApp();
     dono = await signup(t.app);
     gerente = await addMember(t.app, dono, 'MANAGER', 'Marta Gerente');
+    // o gateway não cobra sem CPF/CNPJ de quem paga
+    const doc = await t.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/organization',
+      headers: bearer(dono.accessToken),
+      payload: { document: '11.222.333/0001-81' },
+    });
+    expect(doc.statusCode, doc.body).toBe(200);
   });
   afterAll(async () => {
     await t.app.close();
@@ -115,6 +124,17 @@ describe('assinatura do SaaS', () => {
   });
 
   // ------------------------------- assinar --------------------------------
+
+  it('sem CPF ou CNPJ na oficina, assinar explica o que falta em vez de quebrar no gateway', async () => {
+    const semDocumento = await signup(t.app);
+    const res = await post(
+      '/api/v1/billing/subscribe',
+      { clientRequestId: randomUUID(), plan: 'TURBO', cycle: 'MONTHLY' },
+      semDocumento,
+    );
+    expect(res.statusCode, res.body).toBe(422);
+    expect((res.json() as { title: string }).title).toBe('Falta o CPF ou CNPJ da oficina');
+  });
 
   it('assinar guarda o preço congelado e a referência do gateway', async () => {
     const res = await post('/api/v1/billing/subscribe', {
@@ -208,12 +228,17 @@ describe('assinatura do SaaS', () => {
     const ref = await refDoGateway(organizationId);
     const providerChargeId = `pay-${randomUUID()}`;
 
-    const aviso = await avisar(ref, { providerChargeId, amountCents: 39_900 });
+    // pagou ADIANTADO uma cobrança que vence daqui a 10 dias
+    const vence = new Date(Date.now() + 10 * 86_400_000).toISOString().slice(0, 10);
+    const aviso = await avisar(ref, { providerChargeId, amountCents: 39_900, dueDate: vence });
     expect(aviso.statusCode, aviso.body).toBe(200);
     expect((aviso.json() as { handled: boolean; reason: string }).reason).toBe('assinatura renovada');
 
     const dados = await visao();
     expect(dados.status).toBe('ACTIVE');
+    // o período conta do vencimento, não do dia do pagamento: adiantar não come dias
+    const fim = new Date(Date.parse(`${vence}T12:00:00-03:00`) + 30 * 86_400_000).toISOString();
+    expect(dados.currentPeriodEnd).toBe(fim);
     expect(dados.emTeste, 'pagou: o teste acabou').toBe(false);
     expect(dados.payments[0]!.amountCents).toBe(39_900);
     expect(dados.payments[0]!.status).toBe('PAID');

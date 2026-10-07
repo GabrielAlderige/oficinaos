@@ -128,6 +128,16 @@ export class BillingService {
       const plano = await this.planoEscolhido(tx, input.plan, input.cycle);
       const oficina = await orgRepo.findOrganization(tx, auth.organizationId);
       if (!oficina) throw notFound('Oficina não encontrada.');
+      // o gateway não emite cobrança sem CPF/CNPJ de quem paga: melhor dizer
+      // isso aqui do que devolver o erro cru dele
+      if (!oficina.document) {
+        throw new AppError(
+          422,
+          ErrorCode.BAD_REQUEST,
+          'Falta o CPF ou CNPJ da oficina',
+          'Preencha o CPF ou CNPJ da oficina em Configurações → Oficina antes de assinar. Ele vai na cobrança.',
+        );
+      }
       const hoje = dayKey(new Date(), oficina.timezone);
       // quem ainda está em teste só começa a pagar quando o teste acabar
       const emTeste = assinatura.status === 'TRIALING' && (assinatura.trialEndsAt?.getTime() ?? 0) > Date.now();
@@ -366,6 +376,10 @@ export class BillingService {
 
       const hoje = new Date();
       const pago = aviso.status === 'PAID';
+      // o período pago começa no VENCIMENTO da cobrança, não no dia do
+      // pagamento: adiantado no teste não perde dias, atrasado não ganha
+      const base = aviso.dueDate ?? (aviso.paidAt ?? hoje).toISOString().slice(0, 10);
+      const fimDoPeriodo = proximoVencimento(base, travada.billingCycle);
       // o UNIQUE (provider, providerPaymentId) é a trava contra o reenvio
       const registro = await repo.insertPayment(tx, {
         organizationId: assinatura.organizationId,
@@ -373,24 +387,19 @@ export class BillingService {
         providerPaymentId: aviso.providerChargeId,
         amountCents: aviso.paidAmountCents ?? travada.priceCents ?? 0,
         status: aviso.status,
-        dueDate: (aviso.paidAt ?? hoje).toISOString().slice(0, 10),
+        dueDate: base,
         paidAt: aviso.paidAt,
-        periodStart: pago ? (aviso.paidAt ?? hoje).toISOString().slice(0, 10) : null,
-        periodEnd: pago
-          ? proximoVencimento((aviso.paidAt ?? hoje).toISOString().slice(0, 10), travada.billingCycle)
-          : null,
+        periodStart: pago ? base : null,
+        periodEnd: pago ? fimDoPeriodo : null,
         invoiceUrl: null,
       });
       if (!registro) return { handled: false, reason: 'aviso repetido' };
 
       if (pago) {
-        const inicio = aviso.paidAt ?? hoje;
-        const fim = new Date(inicio);
-        fim.setDate(fim.getDate() + (travada.billingCycle === 'MONTHLY' ? 30 : 365));
         await repo.updateSubscription(tx, assinatura.organizationId, {
           status: 'ACTIVE',
-          currentPeriodStart: inicio,
-          currentPeriodEnd: fim,
+          currentPeriodStart: new Date(`${base}T12:00:00-03:00`),
+          currentPeriodEnd: new Date(`${fimDoPeriodo}T12:00:00-03:00`),
           pastDueSince: null,
           trialEndsAt: null,
         });

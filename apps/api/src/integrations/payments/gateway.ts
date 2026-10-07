@@ -59,6 +59,12 @@ export interface AvisoDeCobranca {
   status: ChargeStatus;
   paidAmountCents: number | null;
   paidAt: Date | null;
+  /**
+   * 'YYYY-MM-DD': o vencimento da cobrança. Na assinatura é ele, e não o dia
+   * em que pagou, que diz qual período foi pago: quem paga adiantado no teste
+   * não pode perder os dias que faltavam.
+   */
+  dueDate: string | null;
   failureReason: string | null;
   raw: Record<string, unknown>;
 }
@@ -179,6 +185,7 @@ export class SimuladorPaymentGateway implements PaymentGateway {
       providerSubscriptionId?: string;
       externalId?: string;
       amountCents?: number;
+      dueDate?: string;
     };
     if (!corpo.providerChargeId) return null;
     const evento = corpo.event ?? 'PAYMENT_RECEIVED';
@@ -197,6 +204,7 @@ export class SimuladorPaymentGateway implements PaymentGateway {
       status,
       paidAmountCents: status === 'PAID' ? (corpo.amountCents ?? null) : null,
       paidAt: status === 'PAID' ? new Date() : null,
+      dueDate: corpo.dueDate ?? null,
       failureReason: null,
       raw: { ...corpo, simulacao: true },
     };

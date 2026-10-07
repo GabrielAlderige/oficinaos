@@ -13,11 +13,13 @@ import type {
  * Asaas (E19). Gateway brasileiro de PME: Pix, boleto e cartão numa API só, e
  * cobrança recorrente para a assinatura do SaaS (E20) sem outro contrato.
  *
- * **Aviso honesto:** este driver foi escrito a partir da documentação da API
- * v3 e ainda **não foi exercitado contra a API real** — falta a conta. O que
- * está provado são os testes de contrato (`asaas.test.ts`): o formato do que
- * mandamos, a tradução do que volta e a recusa de aviso sem token. Antes de
- * ligar em produção, rodar o fluxo inteiro no sandbox.
+ * **O que já rodou contra o Asaas de verdade** (sandbox, 07/10/2026): a
+ * ASSINATURA inteira — cliente, assinatura, primeira fatura, pagamento
+ * simulado e o aviso montado com a cobrança real que o Asaas devolveu, que
+ * ativou o plano; e o aviso com token errado recusado. Saíram de lá o CPF/CNPJ
+ * obrigatório e o período contado do vencimento. A cobrança da OFICINA para o
+ * cliente (`criar`, `cancelar`, `estornar`) segue só com testes de contrato
+ * (`asaas.test.ts`): fica desligada enquanto a conta for uma só.
  *
  * O dinheiro no Asaas é decimal em reais; aqui é centavo inteiro. A conversão
  * acontece só na borda, nas duas funções abaixo.
@@ -69,6 +71,7 @@ interface AsaasPayment {
   invoiceUrl?: string;
   bankSlipUrl?: string;
   identificationField?: string;
+  dueDate?: string;
   paymentDate?: string;
   clientPaymentDate?: string;
 }
@@ -102,6 +105,8 @@ export class AsaasPaymentGateway implements PaymentGateway {
       method: metodo,
       headers: {
         'content-type': 'application/json',
+        // contas criadas depois de jun/2024 recusam chamada sem User-Agent
+        'user-agent': 'OficinaOS',
         access_token: this.config.apiKey,
       },
       body: corpo === undefined ? undefined : JSON.stringify(corpo),
@@ -283,6 +288,7 @@ export class AsaasPaymentGateway implements PaymentGateway {
       status,
       paidAmountCents: status === 'PAID' ? centavos(cobranca.value) : null,
       paidAt: status === 'PAID' ? (quando ? new Date(`${quando}T12:00:00-03:00`) : new Date()) : null,
+      dueDate: cobranca.dueDate ?? null,
       failureReason: status === 'FAILED' ? `Situação ${cobranca.status} no gateway` : null,
       raw: corpo as unknown as Record<string, unknown>,
     };

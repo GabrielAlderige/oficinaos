@@ -317,10 +317,19 @@ openssl rand -base64 32
 
 ```sh
 PAYMENT_GATEWAY=asaas
-ASAAS_API_KEY=$aact_...                        # a chave do passo 1
+ASAAS_API_KEY='$aact_...'                      # a chave do passo 1, ENTRE ASPAS SIMPLES
 ASAAS_BASE_URL=https://api-sandbox.asaas.com/v3
-ASAAS_WEBHOOK_TOKEN=...                        # o token do passo 2
+ASAAS_WEBHOOK_TOKEN='...'                      # o token do passo 2
+CHARGES_GATEWAY=desligado
 ```
+
+> **As aspas simples não são enfeite.** A chave começa com `$`, e o Docker
+> Compose lê `$aact_...` como uma variável — que não existe, então a API
+> recebe a chave vazia (ou cortada) e o Asaas responde 401. Entre aspas
+> simples, o valor passa literal.
+
+A oficina precisa ter **CPF ou CNPJ** em Configurações → Oficina para assinar:
+o Asaas não emite cobrança sem documento, e a API avisa isso antes de chamar.
 
 `ASAAS_BASE_URL` é o que decide o rótulo que a tela mostra: com `sandbox` no
 endereço a oficina lê **SANDBOX**; sem ele, **PRODUÇÃO**. Não existe outro
@@ -368,7 +377,7 @@ linha diz se o aviso chegou e o que foi feito com ele.
 Só depois que o passo 5 funcionou:
 
 ```sh
-ASAAS_API_KEY=$aact_...                  # chave da conta de PRODUÇÃO
+ASAAS_API_KEY='$aact_...'                # chave da conta de PRODUÇÃO, entre aspas simples
 ASAAS_BASE_URL=https://api.asaas.com/v3  # sem "sandbox"
 ```
 
