@@ -11,9 +11,9 @@ import '../styles/landing.css';
  * tabela de planos. O que a página promete é exatamente o que o sistema faz
  * hoje — e o que ainda não faz está escrito, na seção de perguntas.
  *
- * A seção de prova social é um CONVITE, não um depoimento: enquanto não
- * houver cliente de verdade para citar com nome e autorização, citar qualquer
- * coisa seria inventar.
+ * Não há seção de depoimentos enquanto não houver cliente de verdade para
+ * citar com nome e autorização: citar qualquer coisa seria inventar. No lugar
+ * dela fica o convite para as primeiras oficinas.
  */
 const APP_URL = import.meta.env.PUBLIC_APP_URL ?? 'https://app.oficinaosbr.com';
 
@@ -601,18 +601,14 @@ const perguntas = [
         </div>
       </section>
 
-      <!-- ============== AS TRÊS PRIMEIRAS (prova social honesta) ============== -->
+      <!-- ============== PARA AS PRIMEIRAS OFICINAS ==============
+           quando houver depoimento de verdade (com nome e autorização), ele entra aqui -->
       <section class="mx-auto max-w-6xl px-5 py-16">
         <div class="reveal rounded-2xl border-2 border-dashed border-accent/40 bg-accent-soft/40 p-8 sm:p-12">
-          <p class="text-xs font-semibold tracking-widest text-accent uppercase">Estamos começando</p>
+          <p class="text-xs font-semibold tracking-widest text-accent uppercase">Para as primeiras oficinas</p>
           <h2 class="mt-3 max-w-3xl text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
-            Ainda não temos depoimento para mostrar. E não vamos inventar um.
+            Quem entra agora leva três vantagens.
           </h2>
-          <p class="mt-4 max-w-2xl text-muted">
-            O OficinaOS está pronto e sendo colocado nas primeiras oficinas agora. Em vez de
-            encher esta página de elogio de gente que não existe, a gente prefere te fazer
-            um convite honesto:
-          </p>
           <div class="mt-7 grid gap-5 sm:grid-cols-3">
             <div class="rounded-xl border border-border bg-surface p-5">
               <p class="text-2xl font-semibold text-accent">1</p>

@@ -9,6 +9,11 @@ import { defineConfig } from 'astro/config';
  */
 export default defineConfig({
   site: 'https://oficinaosbr.com',
-  vite: { plugins: [tailwindcss()] },
+  vite: {
+    plugins: [tailwindcss()],
+    // só no `astro dev`: o formulário posta em /api/v1/prospects, que em
+    // produção o Caddy entrega para a API no mesmo domínio
+    server: { proxy: { '/api': 'http://127.0.0.1:3333' } },
+  },
   build: { inlineStylesheets: 'always' },
 });
