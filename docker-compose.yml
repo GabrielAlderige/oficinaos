@@ -37,6 +37,11 @@ services:
     build:
       context: .
       target: api
+      # a etapa de build é a mesma do web e gera a landing também, que exige o
+      # documento do responsável pelos termos
+      args:
+        PUBLIC_RESPONSAVEL_DOC: ${RESPONSAVEL_DOC:?CPF ou CNPJ de quem responde pelos termos}
+        PUBLIC_CONTATO_EMAIL: ${CONTATO_EMAIL:-contato@oficinaosbr.cloud}
     image: oficinaos-api:${TAG:-latest}
     profiles: ['ferramentas']
     depends_on:
@@ -55,6 +60,11 @@ services:
     build:
       context: .
       target: api
+      # a etapa de build é a mesma do web e gera a landing também, que exige o
+      # documento do responsável pelos termos
+      args:
+        PUBLIC_RESPONSAVEL_DOC: ${RESPONSAVEL_DOC:?CPF ou CNPJ de quem responde pelos termos}
+        PUBLIC_CONTATO_EMAIL: ${CONTATO_EMAIL:-contato@oficinaosbr.cloud}
     image: oficinaos-api:${TAG:-latest}
     restart: unless-stopped
     depends_on:
