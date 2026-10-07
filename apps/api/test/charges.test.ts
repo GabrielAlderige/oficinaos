@@ -278,3 +278,43 @@ describe('cobrança online', () => {
     expect(caixa.balanceCents, 'e a OS volta a dever').toBe(40_000);
   });
 });
+
+/**
+ * Cobrança online desligada (o padrão em produção enquanto o Asaas é a conta
+ * do dono do OficinaOS): o dinheiro do cliente da oficina não pode cair lá.
+ */
+describe('cobrança online desligada', () => {
+  let t: TestApp;
+  let dono: TestSession;
+
+  beforeAll(async () => {
+    t = await createTestApp({ CHARGES_GATEWAY: 'desligado' });
+    dono = await signup(t.app);
+  });
+  afterAll(async () => {
+    await t.app.close();
+  });
+
+  it('o resumo avisa que está desligada e a API recusa cobrança nova', async () => {
+    const cliente = await createCustomer(t.app, dono, { name: 'Maria Souza' });
+    const veiculo = await createVehicle(t.app, dono, cliente.id, { plate: 'DES1L23' });
+    const os = await createWorkOrder(t.app, dono, { customerId: cliente.id, vehicleId: veiculo.id, items: [] });
+
+    const resumo = await t.app.inject({
+      method: 'GET',
+      url: `/api/v1/work-orders/${os.id}/charges`,
+      headers: bearer(dono.accessToken),
+    });
+    expect(resumo.statusCode, resumo.body).toBe(200);
+    expect((resumo.json() as { enabled: boolean }).enabled).toBe(false);
+
+    const res = await t.app.inject({
+      method: 'POST',
+      url: `/api/v1/work-orders/${os.id}/charges`,
+      headers: bearer(dono.accessToken),
+      payload: { clientRequestId: randomUUID(), method: 'PIX', amountCents: 10_000 },
+    });
+    expect(res.statusCode, res.body).toBe(422);
+    expect(res.body).toContain('Cobrança online desligada');
+  });
+});

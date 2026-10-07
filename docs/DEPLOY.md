@@ -104,6 +104,13 @@ echo "SECRETS_KEY=$(openssl rand -base64 32)"
 nano .env   # cole os valores e preencha domínios e SMTP
 ```
 
+**Preencha `RESPONSAVEL_DOC`** com o CPF (ou CNPJ) de quem responde pelo
+serviço, só os números. Ele aparece nas páginas `/termos` e `/privacidade` do
+site, e o build do `web` **para** sem ele: termo sem identificação do
+fornecedor não vale. Fica no `.env`, e não no código, porque o repositório é
+público. Trocou (de CPF para CNPJ, por exemplo)? `docker compose build web &&
+docker compose up -d web`.
+
 **Confira que o `.env` tem `TRUST_PROXY=uniquelocal`.** O compose já põe esse
 valor por padrão, e ele é o que faz a API enxergar o IP real de cada oficina
 atrás do Caddy. Sem ele, todas chegam com o IP do contêiner do proxy: o limite
@@ -273,9 +280,17 @@ Está no §4.
 
 ### 8.1 Asaas, passo a passo
 
-O Asaas cuida de duas coisas ao mesmo tempo, pelo mesmo webhook: a **cobrança
-que a oficina faz do cliente dela** (E19) e a **assinatura que ela paga para
-você** (E20).
+O sistema tem dois usos para um gateway de pagamento:
+
+- a **assinatura que a oficina paga para você** (E20), por `PAYMENT_GATEWAY`;
+- a **cobrança que a oficina faz do cliente dela** (E19), por `CHARGES_GATEWAY`.
+
+Com **uma conta Asaas só, a sua**, ligue apenas o primeiro. O segundo fica
+`desligado` (o padrão em produção): ligado com a sua conta, o Pix e o boleto do
+cliente da oficina cairiam na **sua** conta, e não na da oficina. Desligado, o
+cartão "Cobrança online" some da OS e a oficina registra o que recebeu no
+cartão de pagamentos, como sempre. Ele só deve ser ligado (`CHARGES_GATEWAY=asaas`)
+quando existir uma conta por oficina, o que este código ainda não faz.
 
 **Comece pelo sandbox.** É uma conta separada, com dados falsos, onde o Pix e o
 boleto se comportam igual ao de produção. Passar direto para produção significa
@@ -337,11 +352,13 @@ repetido e não conta o pagamento duas vezes.
 
 **5) Provar que funciona, no sandbox**
 
-1. No painel do OficinaOS, abra uma OS e gere uma cobrança por boleto.
-2. No painel do Asaas, ache a cobrança e use **Confirmar recebimento em
-   dinheiro** — é o jeito de simular o pagamento sem pagar.
-3. Volte na OS: o pagamento tem de aparecer **sozinho**, sem você clicar em
-   nada. Quem dá baixa é o webhook, nunca a tela.
+1. Crie uma oficina de teste no OficinaOS e, em **Configurações → Plano**,
+   assine um plano (boleto ou Pix).
+2. No painel do Asaas sandbox, em **Cobranças**, ache a cobrança da assinatura
+   e use **Confirmar recebimento em dinheiro**: é o jeito de simular o
+   pagamento sem pagar.
+3. Volte na tela de Plano: a assinatura tem de aparecer **ativa sozinha**, sem
+   você clicar em nada. Quem confirma é o webhook, nunca a tela.
 
 Se não aparecer, olhe `docker compose logs api | grep "aviso de pagamento"`. A
 linha diz se o aviso chegou e o que foi feito com ele.
@@ -359,10 +376,10 @@ Gere um `ASAAS_WEBHOOK_TOKEN` **novo** e cadastre o webhook de novo, na conta
 de produção — são painéis separados e o do sandbox não vem junto. Reinicie a
 API e confira que a tela de Plano deixou de mostrar o aviso de simulação.
 
-> **A conta do Asaas é sua, não de cada oficina.** Quem recebe o Pix do cliente
-> final é a oficina, pela chave Pix dela (isso não passa por gateway nenhum); o
-> Asaas entra na cobrança por boleto e cartão, e na assinatura que a oficina
-> paga para você.
+> **A conta do Asaas é sua, não de cada oficina.** Por isso ela só recebe a
+> assinatura. Quem recebe o dinheiro do cliente final é a oficina: pelo Pix na
+> hora com a chave dela (que não passa por gateway nenhum) ou na mão, e ela dá
+> baixa no cartão de pagamentos da OS.
 
 ---
 

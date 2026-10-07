@@ -97,7 +97,10 @@ export interface ServiceDeps {
   email: EmailProvider;
   storage: StorageProvider;
   nfse: NfseProvider;
+  /** o da plataforma: assinatura do SaaS e leitura dos avisos */
   gateway: PaymentGateway;
+  /** o da cobrança da oficina para o cliente; `null` é desligado */
+  chargesGateway: PaymentGateway | null;
   tokens: AccessTokens;
   caches: AuthCaches;
   log: FastifyBaseLogger;

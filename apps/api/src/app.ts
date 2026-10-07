@@ -14,7 +14,7 @@ import { registerSecurity } from './core/plugins/security';
 import type { Database } from './db/client';
 import { createEmailProvider, type EmailProvider } from './integrations/email/email';
 import { createNfseProvider, type NfseProvider } from './integrations/fiscal/nfse';
-import { createPaymentGateway, type PaymentGateway } from './integrations/payments';
+import { createChargesGateway, createPaymentGateway, type PaymentGateway } from './integrations/payments';
 import { AutomationsService } from './modules/automations/automations.service';
 import { automationRoutes } from './modules/automations/automations.routes';
 import { BillingService } from './modules/billing/billing.service';
@@ -175,6 +175,8 @@ export interface AppDeps {
   nfse?: NfseProvider;
   /** gateway de cobrança; o padrão é o simulador (E19) */
   gateway?: PaymentGateway;
+  /** cobrança da oficina para o cliente; `null` desliga */
+  chargesGateway?: PaymentGateway | null;
 }
 
 /** Monta a API sem abrir porta: o server.ts escuta; os testes usam `app.inject()`. */
@@ -185,6 +187,7 @@ export async function buildApp({
   storage = createStorageProvider(env),
   nfse = createNfseProvider(env),
   gateway = createPaymentGateway(env),
+  chargesGateway = createChargesGateway(env, gateway),
 }: AppDeps) {
   const app = Fastify({
     // nos testes o nível padrão é 'silent' (TEST_LOG_LEVEL=error mostra os erros)
@@ -220,7 +223,7 @@ export async function buildApp({
 
   const tokens = new AccessTokens(env.JWT_SECRET);
   const caches = createAuthCaches(AUTH_CACHE_TTL_MS);
-  const deps: ServiceDeps = { db, env, email, storage, nfse, gateway, tokens, caches, log: app.log };
+  const deps: ServiceDeps = { db, env, email, storage, nfse, gateway, chargesGateway, tokens, caches, log: app.log };
   // o canal de WhatsApp nasce antes de quem manda mensagem por ele (E22)
   const messaging = new MessagingService(deps);
   const packages = new PackagesService(deps);

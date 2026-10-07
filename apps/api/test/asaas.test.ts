@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { AsaasPaymentGateway, statusDoAsaas } from '../src/integrations/payments';
+import {
+  AsaasPaymentGateway,
+  createChargesGateway,
+  createPaymentGateway,
+  statusDoAsaas,
+} from '../src/integrations/payments';
+import { testEnv } from './helpers';
 import type { PedidoDeCobranca } from '../src/integrations/payments';
 
 /**
@@ -195,5 +201,26 @@ describe('driver do Asaas', () => {
     expect(statusDoAsaas('REFUNDED')).toBe('REFUNDED');
     expect(statusDoAsaas('CHARGEBACK_REQUESTED')).toBe('FAILED');
     expect(statusDoAsaas('COISA_NOVA_QUE_INVENTARAM')).toBe('FAILED');
+  });
+});
+
+describe('qual gateway cobra o cliente da oficina', () => {
+  const asaas = { PAYMENT_GATEWAY: 'asaas', ASAAS_API_KEY: 'chave', ASAAS_WEBHOOK_TOKEN: 'token' };
+
+  it('produção sem escolha explícita nasce desligada, mesmo com o Asaas da plataforma ligado', () => {
+    const env = testEnv({ ...asaas, NODE_ENV: 'production' });
+    expect(createChargesGateway(env, createPaymentGateway(env))).toBeNull();
+  });
+
+  it('fora de produção é o simulador, nunca o Asaas da assinatura', () => {
+    const env = testEnv({ ...asaas, NODE_ENV: 'development' });
+    expect(createChargesGateway(env, createPaymentGateway(env))?.driver).toBe('simulador');
+  });
+
+  it('só usa o Asaas quando pedido, e só se a plataforma também for Asaas', () => {
+    const ligado = testEnv({ ...asaas, CHARGES_GATEWAY: 'asaas' });
+    expect(createChargesGateway(ligado, createPaymentGateway(ligado))?.driver).toBe('asaas');
+    const semAsaas = testEnv({ CHARGES_GATEWAY: 'asaas' });
+    expect(() => createChargesGateway(semAsaas, createPaymentGateway(semAsaas))).toThrow(/PAYMENT_GATEWAY=asaas/);
   });
 });

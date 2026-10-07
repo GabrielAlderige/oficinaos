@@ -1,0 +1,166 @@
+---
+import Legal from '../layouts/Legal.astro';
+import { RESPONSAVEL, documentoFormatado } from '../lib/responsavel';
+
+const doc = documentoFormatado(RESPONSAVEL.documento);
+---
+
+<Legal titulo="Termos de uso" descricao="As regras de uso do OficinaOS, o sistema de gestão para oficinas mecânicas.">
+  <p>
+    Estes termos valem entre quem cria uma conta no OficinaOS (a <strong>oficina</strong>, representada por quem fez o
+    cadastro) e o fornecedor do serviço, <strong>{RESPONSAVEL.nome}</strong>, pessoa física, <span class="whitespace-nowrap">{doc}</span>, de {RESPONSAVEL.cidade} (o <strong>OficinaOS</strong>, "nós"). Ao criar a conta, a oficina declara que leu e aceita
+    estes termos e a <a href="/privacidade">Política de Privacidade</a>.
+  </p>
+
+  <h2>1. O que é o serviço</h2>
+  <p>
+    O OficinaOS é um sistema na internet para gestão de oficinas mecânicas: clientes e veículos, orçamentos com
+    aprovação pelo celular, ordens de serviço, estoque, agenda, financeiro, relatórios e comunicação com o cliente.
+    O acesso é pelo navegador ou pelo aplicativo instalável no celular. Não há nada para instalar no computador.
+  </p>
+  <p>
+    Algumas funções dependem de serviços de terceiros que a própria oficina contrata ou conecta, como a conta oficial
+    do WhatsApp da oficina. Funções que aparecem no sistema marcadas como <strong>simulação</strong> servem só para
+    conhecer o fluxo: não emitem documento fiscal, não cobram ninguém e não produzem nenhum efeito fora do sistema.
+  </p>
+
+  <h2>2. Conta e acesso</h2>
+  <ul>
+    <li>Quem cria a conta precisa ter 18 anos ou mais e poder representar a oficina.</li>
+    <li>
+      A oficina responde pelos usuários que convidar (mecânicos, atendentes, gerentes) e pelo que eles fizerem no
+      sistema. Cada pessoa deve ter o próprio acesso: senha não se compartilha.
+    </li>
+    <li>
+      Se suspeitar que alguém entrou na conta sem autorização, avise a gente o quanto antes pelo e-mail
+      <a href={`mailto:${RESPONSAVEL.email}`}>{RESPONSAVEL.email}</a>.
+    </li>
+  </ul>
+
+  <h2>3. Teste grátis, planos e pagamento</h2>
+  <ul>
+    <li>
+      Toda conta nova tem <strong>14 dias de teste grátis</strong>, sem cartão, com todas as funções do plano mais
+      completo. No fim do teste, a oficina escolhe um plano para continuar.
+    </li>
+    <li>
+      Os preços e o que cada plano inclui são os publicados no site e na tela de planos no momento da contratação. A
+      assinatura é mensal ou anual, paga por Pix, boleto ou cartão, cobrada pela nossa intermediadora de pagamentos
+      (Asaas). Os dados do cartão são digitados direto no ambiente dela: nunca passam pelo OficinaOS.
+    </li>
+    <li>Mudança de preço vale só a partir do ciclo seguinte e é avisada com pelo menos 30 dias de antecedência.</li>
+    <li>
+      Sem fidelidade e sem multa: a oficina cancela quando quiser, pela própria tela de assinatura. O acesso continua
+      até o fim do período já pago, e não há cobrança depois disso.
+    </li>
+    <li>
+      <strong>Arrependimento:</strong> nos 7 primeiros dias depois do primeiro pagamento, a oficina pode desistir e
+      receber o valor de volta integralmente, pedindo pelos nossos canais de contato.
+    </li>
+  </ul>
+
+  <h3>Atraso no pagamento</h3>
+  <p>
+    Se uma mensalidade vencer sem pagamento, a oficina tem <strong>7 dias de carência</strong> com o sistema
+    funcionando normalmente. Depois disso, a conta fica <strong>somente para leitura</strong>: dá para ver e consultar
+    tudo, mas não para criar ou alterar registros, até o pagamento ser confirmado. Nós nunca trancamos o acesso aos
+    dados da oficina por causa de atraso.
+  </p>
+
+  <h2>4. Os dados são da oficina</h2>
+  <ul>
+    <li>
+      Tudo o que a oficina cadastra (clientes, veículos, orçamentos, ordens de serviço, fotos, valores) pertence a ela.
+      Nós usamos esses dados só para prestar o serviço, conforme a <a href="/privacidade">Política de Privacidade</a>.
+    </li>
+    <li>
+      Sobre os dados dos clientes dela, a oficina é a <strong>controladora</strong> (decide o que coletar e para quê) e
+      o OficinaOS é o <strong>operador</strong> (guarda e processa por conta dela), nos termos da Lei Geral de Proteção
+      de Dados (Lei 13.709/2018). Cabe à oficina ter base legal para cadastrar e contatar os clientes dela, inclusive
+      pelo WhatsApp.
+    </li>
+    <li>
+      A oficina pode pedir, a qualquer momento, uma cópia dos seus dados em formato aberto (planilha), entregue em até
+      15 dias.
+    </li>
+    <li>
+      Quando a conta é encerrada, guardamos os dados por <strong>90 dias</strong> para a oficina poder voltar ou pedir
+      a cópia. Depois disso, eles são apagados, exceto o que a lei nos obriga a manter (como os registros de acesso, por
+      6 meses, conforme o Marco Civil da Internet) e o que estiver nas cópias de segurança, que se renovam sozinhas.
+    </li>
+  </ul>
+
+  <h2>5. Uso permitido</h2>
+  <p>A oficina se compromete a não:</p>
+  <ul>
+    <li>usar o sistema para algo ilegal, ou para enviar mensagem a quem não quer receber (spam);</li>
+    <li>cadastrar dados de terceiros sem base legal, ou conteúdo ofensivo, falso ou que viole direito de alguém;</li>
+    <li>tentar acessar dados de outras oficinas, testar a segurança do sistema sem autorização, ou sobrecarregá-lo;</li>
+    <li>copiar, revender ou fazer engenharia reversa do sistema.</li>
+  </ul>
+  <p>
+    Descumprir estas regras pode levar à suspensão da conta. Sempre que possível, avisamos antes e damos prazo para
+    corrigir; em caso grave (ataque, fraude, ordem judicial), a suspensão pode ser imediata.
+  </p>
+
+  <h2>6. WhatsApp e outros serviços conectados</h2>
+  <p>
+    Quando a oficina conecta a conta oficial do WhatsApp dela, as mensagens saem em nome da oficina, pela conta dela, e
+    seguem também as regras da Meta (dona do WhatsApp), inclusive as cobranças que a Meta faça por mensagem. O
+    OficinaOS não responde por bloqueios, limites ou mudanças feitas por esses serviços.
+  </p>
+
+  <h2>7. Disponibilidade e suporte</h2>
+  <ul>
+    <li>
+      Trabalhamos para o sistema ficar no ar o tempo todo e fazemos cópia de segurança diária dos dados. Ainda assim,
+      podem acontecer paradas para manutenção (avisadas com antecedência, quando programadas) ou por falhas de
+      terceiros, como internet e hospedagem.
+    </li>
+    <li>
+      O suporte é pelo WhatsApp {RESPONSAVEL.whatsapp} e pelo e-mail {RESPONSAVEL.email}, em dias úteis, em horário
+      comercial.
+    </li>
+    <li>
+      O sistema evolui: funções podem ser melhoradas, trocadas ou retiradas. Se uma mudança tirar algo importante do
+      plano que a oficina paga, avisamos com 30 dias de antecedência e ela pode cancelar sem custo.
+    </li>
+  </ul>
+
+  <h2>8. Responsabilidades</h2>
+  <ul>
+    <li>
+      O OficinaOS é uma ferramenta de organização. Preços, prazos, diagnósticos, serviços executados, garantias dadas ao
+      cliente e obrigações fiscais e trabalhistas da oficina continuam sendo responsabilidade da oficina.
+    </li>
+    <li>
+      Informações de referência mostradas pelo sistema (como fichas técnicas de veículos e sugestões de revisão) são um
+      apoio e devem ser conferidas pelo profissional antes de qualquer serviço.
+    </li>
+    <li>
+      Na medida permitida pela lei, nossa responsabilidade por danos ligados ao serviço fica limitada ao valor pago
+      pela oficina nos 12 meses anteriores ao fato, e não cobre lucros cessantes nem danos indiretos. Isso não se aplica
+      a dano causado por dolo ou culpa grave nossa.
+    </li>
+  </ul>
+
+  <h2>9. Mudanças nestes termos</h2>
+  <p>
+    Quando mudarmos estes termos, a versão nova é publicada nesta página com a data de vigência, e mudanças relevantes
+    são avisadas por e-mail ou dentro do sistema com pelo menos 15 dias de antecedência. Se a oficina não concordar,
+    pode cancelar sem custo antes de a mudança valer.
+  </p>
+
+  <h2>10. Lei e foro</h2>
+  <p>
+    Estes termos seguem a lei brasileira. Fica eleito o foro da comarca de {RESPONSAVEL.cidade} para resolver qualquer
+    questão, salvo quando a lei garantir à oficina o direito de usar o foro do próprio domicílio.
+  </p>
+
+  <h2>Contato</h2>
+  <p>
+    {RESPONSAVEL.nome} · {doc}<br />
+    E-mail: <a href={`mailto:${RESPONSAVEL.email}`}>{RESPONSAVEL.email}</a><br />
+    WhatsApp: <a href={RESPONSAVEL.whatsappLink} target="_blank" rel="noopener">{RESPONSAVEL.whatsapp}</a>
+  </p>
+</Legal>

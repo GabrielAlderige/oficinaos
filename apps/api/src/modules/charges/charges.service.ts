@@ -19,7 +19,7 @@ import type { AuthContext, ClientInfo, ServiceDeps } from '../../core/auth-conte
 import { AppError, notFound } from '../../core/errors';
 import { withChargeRef, withTenant } from '../../db/tenant';
 import type { Tx } from '../../db/tenant';
-import type { AvisoDeCobranca, PedidoDeCobranca } from '../../integrations/payments';
+import type { AvisoDeCobranca, PaymentGateway, PedidoDeCobranca } from '../../integrations/payments';
 import * as customerRepo from '../customers/customers.repository';
 import * as orgRepo from '../organizations/organizations.repository';
 import { registrarPagamentoDaCobranca, recalcularPagamentoDaOs } from '../payments/payments.sync';
@@ -45,6 +45,20 @@ import * as repo from './charges.repository';
  */
 export class ChargesService {
   constructor(private readonly deps: ServiceDeps) {}
+
+  /** O gateway da cobrança da oficina, ou o 422 que explica que está desligado. */
+  private gateway(): PaymentGateway {
+    const gateway = this.deps.chargesGateway;
+    if (!gateway) {
+      throw new AppError(
+        422,
+        ErrorCode.BAD_REQUEST,
+        'Cobrança online desligada',
+        'A cobrança online ainda não está disponível. Registre o pagamento recebido no cartão de pagamentos da OS.',
+      );
+    }
+    return gateway;
+  }
 
   // ------------------------------- leitura -------------------------------
 
@@ -79,8 +93,9 @@ export class ChargesService {
 
     return {
       charges: rows.map((row) => this.toDto(row)),
-      environment: this.deps.gateway.environment,
-      provider: this.deps.gateway.driver,
+      enabled: this.deps.chargesGateway !== null,
+      environment: this.deps.chargesGateway?.environment ?? 'SIMULATOR',
+      provider: this.deps.chargesGateway?.driver ?? 'desligado',
       balanceCents: saldoCents,
       pendingCents,
       availableCents: disponivelParaCobrar({ saldoCents, emAbertoCents: pendingCents }),
@@ -97,6 +112,7 @@ export class ChargesService {
     input: CreateChargeInput,
     client: ClientInfo,
   ): Promise<ChargeSummary> {
+    const gateway = this.gateway();
     const { chargeId, pedido } = await withTenant(this.deps.db, auth, async (tx) => {
       const order = await workOrderRepo.lockWorkOrder(tx, auth.organizationId, workOrderId);
       if (!order) throw notFound('OS não encontrada.');
@@ -147,8 +163,8 @@ export class ChargesService {
         customerId: order.customerId,
         method: input.method,
         status: 'PENDING',
-        environment: this.deps.gateway.environment,
-        provider: this.deps.gateway.driver,
+        environment: gateway.environment,
+        provider: gateway.driver,
         clientRequestId: input.clientRequestId,
         amountCents: input.amountCents,
         dueDate,
@@ -179,7 +195,7 @@ export class ChargesService {
             tx,
             auth.organizationId,
             order.customerId,
-            this.deps.gateway.driver,
+            gateway.driver,
           ),
         },
       };
@@ -188,7 +204,7 @@ export class ChargesService {
 
     if (pedido) {
       try {
-        const resposta = await this.deps.gateway.criar(pedido);
+        const resposta = await gateway.criar(pedido);
         await withTenant(this.deps.db, auth, async (tx) => {
           await repo.updateCharge(tx, chargeId, {
             status: resposta.status,
@@ -246,9 +262,10 @@ export class ChargesService {
       return travada;
     });
 
-    if (cobranca.providerChargeId) {
+    // desligado depois de criada: o registro daqui ainda se cancela
+    if (cobranca.providerChargeId && this.deps.chargesGateway) {
       try {
-        await this.deps.gateway.cancelar(cobranca.providerChargeId);
+        await this.deps.chargesGateway.cancelar(cobranca.providerChargeId);
       } catch (erro) {
         // o gateway pode já ter cancelado sozinho (vencida, por exemplo); o
         // registro daqui não pode ficar preso por causa disso
@@ -298,7 +315,7 @@ export class ChargesService {
     });
 
     if (cobranca.providerChargeId) {
-      await this.deps.gateway.estornar(cobranca.providerChargeId, cobranca.paidAmountCents ?? cobranca.amountCents);
+      await this.gateway().estornar(cobranca.providerChargeId, cobranca.paidAmountCents ?? cobranca.amountCents);
     }
 
     await withTenant(this.deps.db, auth, async (tx) => {
@@ -378,7 +395,7 @@ export class ChargesService {
       // 2) o gateway reenvia o mesmo aviso até receber 200: processar duas
       // vezes daria baixa dobrada no mesmo dinheiro
       const novo = await repo.registrarAviso(tx, {
-        provider: this.deps.gateway.driver,
+        provider: travada.provider,
         externalId: aviso.externalId,
         eventType: aviso.eventType,
         organizationId: cobranca.organizationId,
@@ -410,10 +427,10 @@ export class ChargesService {
         paidAt: aviso.paidAt ?? new Date(),
         // a cobrança é a chave: reenvio do aviso não cria segundo pagamento
         clientRequestId: travada.id,
-        provider: this.deps.gateway.driver,
+        provider: travada.provider,
         providerPaymentId: aviso.providerChargeId,
         createdBy: travada.createdBy,
-        notes: `Recebido pelo ${this.deps.gateway.driver} (cobrança online)`,
+        notes: `Recebido pelo ${travada.provider} (cobrança online)`,
       });
 
       await repo.updateCharge(tx, travada.id, {
@@ -439,7 +456,7 @@ export class ChargesService {
         entityType: 'charge',
         entityId: travada.id,
         workOrderId: travada.workOrderId,
-        metadata: { amountCents: valor, provider: this.deps.gateway.driver },
+        metadata: { amountCents: valor, provider: travada.provider },
       });
       return { handled: true, reason: 'pagamento registrado' };
     });

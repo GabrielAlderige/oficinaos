@@ -52,6 +52,8 @@ export type CancelChargeInput = z.infer<typeof cancelChargeSchema>;
 /** O que a tela da OS precisa para oferecer (ou não) uma cobrança nova. */
 export const chargeSummarySchema = z.object({
   charges: z.array(chargeSchema),
+  /** a cobrança online está ligada nesta instalação? Desligada, a tela some */
+  enabled: z.boolean(),
   environment: z.enum(PAYMENT_ENVIRONMENTS),
   provider: z.string(),
   /** o que a OS ainda deve */

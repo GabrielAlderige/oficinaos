@@ -84,6 +84,8 @@ services:
       ASAAS_API_KEY: ${ASAAS_API_KEY:-}
       ASAAS_BASE_URL: ${ASAAS_BASE_URL:-https://api-sandbox.asaas.com/v3}
       ASAAS_WEBHOOK_TOKEN: ${ASAAS_WEBHOOK_TOKEN:-}
+      # cobrança da oficina para o cliente dela; desligada até cada oficina ter conta
+      CHARGES_GATEWAY: ${CHARGES_GATEWAY:-desligado}
       # nota fiscal (E18): `simulador` não emite nada
       FISCAL_DRIVER: ${FISCAL_DRIVER:-simulador}
       # WhatsApp oficial (E22): cifra o token que cada oficina cola no sistema.
@@ -99,6 +101,9 @@ services:
     build:
       context: .
       target: web
+      args:
+        PUBLIC_RESPONSAVEL_DOC: ${RESPONSAVEL_DOC:?CPF ou CNPJ de quem responde pelos termos}
+        PUBLIC_CONTATO_EMAIL: ${CONTATO_EMAIL:-contato@oficinaosbr.com}
     image: oficinaos-web:${TAG:-latest}
     restart: unless-stopped
     depends_on:

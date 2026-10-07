@@ -41,6 +41,8 @@ export function ChargeCard({ order }: { order: WorkOrder }) {
   const cobrancas = dados?.charges ?? [];
   // OS sem nada a cobrar e sem histórico não precisa ocupar espaço na tela
   if (!cobrancas.length && (dados?.availableCents ?? 0) <= 0) return null;
+  // desligada nesta instalação: só aparece se ainda houver cobrança antiga
+  if (dados && !dados.enabled && !cobrancas.length) return null;
 
   return (
     <Card>

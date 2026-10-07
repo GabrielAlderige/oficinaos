@@ -1,0 +1,155 @@
+---
+import Legal from '../layouts/Legal.astro';
+import { RESPONSAVEL, documentoFormatado } from '../lib/responsavel';
+
+const doc = documentoFormatado(RESPONSAVEL.documento);
+---
+
+<Legal
+  titulo="Política de privacidade"
+  descricao="Quais dados o OficinaOS trata, para quê, com quem compartilha e como exercer os seus direitos."
+>
+  <p>
+    Esta política explica como o OficinaOS trata dados pessoais, de acordo com a Lei Geral de Proteção de Dados (LGPD,
+    Lei 13.709/2018). O responsável é <strong>{RESPONSAVEL.nome}</strong>, pessoa física, <span class="whitespace-nowrap">{doc}</span>, de {RESPONSAVEL.cidade}.
+  </p>
+
+  <h2>1. Os dois papéis do OficinaOS</h2>
+  <ul>
+    <li>
+      <strong>Controlador</strong>: para os dados de quem usa o sistema (o dono da oficina e a equipe dele), de quem
+      deixa contato no nosso site e dos dados de cobrança da assinatura. Nós decidimos como esses dados são tratados, e
+      esta política descreve isso.
+    </li>
+    <li>
+      <strong>Operador</strong>: para os dados que a oficina cadastra sobre os clientes dela (nome, telefone, CPF,
+      endereço, veículos, serviços, fotos). Quem decide sobre esses dados é a oficina; nós só guardamos e processamos
+      por conta dela, para prestar o serviço. Se você é cliente de uma oficina e quer exercer seus direitos, fale
+      primeiro com a oficina. Se não conseguir, fale com a gente que ajudamos a encaminhar.
+    </li>
+  </ul>
+
+  <h2>2. Quais dados tratamos e para quê</h2>
+  <div class="tabela">
+    <table>
+      <thead>
+        <tr><th>Dado</th><th>Para quê</th><th>Base legal (LGPD)</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Nome, e-mail, telefone e senha (guardada só como código irreversível) de quem usa o sistema</td>
+          <td>Criar a conta, entrar, recuperar a senha, avisos sobre a conta</td>
+          <td>Execução de contrato (art. 7º, V)</td>
+        </tr>
+        <tr>
+          <td>Dados da oficina: nome, CNPJ ou CPF, endereço, telefone</td>
+          <td>Prestar o serviço, emitir a cobrança da assinatura</td>
+          <td>Execução de contrato (art. 7º, V)</td>
+        </tr>
+        <tr>
+          <td>Situação da assinatura e dos pagamentos (o cartão fica com a intermediadora, não com a gente)</td>
+          <td>Cobrar a assinatura, liberar ou restringir o acesso</td>
+          <td>Execução de contrato e obrigação legal (art. 7º, II e V)</td>
+        </tr>
+        <tr>
+          <td>Registros de acesso: endereço IP, data e hora, navegador; histórico de ações no sistema</td>
+          <td>Segurança, investigar uso indevido, mostrar à oficina quem fez o quê</td>
+          <td>Obrigação legal (Marco Civil da Internet, art. 15) e legítimo interesse (art. 7º, IX)</td>
+        </tr>
+        <tr>
+          <td>Nome, telefone, e-mail e nome da oficina deixados no formulário do site</td>
+          <td>Responder ao contato e apresentar o OficinaOS</td>
+          <td>Legítimo interesse (art. 7º, IX); você pode pedir para parar a qualquer momento</td>
+        </tr>
+        <tr>
+          <td>Mensagens enviadas ao nosso suporte</td>
+          <td>Atender o pedido</td>
+          <td>Execução de contrato (art. 7º, V)</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    Não vendemos dados, não usamos dados para propaganda de terceiros e não usamos os dados das oficinas, nem dos
+    clientes delas, para nada além de prestar o serviço.
+  </p>
+
+  <h2>3. Cookies</h2>
+  <p>
+    O sistema usa <strong>um único cookie</strong>, necessário para manter você conectado com segurança (ele renova o
+    acesso sem pedir a senha a toda hora). Não usamos cookies de propaganda, de rastreamento nem ferramentas de
+    análise de terceiros, nem no sistema, nem no site.
+  </p>
+
+  <h2>4. Com quem compartilhamos</h2>
+  <p>Só com os fornecedores necessários para o serviço funcionar, cada um para a sua função:</p>
+  <ul>
+    <li><strong>Hospedagem</strong> (servidor onde o sistema e o banco de dados ficam): Hostinger.</li>
+    <li><strong>Envio de e-mails</strong> do sistema (confirmação de conta, recuperação de senha, avisos): Brevo.</li>
+    <li><strong>Cobrança da assinatura</strong> (Pix, boleto e cartão): Asaas, instituição de pagamento brasileira.</li>
+    <li>
+      <strong>WhatsApp</strong>: só quando a própria oficina conecta a conta oficial dela; as mensagens passam pela Meta,
+      dona do WhatsApp.
+    </li>
+    <li>Autoridades, quando houver ordem judicial ou obrigação legal.</li>
+  </ul>
+  <p>
+    Alguns desses fornecedores podem guardar dados em servidores fora do Brasil. Nesses casos, a transferência segue o
+    art. 33 da LGPD, com fornecedores que adotam cláusulas contratuais e medidas de segurança compatíveis com a lei.
+  </p>
+
+  <h2>5. Por quanto tempo guardamos</h2>
+  <ul>
+    <li>Dados da conta e da oficina: enquanto a conta existir, e por 90 dias depois do encerramento.</li>
+    <li>Registros de acesso: 6 meses, como exige o Marco Civil da Internet.</li>
+    <li>Dados de cobrança e pagamento: pelo prazo que a lei fiscal exigir (em geral, 5 anos).</li>
+    <li>Contatos do formulário do site: até 2 anos sem retorno, ou até você pedir para apagar.</li>
+    <li>Cópias de segurança: até 30 dias, renovadas automaticamente.</li>
+  </ul>
+
+  <h2>6. Como protegemos</h2>
+  <ul>
+    <li>Toda a comunicação com o sistema é criptografada (HTTPS).</li>
+    <li>Senhas são guardadas só como código irreversível (Argon2): ninguém, nem a gente, consegue lê-las.</li>
+    <li>
+      Os dados de cada oficina ficam isolados no banco de dados: uma oficina não consegue ver os dados de outra, e essa
+      separação é imposta pelo próprio banco, não só pela tela.
+    </li>
+    <li>Credenciais que a oficina conecta (como a do WhatsApp) são guardadas criptografadas.</li>
+    <li>Cópia de segurança diária e acesso administrativo restrito.</li>
+  </ul>
+  <p>
+    Se acontecer um incidente de segurança que possa causar risco ou dano relevante, avisamos as oficinas afetadas e a
+    Autoridade Nacional de Proteção de Dados (ANPD), como a lei manda.
+  </p>
+
+  <h2>7. Seus direitos</h2>
+  <p>Pela LGPD (art. 18), você pode pedir, de graça:</p>
+  <ul>
+    <li>confirmação de que tratamos seus dados, e acesso a eles;</li>
+    <li>correção de dados incompletos, errados ou desatualizados;</li>
+    <li>anonimização, bloqueio ou eliminação de dados desnecessários ou tratados fora da lei;</li>
+    <li>portabilidade dos dados para outro fornecedor;</li>
+    <li>informação sobre com quem compartilhamos;</li>
+    <li>revogação do consentimento, quando ele for a base do tratamento, e oposição ao legítimo interesse.</li>
+  </ul>
+  <p>
+    Para pedir, escreva para <a href={`mailto:${RESPONSAVEL.email}`}>{RESPONSAVEL.email}</a>. Respondemos em até 15
+    dias. Você também pode reclamar à ANPD (<a href="https://www.gov.br/anpd" target="_blank" rel="noopener"
+      >gov.br/anpd</a
+    >).
+  </p>
+
+  <h2>8. Encarregado de dados</h2>
+  <p>
+    O canal de comunicação sobre dados pessoais é o próprio responsável, {RESPONSAVEL.nome}, pelo e-mail
+    <a href={`mailto:${RESPONSAVEL.email}`}>{RESPONSAVEL.email}</a> ou pelo WhatsApp
+    <a href={RESPONSAVEL.whatsappLink} target="_blank" rel="noopener">{RESPONSAVEL.whatsapp}</a>.
+  </p>
+
+  <h2>9. Mudanças nesta política</h2>
+  <p>
+    A versão em vigor é sempre a desta página, com a data no topo. Mudanças relevantes são avisadas por e-mail ou
+    dentro do sistema antes de valer.
+  </p>
+</Legal>

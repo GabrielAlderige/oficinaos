@@ -24,3 +24,18 @@ export function createPaymentGateway(env: Env): PaymentGateway {
   }
   return new SimuladorPaymentGateway();
 }
+
+/**
+ * Quem cria a cobrança da oficina para o cliente dela. `null` é desligado: a
+ * tela esconde o cartão e a API recusa cobrança nova. O aviso (webhook) segue
+ * lido pelo gateway da plataforma, que é quem tem o token.
+ */
+export function createChargesGateway(env: Env, plataforma: PaymentGateway): PaymentGateway | null {
+  const modo = env.CHARGES_GATEWAY ?? (env.NODE_ENV === 'production' ? 'desligado' : 'simulador');
+  if (modo === 'desligado') return null;
+  if (modo === 'asaas') {
+    if (plataforma.driver !== 'asaas') throw new Error('CHARGES_GATEWAY=asaas exige PAYMENT_GATEWAY=asaas');
+    return plataforma;
+  }
+  return plataforma.driver === 'simulador' ? plataforma : new SimuladorPaymentGateway();
+}

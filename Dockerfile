@@ -27,6 +27,11 @@ RUN npm ci
 FROM deps AS build
 WORKDIR /app
 COPY . .
+# quem responde pelos termos e pela privacidade (a landing para sem o
+# documento): vem do .env do servidor, nunca do repositório, que é público
+ARG PUBLIC_RESPONSAVEL_DOC
+ARG PUBLIC_CONTATO_EMAIL
+ENV PUBLIC_RESPONSAVEL_DOC=$PUBLIC_RESPONSAVEL_DOC PUBLIC_CONTATO_EMAIL=$PUBLIC_CONTATO_EMAIL
 # a API vira um bundle (tsup), o painel e a landing viram arquivos estáticos
 RUN npm run build
 

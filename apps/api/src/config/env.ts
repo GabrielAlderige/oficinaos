@@ -72,6 +72,15 @@ const envSchema = z.object({
    * padrão é ele, para ninguém cobrar cliente por acidente sem configurar.
    */
   PAYMENT_GATEWAY: z.enum(['simulador', 'asaas']).default('simulador'),
+  /**
+   * Cobrança online da OFICINA para o cliente dela (E19), separada da
+   * assinatura do SaaS (`PAYMENT_GATEWAY`). Com uma conta só no Asaas, a do
+   * dono do OficinaOS, o dinheiro do cliente da oficina cairia na conta dele:
+   * por isso, sem valor explícito, produção nasce `desligado` (o cartão some da
+   * OS) e o resto usa o simulador. `asaas` só faz sentido quando cada oficina
+   * tiver a própria conta.
+   */
+  CHARGES_GATEWAY: z.enum(['desligado', 'simulador', 'asaas']).optional(),
   /** Chave da API do Asaas. NUNCA vai para o front nem para o log. */
   ASAAS_API_KEY: z.string().optional(),
   /** Sandbox por padrão: produção é escolha explícita de quem faz o deploy. */
