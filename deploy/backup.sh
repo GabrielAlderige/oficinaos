@@ -37,6 +37,14 @@ find "$DESTINO" -name 'storage_*.tar.gz' -mtime "+$DIAS" -delete
 TAMANHO="$(du -sh "$DESTINO" | cut -f1)"
 echo "[$(date -Is)] backup pronto ($TAMANHO em $DESTINO)"
 
-# 5) para fora do servidor — escolha um e descomente:
-# rclone copy "$DESTINO" remoto:oficinaos-backup --max-age 25h
-# rsync -az "$DESTINO/" backup@outro-servidor:/backups/oficinaos/
+# 5) para fora do servidor. Com BACKUP_REMOTE (um remoto do rclone, de
+#    preferência um `crypt`: o dump tem dado de cliente), manda o que é de
+#    hoje e apaga lá o que passou de BACKUP_REMOTE_DAYS. Sem ele, avisa: backup
+#    só no mesmo servidor morre junto com ele.
+if [ -n "${BACKUP_REMOTE:-}" ]; then
+  rclone copy "$DESTINO" "$BACKUP_REMOTE" --max-age 25h --include 'oficinaos_*.dump' --include 'storage_*.tar.gz'
+  rclone delete "$BACKUP_REMOTE" --min-age "${BACKUP_REMOTE_DAYS:-30}d"
+  echo "[$(date -Is)] cópia enviada para $BACKUP_REMOTE"
+else
+  echo "[$(date -Is)] AVISO: sem BACKUP_REMOTE, o backup ficou só neste servidor"
+fi
