@@ -1,4 +1,4 @@
-"""As 24 aulas do curso de tutoriais do OficinaOS.
+"""As 30 aulas do curso de tutoriais do OficinaOS.
 
 Rodar:  python aulas/curso.py 3 5 7     (grava as aulas pedidas)
         python aulas/curso.py todas
@@ -11,6 +11,7 @@ from motor import (Aula, Passo, arrastar, mover, assinar, cartao, celular_app, c
                    escrever, fechar_celular, focar, grupo, guardar, marcar, no_celular, pausa, rodar, rolar, rolar_topo,
                    selecionar, tecla)
 from a08_orcamento_link import AULA as A08
+from extras import EXTRAS
 
 REPO = r"C:\Users\galby\Projetos\oficinaos"
 PSQL = r"C:\Program Files\PostgreSQL\17\bin\psql.exe"
@@ -90,7 +91,7 @@ TEXTO_WA = "() => new URL(window.__wa).searchParams.get('text')"
 
 
 def wa_texto(g):
-    return g.dados["wa"].replace("http://localhost:5173", "https://app.oficinaosbr.com")
+    return g.dados["wa"].replace("http://localhost:5173", "https://app.oficinaosbr.cloud")
 
 
 # ------------------------------------------------------------------ preparo (fora da gravação)
@@ -732,13 +733,13 @@ A24 = Aula(
         Passo("E, se quiser, exija a assinatura de quem recebe o carro na entrega.",
               [focar(cartao("Entrega do veículo"))]),
     ],
-    encerramento_titulo="Você concluiu o curso do OficinaOS.",
-    encerramento_fala="Pronto! Você terminou o curso. Qualquer dúvida, chame no WhatsApp. Bom trabalho na oficina!",
-    proxima=None,
+    encerramento_titulo="Sua oficina está configurada.",
+    encerramento_fala="Pronto! Os dados da oficina estão certos. Na próxima aula: pacotes de serviço.",
+    proxima="Pacotes de serviço",
 )
 
 CURSO = {a.numero: a for a in [A01, A02, A03, A04, A05, A06, A07, A08, A09, A10, A11, A12, A13, A14, A15, A16,
-                               A17, A18, A19, A20, A21, A22, A23, A24]}
+                               A17, A18, A19, A20, A21, A22, A23, A24, *EXTRAS]}
 
 
 def recriar_demo():

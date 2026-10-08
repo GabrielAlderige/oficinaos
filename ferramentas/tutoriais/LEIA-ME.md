@@ -27,7 +27,7 @@ duração mudou, atualize `apps/api/scripts/tutoriais-aulas.ts` e rode
   em 1920x1080 com o sistema em zoom 125%.
 - `motor/overlay.js`: a camada visual (abertura, legenda, cursor, foco laranja,
   celular do cliente). O endereço `localhost:5173` aparece como
-  `app.oficinaosbr.com` na tela.
+  `app.oficinaosbr.cloud` na tela.
 - `aulas/curso.py`: os roteiros das 24 aulas. O `preparo` de uma aula roda antes
   da gravação, numa janela sem vídeo (ex.: cadastrar a chave Pix).
 - `ferramentas/`: `mapear.py` e `dialogo.py` listam os botões e campos de uma

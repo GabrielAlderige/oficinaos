@@ -86,13 +86,13 @@
         this.card(`<div class="tut-logo"><i></i><span>Oficina<b>OS</b></span></div>
           <div class="tut-mod">Aula ${num} · ${esc(mod)}</div><div class="tut-tit">${esc(tit)}</div>
           ${sub ? `<div class="tut-sub">${esc(sub)}</div>` : ''}
-          <div class="tut-rod"><b>Tutoriais do OficinaOS</b><span>oficinaosbr.com</span></div>`);
+          <div class="tut-rod"><b>Tutoriais do OficinaOS</b><span>oficinaosbr.cloud</span></div>`);
       },
       encerramento(tit, proxima) {
         this.card(`<div class="tut-logo"><i></i><span>Oficina<b>OS</b></span></div>
           <div class="tut-mod">Pronto</div><div class="tut-tit">${esc(tit)}</div>
           ${proxima ? `<div class="tut-sub">Próxima aula: <b style="color:#fff">${esc(proxima)}</b></div>` : ''}
-          <div class="tut-rod"><b>Dúvidas? (35) 99755-8675</b><span>oficinaosbr.com</span></div>`);
+          <div class="tut-rod"><b>Dúvidas? (35) 99755-8675</b><span>oficinaosbr.cloud</span></div>`);
       },
       esconderCard() { this.card(null, false); },
       legenda(t) {
@@ -133,7 +133,7 @@
   }
 
   // o endereço da máquina de teste nunca aparece no vídeo: mostra o de produção
-  const DE = 'http://localhost:5173', PARA = 'https://app.oficinaosbr.com';
+  const DE = 'http://localhost:5173', PARA = 'https://app.oficinaosbr.cloud';
   function trocarTextos(no) {
     if (!no) return;
     if (no.nodeType === 3) { if (no.nodeValue.includes(DE)) no.nodeValue = no.nodeValue.split(DE).join(PARA); return; }

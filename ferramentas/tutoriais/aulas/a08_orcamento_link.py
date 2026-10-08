@@ -8,7 +8,7 @@ WA = "() => new URL(window.__wa).searchParams.get('text')"
 
 def mensagem(g):
     # o link real é o da máquina de teste; no celular aparece o endereço de produção
-    return g.dados["wa"].replace("http://localhost:5173", "https://app.oficinaosbr.com")
+    return g.dados["wa"].replace("http://localhost:5173", "https://app.oficinaosbr.cloud")
 
 
 def link_real(g):

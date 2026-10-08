@@ -22,7 +22,7 @@ export const AULAS_DO_CURSO: AulaDoCurso[] = [
     title: 'Conhecendo o OficinaOS',
     description: 'Onde fica cada coisa e o que olhar quando você abre o sistema de manhã.',
     file: '01-conhecendo-o-oficinaos.mp4',
-    durationSeconds: 88,
+    durationSeconds: 84,
     position: 1,
   },
   {
@@ -31,7 +31,7 @@ export const AULAS_DO_CURSO: AulaDoCurso[] = [
     title: 'Cadastrando seus serviços e preços',
     description: 'O catálogo de mão de obra que o orçamento usa.',
     file: '02-servicos-e-precos.mp4',
-    durationSeconds: 67,
+    durationSeconds: 72,
     position: 2,
   },
   {
@@ -40,7 +40,7 @@ export const AULAS_DO_CURSO: AulaDoCurso[] = [
     title: 'Cliente e carro em um minuto',
     description: 'Só o nome é obrigatório. O resto, você completa quando precisar.',
     file: '03-cliente-e-carro.mp4',
-    durationSeconds: 85,
+    durationSeconds: 80,
     position: 3,
   },
   {
@@ -49,7 +49,7 @@ export const AULAS_DO_CURSO: AulaDoCurso[] = [
     title: 'Achando tudo pela placa',
     description: 'A busca rápida e o histórico de cada carro.',
     file: '04-achando-pela-placa.mp4',
-    durationSeconds: 52,
+    durationSeconds: 50,
     position: 4,
   },
   {
@@ -58,7 +58,7 @@ export const AULAS_DO_CURSO: AulaDoCurso[] = [
     title: 'Marcar e remarcar na agenda',
     description: 'Cada mecânico com a sua coluna, e remarcar é arrastar.',
     file: '05-agenda.mp4',
-    durationSeconds: 58,
+    durationSeconds: 59,
     position: 5,
   },
   {
@@ -67,7 +67,7 @@ export const AULAS_DO_CURSO: AulaDoCurso[] = [
     title: 'Abrindo a OS pela placa',
     description: 'Cliente e carro vêm preenchidos. O orçamento sai daí.',
     file: '06-abrindo-a-os.mp4',
-    durationSeconds: 69,
+    durationSeconds: 67,
     position: 6,
   },
   {
@@ -76,7 +76,7 @@ export const AULAS_DO_CURSO: AulaDoCurso[] = [
     title: 'Check-in com fotos e quilometragem',
     description: 'Registra como o carro chegou. Protege a oficina.',
     file: '07-check-in.mp4',
-    durationSeconds: 63,
+    durationSeconds: 85,
     position: 7,
   },
   {
@@ -85,7 +85,7 @@ export const AULAS_DO_CURSO: AulaDoCurso[] = [
     title: 'Orçamento por link: o cliente aprova pelo celular',
     description: 'Do botão Enviar até a OS aprovada, sem ligar para ninguém.',
     file: '08-orcamento-por-link.mp4',
-    durationSeconds: 86,
+    durationSeconds: 99,
     position: 8,
   },
   {
@@ -103,7 +103,7 @@ export const AULAS_DO_CURSO: AulaDoCurso[] = [
     title: 'Entrega com assinatura do cliente',
     description: 'Quem recebeu, a km de saída e a assinatura na tela.',
     file: '10-entrega-com-assinatura.mp4',
-    durationSeconds: 63,
+    durationSeconds: 60,
     position: 10,
   },
   {
@@ -112,7 +112,7 @@ export const AULAS_DO_CURSO: AulaDoCurso[] = [
     title: 'Recebendo com Pix na hora',
     description: 'O QR com o valor certo, direto para a conta da oficina.',
     file: '11-pix-na-hora.mp4',
-    durationSeconds: 50,
+    durationSeconds: 55,
     position: 11,
   },
   {
@@ -121,7 +121,7 @@ export const AULAS_DO_CURSO: AulaDoCurso[] = [
     title: 'Peças e estoque mínimo',
     description: 'O que tem na prateleira, o que está acabando e o que cobrar.',
     file: '12-pecas-e-estoque.mp4',
-    durationSeconds: 58,
+    durationSeconds: 65,
     position: 12,
   },
   {
@@ -130,7 +130,7 @@ export const AULAS_DO_CURSO: AulaDoCurso[] = [
     title: 'Pesquisa de peças',
     description: 'Prateleira e fornecedores lado a lado, com o preço para cobrar.',
     file: '13-pesquisa-de-pecas.mp4',
-    durationSeconds: 50,
+    durationSeconds: 48,
     position: 13,
   },
   {
@@ -139,7 +139,7 @@ export const AULAS_DO_CURSO: AulaDoCurso[] = [
     title: 'Fluxo de caixa e contas a receber',
     description: 'O que entrou, o que saiu e o que ainda falta receber.',
     file: '14-fluxo-de-caixa.mp4',
-    durationSeconds: 57,
+    durationSeconds: 53,
     position: 14,
   },
   {
@@ -148,7 +148,7 @@ export const AULAS_DO_CURSO: AulaDoCurso[] = [
     title: 'Comissão do mecânico',
     description: 'Um percentual sobre a mão de obra, calculado sozinho.',
     file: '15-comissao.mp4',
-    durationSeconds: 61,
+    durationSeconds: 65,
     position: 15,
   },
   {
@@ -157,7 +157,7 @@ export const AULAS_DO_CURSO: AulaDoCurso[] = [
     title: 'Ficha do carro e busca por chassi',
     description: 'O que serve em cada carro, sem abrir catálogo de fabricante.',
     file: '16-ficha-do-carro.mp4',
-    durationSeconds: 51,
+    durationSeconds: 55,
     position: 16,
   },
   {
@@ -166,7 +166,7 @@ export const AULAS_DO_CURSO: AulaDoCurso[] = [
     title: 'O painel do dia',
     description: 'Faturamento, produção e a lista do que precisa de atenção.',
     file: '17-painel-do-dia.mp4',
-    durationSeconds: 48,
+    durationSeconds: 46,
     position: 17,
   },
   {
@@ -175,7 +175,7 @@ export const AULAS_DO_CURSO: AulaDoCurso[] = [
     title: 'Relatórios em PDF',
     description: 'Os números do jeito que o contador pede.',
     file: '18-relatorios.mp4',
-    durationSeconds: 51,
+    durationSeconds: 46,
     position: 18,
   },
   {
@@ -184,7 +184,7 @@ export const AULAS_DO_CURSO: AulaDoCurso[] = [
     title: 'Pós-venda com mensagem pronta',
     description: 'Quem chamar hoje, com o texto pronto.',
     file: '19-pos-venda.mp4',
-    durationSeconds: 48,
+    durationSeconds: 49,
     position: 19,
   },
   {
@@ -193,7 +193,7 @@ export const AULAS_DO_CURSO: AulaDoCurso[] = [
     title: 'Funil de clientes novos',
     description: 'O orçamento que ainda não virou OS, e a ligação que não pode esfriar.',
     file: '20-funil.mp4',
-    durationSeconds: 50,
+    durationSeconds: 46,
     position: 20,
   },
   {
@@ -202,7 +202,7 @@ export const AULAS_DO_CURSO: AulaDoCurso[] = [
     title: 'Conversas e WhatsApp oficial',
     description: 'Com a conta da própria oficina, as mensagens saem sozinhas.',
     file: '21-whatsapp.mp4',
-    durationSeconds: 62,
+    durationSeconds: 54,
     position: 21,
   },
   {
@@ -211,7 +211,7 @@ export const AULAS_DO_CURSO: AulaDoCurso[] = [
     title: 'O app no celular do mecânico',
     description: 'Minhas OS: só os carros que estão com ele.',
     file: '22-celular-do-mecanico.mp4',
-    durationSeconds: 52,
+    durationSeconds: 46,
     position: 22,
   },
   {
@@ -220,7 +220,7 @@ export const AULAS_DO_CURSO: AulaDoCurso[] = [
     title: 'Equipe e papéis',
     description: 'Cada pessoa com o próprio acesso, vendo só o que precisa.',
     file: '23-equipe-e-papeis.mp4',
-    durationSeconds: 63,
+    durationSeconds: 53,
     position: 23,
   },
   {
@@ -229,7 +229,61 @@ export const AULAS_DO_CURSO: AulaDoCurso[] = [
     title: 'Dados da oficina e Pix',
     description: 'O que aparece para o cliente, e a chave do Pix na hora.',
     file: '24-dados-da-oficina.mp4',
-    durationSeconds: 64,
+    durationSeconds: 57,
     position: 24,
+  },
+  {
+    module: 'PRIMEIROS_PASSOS',
+    slug: 'pacotes-de-servico',
+    title: 'Pacotes de serviço',
+    description: 'O que a oficina vende junto entra na OS com um toque.',
+    file: '25-pacotes-de-servico.mp4',
+    durationSeconds: 92,
+    position: 25,
+  },
+  {
+    module: 'ORCAMENTO',
+    slug: 'acompanhando-os-orcamentos',
+    title: 'Acompanhando os orçamentos',
+    description: 'Quem recebeu o link, quem abriu e quem ainda não respondeu.',
+    file: '26-acompanhando-os-orcamentos.mp4',
+    durationSeconds: 76,
+    position: 26,
+  },
+  {
+    module: 'PECAS',
+    slug: 'o-que-comprar',
+    title: 'O que comprar antes de faltar',
+    description: 'A lista de reposição, pronta para mandar ao fornecedor.',
+    file: '27-o-que-comprar.mp4',
+    durationSeconds: 65,
+    position: 27,
+  },
+  {
+    module: 'CONFIGURACOES',
+    slug: 'importar-planilha',
+    title: 'Importar sua planilha',
+    description: 'Clientes, veículos e peças de outro sistema, de uma vez.',
+    file: '28-importar-planilha.mp4',
+    durationSeconds: 86,
+    position: 28,
+  },
+  {
+    module: 'CONFIGURACOES',
+    slug: 'automacoes',
+    title: 'Automações',
+    description: 'O que o sistema faz sozinho, todo dia.',
+    file: '29-automacoes.mp4',
+    durationSeconds: 80,
+    position: 29,
+  },
+  {
+    module: 'CONFIGURACOES',
+    slug: 'plano-e-pagamento',
+    title: 'Seu plano e o pagamento',
+    description: 'O teste grátis, os planos, como pagar e como cancelar.',
+    file: '30-plano-e-pagamento.mp4',
+    durationSeconds: 70,
+    position: 30,
   },
 ];
