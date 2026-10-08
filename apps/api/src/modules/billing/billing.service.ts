@@ -380,20 +380,32 @@ export class BillingService {
       // pagamento: adiantado no teste não perde dias, atrasado não ganha
       const base = aviso.dueDate ?? (aviso.paidAt ?? hoje).toISOString().slice(0, 10);
       const fimDoPeriodo = proximoVencimento(base, travada.billingCycle);
-      // o UNIQUE (provider, providerPaymentId) é a trava contra o reenvio
-      const registro = await repo.insertPayment(tx, {
-        organizationId: assinatura.organizationId,
-        provider: this.deps.gateway.driver,
-        providerPaymentId: aviso.providerChargeId,
+      // a mesma fatura recebe vários avisos (criada, depois paga): uma linha
+      // só, que acompanha a situação. Repetido é o pagamento confirmado de novo
+      const fatura = {
         amountCents: aviso.paidAmountCents ?? travada.priceCents ?? 0,
         status: aviso.status,
         dueDate: base,
         paidAt: aviso.paidAt,
         periodStart: pago ? base : null,
         periodEnd: pago ? fimDoPeriodo : null,
-        invoiceUrl: null,
-      });
-      if (!registro) return { handled: false, reason: 'aviso repetido' };
+      };
+      const existente = await repo.lockPaymentByProviderRef(tx, this.deps.gateway.driver, aviso.providerChargeId);
+      if (!existente) {
+        await repo.insertPayment(tx, {
+          organizationId: assinatura.organizationId,
+          provider: this.deps.gateway.driver,
+          providerPaymentId: aviso.providerChargeId,
+          invoiceUrl: null,
+          ...fatura,
+        });
+      } else if (existente.status === 'PAID' && aviso.status !== 'REFUNDED') {
+        // já paga: o reenvio não conta duas vezes, e um aviso fora de ordem
+        // ("vencida" chegando depois de "paga") não derruba quem pagou
+        return { handled: false, reason: pago ? 'aviso repetido' : 'fatura já estava paga' };
+      } else {
+        await repo.updatePayment(tx, existente.id, fatura);
+      }
 
       if (pago) {
         await repo.updateSubscription(tx, assinatura.organizationId, {

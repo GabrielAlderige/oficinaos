@@ -94,6 +94,28 @@ export async function insertPayment(
   return row;
 }
 
+/**
+ * A fatura da assinatura pela referência do gateway, travada. O gateway manda
+ * VÁRIOS avisos da mesma fatura (criada, depois paga): a linha é uma só e
+ * acompanha a situação.
+ */
+export async function lockPaymentByProviderRef(tx: Tx, provider: string, providerPaymentId: string) {
+  const [row] = await tx
+    .select()
+    .from(subscriptionPayments)
+    .where(and(eq(subscriptionPayments.provider, provider), eq(subscriptionPayments.providerPaymentId, providerPaymentId)))
+    .for('update');
+  return row;
+}
+
+export async function updatePayment(
+  tx: Tx,
+  paymentId: string,
+  values: Partial<typeof subscriptionPayments.$inferInsert>,
+): Promise<void> {
+  await tx.update(subscriptionPayments).set(values).where(eq(subscriptionPayments.id, paymentId));
+}
+
 /** Oficinas com o teste vencido e sem assinatura: viram EXPIRED (E20). */
 export async function expirarTestesVencidos(tx: Tx, limite: Date): Promise<number> {
   const { rowCount } = await tx.execute(sql`

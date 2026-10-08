@@ -190,6 +190,8 @@ export class SimuladorPaymentGateway implements PaymentGateway {
     if (!corpo.providerChargeId) return null;
     const evento = corpo.event ?? 'PAYMENT_RECEIVED';
     const situacoes: Record<string, ChargeStatus> = {
+      // o Asaas avisa a criação da fatura antes do pagamento (visto em produção)
+      PAYMENT_CREATED: 'PENDING',
       PAYMENT_RECEIVED: 'PAID',
       PAYMENT_OVERDUE: 'EXPIRED',
       PAYMENT_REFUNDED: 'REFUNDED',

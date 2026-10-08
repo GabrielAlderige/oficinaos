@@ -249,6 +249,41 @@ describe('assinatura do SaaS', () => {
     expect((await visao()).payments, 'um pagamento, não dois').toHaveLength(1);
   });
 
+  it('a fatura avisada como criada e DEPOIS como paga ativa o plano (a ordem real do Asaas)', async () => {
+    // o defeito que isto prende, achado no primeiro teste em produção: o aviso
+    // de criação gravava a fatura, e o de pagamento caía como "repetido"
+    const outra = await signup(t.app);
+    await t.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/organization',
+      headers: bearer(outra.accessToken),
+      payload: { document: '11.222.333/0001-81' },
+    });
+    const assinou = await post(
+      '/api/v1/billing/subscribe',
+      { clientRequestId: randomUUID(), plan: 'TURBO', cycle: 'MONTHLY' },
+      outra,
+    );
+    expect(assinou.statusCode, assinou.body).toBe(200);
+    const ref = await refDoGateway(outra.orgId);
+    const fatura = `pay-${randomUUID()}`;
+
+    const criada = await avisar(ref, { event: 'PAYMENT_CREATED', providerChargeId: fatura, externalId: `evt-${randomUUID()}` });
+    expect((criada.json() as { reason: string }).reason).toBe('situação PENDING');
+    const paga = await avisar(ref, { providerChargeId: fatura, externalId: `evt-${randomUUID()}`, amountCents: 14_900 });
+    expect((paga.json() as { reason: string }).reason).toBe('assinatura renovada');
+
+    const dados = await visao(outra);
+    expect(dados.status).toBe('ACTIVE');
+    expect(dados.payments, 'uma fatura só, que mudou de situação').toHaveLength(1);
+    expect(dados.payments[0]!.status).toBe('PAID');
+
+    // e um "vencida" fora de ordem, depois de paga, não derruba quem pagou
+    const atrasado = await avisar(ref, { event: 'PAYMENT_OVERDUE', providerChargeId: fatura, externalId: `evt-${randomUUID()}` });
+    expect((atrasado.json() as { reason: string }).reason).toBe('fatura já estava paga');
+    expect((await visao(outra)).status).toBe('ACTIVE');
+  });
+
   it('cobrança vencida põe a assinatura em atraso, com carência antes de cortar', async () => {
     const organizationId = await orgId(dono);
     const ref = await refDoGateway(organizationId);
