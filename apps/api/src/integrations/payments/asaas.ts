@@ -142,7 +142,39 @@ export class AsaasPaymentGateway implements PaymentGateway {
       externalReference: cliente.id,
       notificationDisabled: false,
     });
+    await this.soPorEmail(criado.id);
     return criado.id;
+  }
+
+  /**
+   * Cliente novo no Asaas nasce com SMS e ligação de robô ligados nos avisos
+   * de cobrança, e esses canais são COBRADOS por envio (o e-mail é grátis).
+   * Desliga os pagos logo depois de criar, antes da primeira cobrança: o aviso
+   * de "cobrança criada" sai no momento em que ela nasce.
+   *
+   * Falhar aqui não derruba a venda: a cobrança segue, só com os avisos padrão.
+   */
+  private async soPorEmail(providerCustomerId: string): Promise<void> {
+    try {
+      const lista = await this.chamar<{ data?: { id: string }[] }>(
+        'GET',
+        `/customers/${providerCustomerId}/notifications`,
+      );
+      const avisos = lista.data ?? [];
+      if (!avisos.length) return;
+      await this.chamar('PUT', '/notifications/batch', {
+        customer: providerCustomerId,
+        notifications: avisos.map((aviso) => ({
+          id: aviso.id,
+          smsEnabledForCustomer: false,
+          phoneCallEnabledForCustomer: false,
+          whatsappEnabledForCustomer: false,
+          smsEnabledForProvider: false,
+        })),
+      });
+    } catch {
+      /* segue com os avisos padrão do Asaas */
+    }
   }
 
   async criar(pedido: PedidoDeCobranca): Promise<RespostaDaCobranca> {
@@ -196,9 +228,9 @@ export class AsaasPaymentGateway implements PaymentGateway {
   // ----------------------------- assinatura ------------------------------
 
   async criarAssinatura(pedido: PedidoDeAssinatura): Promise<RespostaDaAssinatura> {
-    const providerCustomerId =
-      pedido.cliente.providerCustomerId ??
-      (
+    let providerCustomerId = pedido.cliente.providerCustomerId;
+    if (!providerCustomerId) {
+      providerCustomerId = (
         await this.chamar<AsaasCustomer>('POST', '/customers', {
           name: pedido.cliente.name,
           cpfCnpj: pedido.cliente.document ?? undefined,
@@ -207,6 +239,8 @@ export class AsaasPaymentGateway implements PaymentGateway {
           externalReference: pedido.organizationId,
         })
       ).id;
+      await this.soPorEmail(providerCustomerId);
+    }
 
     const assinatura = await this.chamar<{ id: string }>('POST', '/subscriptions', {
       customer: providerCustomerId,

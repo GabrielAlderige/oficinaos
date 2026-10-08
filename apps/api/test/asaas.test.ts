@@ -92,7 +92,12 @@ describe('driver do Asaas', () => {
     expect(chamadas[0]!.headers.access_token, 'a chave vai no header, não na URL').toBe('chave-de-teste');
     expect((chamadas[0]!.body as { cpfCnpj: string }).cpfCnpj).toBe('39053344705');
 
-    const cobranca = chamadas[1]!.body as { value: number; billingType: string; dueDate: string; externalReference: string };
+    const cobranca = chamadas.find((c) => c.method === 'POST' && c.url.endsWith('/payments'))!.body as {
+      value: number;
+      billingType: string;
+      dueDate: string;
+      externalReference: string;
+    };
     expect(cobranca.value, 'o Asaas fala em reais; nós, em centavos').toBe(680);
     expect(cobranca.billingType).toBe('PIX');
     expect(cobranca.dueDate).toBe('2026-09-25');
@@ -104,6 +109,31 @@ describe('driver do Asaas', () => {
     expect(resposta.pixPayload).toBe('00020126...5204');
     expect(resposta.pixQrImage).toBe('iVBORw0KGgo=');
     expect(resposta.paymentUrl).toBe('https://sandbox.asaas.com/i/000456');
+  });
+
+  it('cliente novo fica só com aviso por e-mail: SMS e ligação são cobrados', async () => {
+    const { gateway, chamadas } = gatewayFalso({
+      'POST /customers': { id: 'cus_9' },
+      'GET /customers/cus_9/notifications': { data: [{ id: 'not_a' }, { id: 'not_b' }] },
+      'POST /payments': { id: 'pay_9', status: 'PENDING' },
+      'GET /payments/pay_9/pixQrCode': {},
+    });
+    await gateway.criar(PEDIDO);
+
+    const lote = chamadas.find((c) => c.method === 'PUT' && c.url.endsWith('/notifications/batch'))!;
+    expect(lote, 'os avisos do cliente novo são ajustados').toBeTruthy();
+    const corpo = lote.body as { customer: string; notifications: Record<string, unknown>[] };
+    expect(corpo.customer).toBe('cus_9');
+    expect(corpo.notifications.map((n) => n.id)).toEqual(['not_a', 'not_b']);
+    for (const aviso of corpo.notifications) {
+      expect(aviso.smsEnabledForCustomer).toBe(false);
+      expect(aviso.phoneCallEnabledForCustomer).toBe(false);
+      expect(aviso.whatsappEnabledForCustomer).toBe(false);
+      expect(aviso.emailEnabledForCustomer, 'o e-mail, que é grátis, fica como está').toBeUndefined();
+    }
+    // e isso acontece ANTES da cobrança: o aviso de "cobrança criada" sai na hora
+    const ordem = chamadas.map((c) => `${c.method} ${c.url.replace('https://api-sandbox.asaas.com/v3', '')}`);
+    expect(ordem.indexOf('PUT /notifications/batch')).toBeLessThan(ordem.indexOf('POST /payments'));
   });
 
   it('cliente já cadastrado não é cadastrado de novo', async () => {
@@ -123,7 +153,8 @@ describe('driver do Asaas', () => {
       'GET /payments/pay_2/pixQrCode': {},
     });
     await gateway.criar({ ...PEDIDO, amountCents: 33_333 });
-    expect((chamadas[1]!.body as { value: number }).value).toBe(333.33);
+    const cobranca = chamadas.find((c) => c.method === 'POST' && c.url.endsWith('/payments'))!;
+    expect((cobranca.body as { value: number }).value).toBe(333.33);
   });
 
   it('o QR que não vem não derruba a cobrança: o cliente ainda paga pelo link', async () => {
