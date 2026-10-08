@@ -22,8 +22,16 @@ import { createStorageProvider } from '../src/integrations/storage/storage';
 
 loadEnv();
 
-export const DEMO_EMAIL = 'demo@oficinaos.dev';
-export const DEMO_PASSWORD = 'demonstracao2026';
+/**
+ * O domínio de TODAS as contas da demo. O reset acha a oficina por ele, então
+ * nenhuma conta de verdade pode estar nele. Em produção vem do ambiente
+ * (DEMO_DOMINIO=demo.oficinaosbr.cloud), junto com uma senha que não é a
+ * daqui: este arquivo está num repositório público.
+ */
+export const DEMO_DOMINIO = process.env.DEMO_DOMINIO || 'oficinaos.dev';
+export const DEMO_EMAIL = `demo@${DEMO_DOMINIO}`;
+export const DEMO_PASSWORD = process.env.DEMO_SENHA || 'demonstracao2026';
+const DA_DEMO = `%@${DEMO_DOMINIO}`;
 const ORG = 'Oficina Demonstração';
 
 /** CPF com dígitos verificadores certos, mas de uma faixa obviamente falsa. */
@@ -242,7 +250,7 @@ async function reset(): Promise<void> {
   try {
     // `users` é global, sem RLS: é por aqui que se acha a oficina de novo
     const { rows: usuarios } = await db.execute<{ id: string }>(
-      sql`select id from users where email like '%@oficinaos.dev'`,
+      sql`select id from users where email like ${DA_DEMO}`,
     );
     if (!usuarios.length) {
       console.log('Não havia oficina de demonstração.');
@@ -259,14 +267,14 @@ async function reset(): Promise<void> {
     }
 
     // a sessão aponta para a oficina ativa: sai antes dela
-    await db.execute(sql`delete from sessions where user_id in (select id from users where email like '%@oficinaos.dev')`);
+    await db.execute(sql`delete from sessions where user_id in (select id from users where email like ${DA_DEMO})`);
     await db.execute(
-      sql`delete from password_reset_tokens where user_id in (select id from users where email like '%@oficinaos.dev')`,
+      sql`delete from password_reset_tokens where user_id in (select id from users where email like ${DA_DEMO})`,
     );
     // nasceu depois do reset (E29) e ficou de fora: sem apagar, o delete dos
     // usuários bate na chave estrangeira e o reset morre pela metade
     await db.execute(
-      sql`delete from email_verification_tokens where user_id in (select id from users where email like '%@oficinaos.dev')`,
+      sql`delete from email_verification_tokens where user_id in (select id from users where email like ${DA_DEMO})`,
     );
 
     for (const organizationId of oficinas) {
@@ -279,7 +287,7 @@ async function reset(): Promise<void> {
         await tx.execute(sql`delete from organizations where id = ${organizationId}`);
       });
     }
-    await db.execute(sql`delete from users where email like '%@oficinaos.dev'`);
+    await db.execute(sql`delete from users where email like ${DA_DEMO}`);
     console.log(`Oficina de demonstração apagada (${oficinas.size}).`);
   } finally {
     await pool.end();
@@ -287,8 +295,13 @@ async function reset(): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('O seed de demonstração não roda em produção.');
+  // em produção só com domínio e senha próprios: o padrão daqui é público, e
+  // o domínio de desenvolvimento poderia um dia ser de alguém
+  if (
+    process.env.NODE_ENV === 'production' &&
+    (!process.env.DEMO_SENHA || !process.env.DEMO_DOMINIO || DEMO_DOMINIO === 'oficinaos.dev')
+  ) {
+    throw new Error('Em produção o seed de demonstração exige DEMO_DOMINIO e DEMO_SENHA próprios.');
   }
   if (process.argv.includes('--reset')) {
     await reset();
@@ -387,7 +400,7 @@ async function main(): Promise<void> {
   // 2. a equipe: um por papel, todos com a mesma senha da conta demo
   const equipe: { userId: string; role: string; token: string }[] = [];
   for (const [indice, pessoa] of EQUIPE.entries()) {
-    const email = `${pessoa.role.toLowerCase()}@oficinaos.dev`;
+    const email = `${pessoa.role.toLowerCase()}@${DEMO_DOMINIO}`;
     const convite = (await chamar('POST', '/members/invitations', { email, role: pessoa.role }, dono)) as {
       inviteUrl: string;
     };
@@ -796,8 +809,10 @@ async function main(): Promise<void> {
   if (paraCobrar) {
     const resumo = (await chamar('GET', `/work-orders/${paraCobrar.id}/charges`, undefined, dono)) as {
       availableCents: number;
+      enabled: boolean;
     };
-    if (resumo.availableCents > 0) {
+    // desligada (o padrão em produção): a API recusaria, e o cartão nem aparece
+    if (resumo.enabled && resumo.availableCents > 0) {
       await chamar(
         'POST',
         `/work-orders/${paraCobrar.id}/charges`,
@@ -941,7 +956,7 @@ async function main(): Promise<void> {
 
   // a conta demo é de mentira e nunca recebe e-mail: sem isto, toda tela da
   // demonstração (e todo tutorial gravado nela) abre com o aviso de confirmar
-  await dona.db.execute(sql`update users set email_verified_at = now() where email like '%@oficinaos.dev'`);
+  await dona.db.execute(sql`update users set email_verified_at = now() where email like ${DA_DEMO}`);
   await dona.pool.end();
 
   const resumo = (await chamar('GET', '/dashboard/summary?period=month', undefined, dono)) as {
@@ -952,7 +967,7 @@ async function main(): Promise<void> {
   console.log('');
   console.log(`Oficina de demonstração criada: ${ORG}`);
   console.log(`  entrar com: ${DEMO_EMAIL} / ${DEMO_PASSWORD}`);
-  console.log(`  a equipe usa a mesma senha: admin@ / manager@ / mechanic@ / attendant@ / finance@oficinaos.dev`);
+  console.log(`  a equipe usa a mesma senha: admin@ / manager@ / mechanic@ / attendant@ / finance@${DEMO_DOMINIO}`);
   console.log(`  ${criadas.length} ordens de serviço, ${clientes.length} clientes, ${veiculos.length} veículos, ${fornecedores.length} fornecedores`);
   console.log(`  faturado no mês: ${formatBRL(resumo.billedCents)} em ${resumo.completedOrders} OS`);
   console.log('');
