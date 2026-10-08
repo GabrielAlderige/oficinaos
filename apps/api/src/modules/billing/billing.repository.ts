@@ -1,6 +1,6 @@
 import { and, count, desc, eq, gte, isNull, sql } from 'drizzle-orm';
 import type { PlanCode } from '@oficinaos/shared';
-import { memberships, plans, subscriptionPayments, subscriptions, workOrders } from '../../db/schema';
+import { memberships, plans, subscriptionPayments, subscriptions, users, workOrders } from '../../db/schema';
 import type { Tx } from '../../db/tenant';
 
 export type SubscriptionRow = typeof subscriptions.$inferSelect;
@@ -128,3 +128,20 @@ export async function expirarTestesVencidos(tx: Tx, limite: Date): Promise<numbe
 }
 
 export const semAssinatura = isNull;
+
+/** O dono da oficina: é para ele que vão os e-mails do teste grátis. */
+export async function ownerContact(tx: Tx, organizationId: string): Promise<{ email: string; name: string } | undefined> {
+  const [row] = await tx
+    .select({ email: users.email, name: users.name })
+    .from(memberships)
+    .innerJoin(users, eq(users.id, memberships.userId))
+    .where(
+      and(
+        eq(memberships.organizationId, organizationId),
+        eq(memberships.isActive, true),
+        eq(memberships.role, 'OWNER'),
+      ),
+    )
+    .limit(1);
+  return row;
+}

@@ -5,6 +5,8 @@ export interface EmailMessage {
   to: string;
   subject: string;
   text: string;
+  /** para onde vai a resposta: os e-mails saem de nao-responda@, a conversa volta para o contato */
+  replyTo?: string;
 }
 
 /**
@@ -53,6 +55,7 @@ export class SmtpEmailProvider implements EmailProvider {
   constructor(
     private readonly url: string,
     private readonly from: string,
+    private readonly replyTo: string | undefined = undefined,
     private readonly criar: (url: string) => Transporter = (endereco) => createTransport(endereco),
   ) {}
 
@@ -63,6 +66,7 @@ export class SmtpEmailProvider implements EmailProvider {
       to: message.to,
       subject: message.subject,
       text: message.text,
+      replyTo: message.replyTo ?? this.replyTo,
     });
   }
 }
@@ -71,7 +75,7 @@ export function createEmailProvider(env: Env): EmailProvider {
   if (env.EMAIL_DRIVER === 'memory') return new MemoryEmailProvider();
   if (env.EMAIL_DRIVER === 'smtp') {
     if (!env.SMTP_URL) throw new Error('EMAIL_DRIVER=smtp exige SMTP_URL no ambiente');
-    return new SmtpEmailProvider(env.SMTP_URL, env.EMAIL_FROM);
+    return new SmtpEmailProvider(env.SMTP_URL, env.EMAIL_FROM, env.EMAIL_REPLY_TO);
   }
   return new ConsoleEmailProvider();
 }

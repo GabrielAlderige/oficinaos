@@ -89,6 +89,7 @@ services:
       EMAIL_DRIVER: ${EMAIL_DRIVER:-console}
       SMTP_URL: ${SMTP_URL:-}
       EMAIL_FROM: ${EMAIL_FROM:-OficinaOS <nao-responda@localhost>}
+      EMAIL_REPLY_TO: ${CONTATO_EMAIL:-}
       # cobrança online (E19) e assinatura (E20)
       PAYMENT_GATEWAY: ${PAYMENT_GATEWAY:-simulador}
       ASAAS_API_KEY: ${ASAAS_API_KEY:-}

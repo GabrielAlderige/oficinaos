@@ -103,6 +103,7 @@ import { messagingRoutes, whatsappWebhookRoutes } from './modules/messaging/mess
 import { MessagingService } from './modules/messaging/messaging.service';
 import { OrganizationsService } from './modules/organizations/organizations.service';
 import { systemRoutes } from './modules/system/system.routes';
+import { CicloDoTeste } from './modules/billing/ciclo-do-teste';
 
 export interface Services {
   auth: AuthService;
@@ -136,6 +137,8 @@ export interface Services {
   invoices: InvoicesService;
   charges: ChargesService;
   billing: BillingService;
+  /** os e-mails do teste grátis (boas-vindas, metade, faltam 3 dias, último dia, acabou) */
+  cicloDoTeste: CicloDoTeste;
   automations: AutomationsService;
   messaging: MessagingService;
   commissions: CommissionsService;
@@ -266,6 +269,7 @@ export async function buildApp({
     invoices: new InvoicesService(deps),
     charges: new ChargesService(deps),
     billing: new BillingService(deps),
+    cicloDoTeste: new CicloDoTeste(deps),
     automations: new AutomationsService(deps),
     messaging,
     commissions: new CommissionsService(deps),

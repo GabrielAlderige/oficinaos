@@ -44,6 +44,7 @@ import * as repo from './auth.repository';
 import { burnPasswordCheck, hashPassword, verifyPassword } from './password';
 import { isoOrNull } from '../../core/normalize';
 import { randomToken, sha256 } from './tokens';
+import { CicloDoTeste } from '../billing/ciclo-do-teste';
 
 /** Resposta de login + o refresh token, que só vai para o cookie (nunca no corpo). */
 export interface AuthResult extends AuthResponse {
@@ -132,6 +133,10 @@ export class AuthService {
     // o e-mail de confirmação sai DEPOIS da transação e não derruba o cadastro:
     // quem acabou de se cadastrar entra no sistema mesmo se o SMTP estiver fora
     await this.enviarConfirmacao(userId, input.email, input.name, client);
+    // as boas-vindas do teste grátis: mesma regra, e-mail fora do ar não trava o cadastro
+    await new CicloDoTeste(this.deps).enviarDevido(organizationId).catch((erro: unknown) => {
+      this.deps.log.error({ err: erro, organizationId }, 'boas-vindas não saiu');
+    });
 
     return this.startSession(userId, organizationId, client);
   }

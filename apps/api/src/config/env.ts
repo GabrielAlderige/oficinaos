@@ -99,6 +99,8 @@ const envSchema = z.object({
   SMTP_URL: z.string().optional(),
   /** Remetente dos e-mails: precisa ser um endereço do domínio verificado. */
   EMAIL_FROM: z.string().default('OficinaOS <nao-responda@oficinaos.local>'),
+  /** quem responde um e-mail do sistema fala com este endereço (vazio: responde para o remetente) */
+  EMAIL_REPLY_TO: z.string().optional(),
   /**
    * Cifra as credenciais de terceiro guardadas no banco (hoje, o token do
    * WhatsApp de cada oficina — E22). 32 bytes em base64:

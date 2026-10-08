@@ -470,6 +470,13 @@
       "when": 1790710000000,
       "tag": "0066_prospects",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1791490409108,
+      "tag": "0067_ciclo_do_teste",
+      "breakpoints": true
     }
   ]
 }

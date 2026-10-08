@@ -18,6 +18,7 @@ import type { Tx } from '../../db/tenant';
 import { sincronizarFilaDePosVenda } from '../aftersales/follow-ups.sync';
 import * as orgRepo from '../organizations/organizations.repository';
 import * as repo from './automations.repository';
+import { CicloDoTeste } from '../billing/ciclo-do-teste';
 
 /** Hora local (0..23) da oficina. */
 const horaNaOficina = (timezone: string): number =>
@@ -57,6 +58,10 @@ function offsetDe(timeZone: string, quando: Date): string {
  */
 export class AutomationsService {
   constructor(private readonly deps: ServiceDeps) {}
+
+  private get ciclo(): CicloDoTeste {
+    return new CicloDoTeste(this.deps);
+  }
 
   // ---------------------------- configuração -----------------------------
 
@@ -150,6 +155,12 @@ export class AutomationsService {
         } catch (erro) {
           this.deps.log.error({ err: erro, organizationId: oficina.id, key }, 'automação falhou');
         }
+      }
+      // os e-mails do teste grátis (metade, faltam 3 dias, último dia, acabou)
+      try {
+        await this.ciclo.enviarDevido(oficina.id);
+      } catch (erro) {
+        this.deps.log.error({ err: erro, organizationId: oficina.id }, 'e-mail do teste grátis falhou');
       }
     }
     return { organizations: oficinas.length, ran };

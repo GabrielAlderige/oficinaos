@@ -117,3 +117,22 @@ export const usageCounters = pgTable(
   },
   (t) => [primaryKey({ columns: [t.organizationId, t.metric, t.period] })],
 );
+
+/**
+ * Os e-mails do ciclo do teste (boas-vindas, metade, faltam 3 dias, último
+ * dia, acabou). Uma linha por oficina e tipo: é o que garante que cada um
+ * sai UMA vez, mesmo com o trabalhador acordando de hora em hora.
+ */
+export const lifecycleEmails = pgTable(
+  'lifecycle_emails',
+  {
+    id: id(),
+    organizationId: uuid()
+      .notNull()
+      .references(() => organizations.id),
+    kind: text().notNull(),
+    sentTo: text().notNull(),
+    sentAt: timestamptz().notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('lifecycle_emails_org_kind_unique').on(t.organizationId, t.kind)],
+);
