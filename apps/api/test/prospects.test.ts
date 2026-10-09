@@ -172,3 +172,41 @@ describe('interessados da landing', () => {
     await expect(db.execute(sql`update prospects set notes = notes`)).resolves.toBeDefined();
   });
 });
+
+describe('aviso de interessado novo', () => {
+  it('avisa por e-mail quem vai ligar, com o link do WhatsApp, e nunca avisa robô', async () => {
+    const t = await createTestApp({ AVISO_INTERESSADOS: 'vendas@exemplo.invalido, socio@exemplo.invalido' });
+    try {
+      const r = await postPublic(t.app, '/api/v1/prospects', {
+        name: 'Marcos da Oficina',
+        phone: '(35) 99841-6972',
+        workshopName: 'Auto Center Marcos',
+        message: 'Tenho 3 elevadores',
+      });
+      expect(r.statusCode, r.body).toBe(201);
+      const avisos = t.email.sent.filter((m) => m.subject.startsWith('Interessado novo'));
+      expect(avisos.map((m) => m.to).sort()).toEqual(['socio@exemplo.invalido', 'vendas@exemplo.invalido']);
+      expect(avisos[0]!.subject).toBe('Interessado novo: Marcos da Oficina (Auto Center Marcos)');
+      expect(avisos[0]!.text).toContain('https://wa.me/5535998416972');
+      expect(avisos[0]!.text).toContain('(35) 99841-6972');
+      expect(avisos[0]!.text).toContain('Tenho 3 elevadores');
+
+      t.email.sent.length = 0;
+      await postPublic(t.app, '/api/v1/prospects', { name: 'Robô', phone: '11999999999', website: 'http://spam.invalido' });
+      expect(t.email.sent, 'robô pego na armadilha não gera aviso').toHaveLength(0);
+    } finally {
+      await t.app.close();
+    }
+  });
+
+  it('sem endereço configurado, ninguém é avisado (e o cadastro grava igual)', async () => {
+    const t = await createTestApp({ AVISO_INTERESSADOS: '' });
+    try {
+      const r = await postPublic(t.app, '/api/v1/prospects', { name: 'Sem Aviso', phone: '(35) 99841-0000' });
+      expect(r.statusCode, r.body).toBe(201);
+      expect(t.email.sent.filter((m) => m.subject.startsWith('Interessado novo'))).toHaveLength(0);
+    } finally {
+      await t.app.close();
+    }
+  });
+});

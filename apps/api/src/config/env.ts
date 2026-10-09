@@ -102,6 +102,11 @@ const envSchema = z.object({
   /** quem responde um e-mail do sistema fala com este endereço (vazio: responde para o remetente) */
   EMAIL_REPLY_TO: z.string().optional(),
   /**
+   * Quem recebe o aviso de interessado novo da landing (E42), separado por
+   * vírgula. Vazio: ninguém é avisado e o contato espera na tela da plataforma.
+   */
+  AVISO_INTERESSADOS: z.string().optional(),
+  /**
    * Cifra as credenciais de terceiro guardadas no banco (hoje, o token do
    * WhatsApp de cada oficina — E22). 32 bytes em base64:
    * `openssl rand -base64 32`. Trocar esta chave torna ilegível o que já foi

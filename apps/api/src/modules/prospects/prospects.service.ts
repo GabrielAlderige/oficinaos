@@ -67,6 +67,45 @@ export class ProspectsService {
       }),
     );
     this.deps.log.info({ source: dados.source }, 'interessado novo');
+    await this.avisar(dados);
+  }
+
+  /**
+   * Interessado que espera esfria: avisa na hora quem vai ligar, com o link
+   * que já abre a conversa no WhatsApp. Falha de e-mail não derruba o
+   * cadastro, que já está gravado e aparece na tela da plataforma.
+   */
+  private async avisar(dados: Required<CreateProspectInput>): Promise<void> {
+    const para = (this.deps.env.AVISO_INTERESSADOS ?? '')
+      .split(',')
+      .map((endereco) => endereco.trim())
+      .filter(Boolean);
+    if (!para.length) return;
+    const digitos = dados.phone.replace(/\D/g, '');
+    const whatsapp = `https://wa.me/${digitos.length <= 11 ? `55${digitos}` : digitos}`;
+    const linhas = [
+      `${dados.name} quer conhecer o OficinaOS.`,
+      '',
+      `Oficina: ${dados.workshopName || '(não informou)'}`,
+      `Telefone: ${telefoneLegivel(digitos)}`,
+      `WhatsApp: ${whatsapp}`,
+      dados.email ? `E-mail: ${dados.email}` : '',
+      dados.message ? `\nMensagem:\n${dados.message}` : '',
+      '',
+      `Veio de: ${PROSPECT_SOURCE_LABELS[dados.source ?? 'LANDING'] ?? dados.source}`,
+      `Todos os interessados: ${this.deps.env.APP_URL}/plataforma/interessados`,
+    ].filter((linha, i, todas) => linha !== '' || todas[i - 1] !== '');
+    for (const endereco of para) {
+      try {
+        await this.deps.email.send({
+          to: endereco,
+          subject: `Interessado novo: ${dados.name}${dados.workshopName ? ` (${dados.workshopName})` : ''}`,
+          text: linhas.join('\n'),
+        });
+      } catch (err) {
+        this.deps.log.error({ err }, 'aviso de interessado novo falhou');
+      }
+    }
   }
 
   async overview(): Promise<ProspectsOverview> {
