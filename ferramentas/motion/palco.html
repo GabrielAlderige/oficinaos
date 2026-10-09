@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800;900&display=swap">
+<style>
+  /* O palco dos reels em motion graphics: 1080x1920, um quadro por vez.
+     Nada anima sozinho: cada quadro é desenhado por renderFrame(t), então o
+     vídeo sai liso e igual toda vez. */
+  :root { --bg: #0B0A0C; --ink: #F7F3EE; --muted: #A8A19A; --laranja: #FF6B1A; --laranja2: #FFB020; --verde: #2BD67B; --vermelho: #FF4D4D; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--bg); }
+  body { font-family: Poppins, "Segoe UI", Arial, sans-serif; color: var(--ink); }
+  #palco { position: absolute; inset: 0; overflow: hidden; }
+  .fundo { position: absolute; inset: -200px; }
+  .blob { position: absolute; border-radius: 50%; filter: blur(120px); opacity: .55; }
+  .grade { position: absolute; inset: 0; background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px); background-size: 90px 90px; }
+  .grao { position: absolute; inset: 0; opacity: .07; mix-blend-mode: overlay; }
+  .vinheta { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,.65) 100%); }
+  .cena { position: absolute; inset: 0; will-change: transform, opacity, filter; }
+  .centro { position: absolute; left: 80px; right: 80px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 40px; }
+  .linha { display: flex; flex-wrap: wrap; gap: 0 26px; line-height: 1.02; }
+  .palavra { display: inline-block; font-weight: 900; letter-spacing: -.02em; position: relative; will-change: transform, opacity; }
+  .palavra.dest { color: var(--laranja); }
+  .palavra .risco { position: absolute; left: -4px; right: -4px; bottom: 6px; height: 18px; background: var(--laranja); opacity: .28; transform-origin: left; border-radius: 6px; }
+  .sobre { font-weight: 700; font-size: 40px; letter-spacing: .14em; text-transform: uppercase; color: var(--laranja); }
+  .item { display: flex; align-items: center; gap: 34px; background: rgba(255,255,255,.055); border: 2px solid rgba(255,255,255,.08); border-radius: 34px; padding: 34px 40px; }
+  .item .ico { width: 92px; height: 92px; flex: none; border-radius: 50%; display: grid; place-items: center; }
+  .item .txt { font-size: 52px; font-weight: 700; line-height: 1.15; }
+  .num { font-weight: 900; font-size: 260px; line-height: 1; letter-spacing: -.04em; }
+  .rotulo { font-size: 54px; font-weight: 700; color: var(--muted); line-height: 1.2; }
+  .cel { position: absolute; left: 50%; top: 50%; width: 600px; height: 1220px; margin: -610px 0 0 -300px; border-radius: 86px; background: #141217; border: 14px solid #2A262E; box-shadow: 0 60px 140px rgba(0,0,0,.6), 0 0 0 2px rgba(255,255,255,.06) inset; overflow: hidden; }
+  .cel .ilha { position: absolute; left: 50%; top: 26px; width: 180px; height: 52px; margin-left: -90px; border-radius: 40px; background: #000; z-index: 2; }
+  .cel .tela { position: absolute; inset: 0; background: linear-gradient(170deg, #201B24, #0F0D11); padding: 120px 34px 40px; display: flex; flex-direction: column; gap: 26px; }
+  .cel .hora { font-size: 120px; font-weight: 300; text-align: center; letter-spacing: -.02em; color: #fff; }
+  .cel .data { font-size: 32px; text-align: center; color: var(--muted); margin-top: -14px; margin-bottom: 30px; }
+  .notif { background: rgba(255,255,255,.12); backdrop-filter: blur(10px); border-radius: 34px; padding: 26px 28px; display: flex; gap: 22px; align-items: center; }
+  .notif .app { width: 70px; height: 70px; border-radius: 18px; background: var(--laranja); flex: none; display: grid; place-items: center; }
+  .notif .app i { width: 26px; height: 26px; border: 7px solid #fff; border-radius: 50%; }
+  .notif b { display: block; font-size: 32px; font-weight: 700; }
+  .notif span { font-size: 28px; color: #D8D2CB; }
+  .split { position: absolute; left: 0; right: 0; height: 50%; display: flex; flex-direction: column; justify-content: center; padding: 0 80px; gap: 26px; overflow: hidden; }
+  .split .tag { font-size: 44px; font-weight: 800; letter-spacing: .12em; }
+  .split .frase { font-size: 76px; font-weight: 900; line-height: 1.05; }
+  .logo { display: flex; align-items: center; gap: 26px; font-weight: 800; font-size: 76px; }
+  .logo i { width: 104px; height: 104px; border-radius: 26px; background: var(--laranja); display: grid; place-items: center; }
+  .logo i::after { content: ""; width: 38px; height: 38px; border: 11px solid #fff; border-radius: 50%; }
+  .logo b { color: var(--laranja); }
+  .botao { align-self: flex-start; background: var(--laranja); color: #120E0B; font-weight: 900; font-size: 64px; padding: 36px 60px; border-radius: 999px; box-shadow: 0 20px 60px rgba(255,107,26,.45); }
+  .bio { font-size: 46px; font-weight: 700; color: var(--muted); display: flex; gap: 22px; align-items: center; }
+  .bio b { color: var(--ink); }
+  #leg { position: absolute; left: 70px; right: 140px; top: 1420px; display: flex; flex-wrap: wrap; gap: 0 24px; justify-content: center; font-weight: 800; font-size: 58px; line-height: 1.18; text-align: center; }
+  #leg span { display: inline-block; transform-origin: center bottom; text-shadow: 0 6px 24px rgba(0,0,0,.85), 0 2px 4px rgba(0,0,0,.9); }
+  #flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="palco">
+  <div class="fundo">
+    <div class="blob" id="b1" style="width:900px;height:900px;background:#FF6B1A"></div>
+    <div class="blob" id="b2" style="width:800px;height:800px;background:#7A2BFF;opacity:.28"></div>
+    <div class="blob" id="b3" style="width:700px;height:700px;background:#FFB020;opacity:.30"></div>
+  </div>
+  <div class="grade" id="grade"></div>
+  <svg class="grao" width="1080" height="1920"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(#n)"/></svg>
+  <div id="cenas"></div>
+  <div class="vinheta"></div>
+  <div id="leg"></div>
+  <div id="flash"></div>
+</div>
+<script>
+// ---------------------------------------------------------------- utilidades
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const prog = (t, ini, dur) => clamp((t - ini) / dur);
+const E = {
+  outCubic: (x) => 1 - Math.pow(1 - x, 3),
+  outExpo: (x) => (x === 1 ? 1 : 1 - Math.pow(2, -10 * x)),
+  inOutCubic: (x) => (x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2),
+  outBack: (x) => { const c1 = 1.9, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); },
+  // mola: passa um pouco do ponto e assenta
+  mola: (x) => (x >= 1 ? 1 : 1 - Math.exp(-7 * x) * Math.cos(11 * x)),
+  inCubic: (x) => x * x * x,
+};
+const lerp = (a, b, x) => a + (b - a) * x;
+const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
+const ICONES = {
+  ok: '<svg viewBox="0 0 24 24" width="56" height="56"><path class="tr" d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#0B0A0C" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" pathLength="1"/></svg>',
+  nao: '<svg viewBox="0 0 24 24" width="50" height="50"><path class="tr" d="M6 6l12 12M18 6L6 18" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" pathLength="1"/></svg>',
+};
+
+// palavras com *destaque*
+function palavras(texto) {
+  const out = [];
+  let dest = false;
+  for (const bruto of texto.split(/\s+/)) {
+    let w = bruto;
+    const abre = w.startsWith('*'), fecha = w.endsWith('*') || w.endsWith('*,') || w.endsWith('*.') || w.endsWith('*?') || w.endsWith('*!');
+    if (abre) dest = true;
+    w = w.replace(/\*/g, '');
+    out.push({ w, dest });
+    if (fecha) dest = false;
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------- as cenas
+const CENAS = {
+  // frase grande, palavra por palavra, com mola
+  impacto(el, p) {
+    const tam = p.tamanho || 132;
+    const linhas = (p.linhas || [p.texto]).map((l) => palavras(l));
+    let i = 0;
+    el.innerHTML = `<div class="centro" style="top:${p.topo || 50}%">
+      ${p.sobre ? `<div class="sobre" data-a="sobre">${esc(p.sobre)}</div>` : ''}
+      ${linhas.map((ws) => `<div class="linha" style="font-size:${tam}px">${ws.map((x) =>
+        `<span class="palavra${x.dest ? ' dest' : ''}" data-i="${i++}">${esc(x.w)}${x.dest ? '<span class="risco"></span>' : ''}</span>`).join('')}</div>`).join('')}
+    </div>`;
+    el._n = i;
+  },
+  impacto_t(el, lt, dur, p) {
+    const passo = p.passo || Math.min(0.16, (dur * 0.55) / Math.max(1, el._n));
+    const sobre = el.querySelector('[data-a=sobre]');
+    if (sobre) { const x = E.outExpo(prog(lt, 0, .6)); sobre.style.opacity = x; sobre.style.transform = `translateY(${lerp(30, 0, x)}px)`; sobre.style.letterSpacing = `${lerp(.4, .14, x)}em`; }
+    el.querySelectorAll('.palavra').forEach((w) => {
+      const k = +w.dataset.i, x = prog(lt, .15 + k * passo, .55);
+      const m = E.mola(x), a = E.outCubic(prog(lt, .15 + k * passo, .25));
+      w.style.opacity = a;
+      w.style.transform = `translateY(${lerp(90, 0, m)}px) scale(${lerp(.55, 1, m)}) rotate(${lerp(-6, 0, m)}deg)`;
+      w.style.filter = `blur(${lerp(14, 0, E.outCubic(x))}px)`;
+      const r = w.querySelector('.risco');
+      if (r) r.style.transform = `scaleX(${E.outExpo(prog(lt, .45 + k * passo, .6))})`;
+    });
+  },
+
+  // lista com ícone desenhado (ok = laranja com check; nao = vermelho com x)
+  lista(el, p) {
+    el.innerHTML = `<div class="centro" style="gap:30px">
+      ${p.titulo ? `<div class="linha" style="font-size:${p.tamanhoTitulo || 96}px;margin-bottom:24px">${palavras(p.titulo).map((x, i) =>
+        `<span class="palavra${x.dest ? ' dest' : ''}" data-t="${i}">${esc(x.w)}</span>`).join('')}</div>` : ''}
+      ${p.itens.map((it, k) => `<div class="item" data-k="${k}">
+        <div class="ico" style="background:${it.tipo === 'nao' ? 'var(--vermelho)' : 'var(--laranja)'}">${ICONES[it.tipo || 'ok']}</div>
+        <div class="txt">${esc(it.texto)}</div></div>`).join('')}
+    </div>`;
+  },
+  lista_t(el, lt, dur, p) {
+    el.querySelectorAll('[data-t]').forEach((w) => {
+      const x = E.mola(prog(lt, +w.dataset.t * .09, .5));
+      w.style.opacity = clamp(x * 1.5); w.style.transform = `translateY(${lerp(60, 0, x)}px) scale(${lerp(.7, 1, x)})`;
+    });
+    const n = p.itens.length, ini = p.titulo ? .55 : .1;
+    const gap = p.intervalo || Math.min(1.2, (dur - ini - 1) / n);
+    el.querySelectorAll('.item').forEach((it) => {
+      const k = +it.dataset.k, t0 = ini + k * gap, x = E.outExpo(prog(lt, t0, .7));
+      it.style.opacity = clamp(x * 2);
+      it.style.transform = `translateX(${lerp(260, 0, x)}px)`;
+      const ico = it.querySelector('.ico'), y = E.mola(prog(lt, t0 + .12, .6));
+      ico.style.transform = `scale(${y}) rotate(${lerp(-90, 0, y)}deg)`;
+      const tr = it.querySelector('.tr');
+      tr.style.strokeDasharray = 1; tr.style.strokeDashoffset = 1 - E.outCubic(prog(lt, t0 + .3, .4));
+    });
+  },
+
+  // número gigante contando, com anel
+  numero(el, p) {
+    el.innerHTML = `<div class="centro" style="top:44%;align-items:center;text-align:center;gap:20px">
+      ${p.sobre ? `<div class="sobre" data-a="sobre">${esc(p.sobre)}</div>` : ''}
+      <div style="position:relative;width:820px;height:820px;display:grid;place-items:center">
+        <svg width="820" height="820" viewBox="0 0 820 820" style="position:absolute;inset:0;transform:rotate(-90deg)">
+          <circle cx="410" cy="410" r="370" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="26"/>
+          <circle class="anel" cx="410" cy="410" r="370" fill="none" stroke="url(#gr)" stroke-width="26" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/>
+          <defs><linearGradient id="gr"><stop offset="0" stop-color="#FFB020"/><stop offset="1" stop-color="#FF6B1A"/></linearGradient></defs>
+        </svg>
+        <div><div class="num" data-a="num"></div><div class="rotulo" data-a="sub" style="color:var(--ink);font-size:60px">${esc(p.unidade || '')}</div></div>
+      </div>
+      <div class="rotulo" data-a="rot">${esc(p.rotulo || '')}</div>
+    </div>`;
+  },
+  numero_t(el, lt, dur, p) {
+    const x = E.outExpo(prog(lt, .2, Math.min(1.6, dur * .5)));
+    const v = Math.round(lerp(p.de || 0, p.ate, x));
+    el.querySelector('[data-a=num]').textContent = (p.prefixo || '') + v.toLocaleString('pt-BR') + (p.sufixo || '');
+    el.querySelector('.anel').style.strokeDashoffset = 1 - x * (p.anel ?? 1);
+    const s = E.mola(prog(lt, 0, .7));
+    el.querySelector('.centro > div:nth-last-child(2)').style.transform = `scale(${lerp(.6, 1, s)})`;
+    for (const k of ['sobre', 'rot']) { const e = el.querySelector(`[data-a=${k}]`); if (e) { const y = E.outExpo(prog(lt, k === 'rot' ? .9 : 0, .7)); e.style.opacity = y; e.style.transform = `translateY(${lerp(40, 0, y)}px)`; } }
+  },
+
+  // celular com notificações caindo
+  celular(el, p) {
+    el.innerHTML = `<div class="cel"><div class="ilha"></div><div class="tela">
+      ${p.cabecalho ? `<div style="display:flex;align-items:center;gap:18px;margin:10px 0 26px"><div class="notif" style="padding:0;background:none"><div class="app"><i></i></div></div><div><div style="font-size:44px;font-weight:800">${esc(p.cabecalho)}</div><div style="font-size:30px;color:var(--muted)">${esc(p.subcabecalho || 'OficinaOS')}</div></div></div>`
+        : `<div class="hora">${esc(p.hora || '09:41')}</div><div class="data">${esc(p.data || '')}</div>`}
+      ${p.notificacoes.map((n, k) => `<div class="notif" data-k="${k}"><div class="app"><i></i></div><div><b>${esc(n.titulo)}</b><span>${esc(n.texto)}</span></div></div>`).join('')}
+    </div></div>`;
+  },
+  celular_t(el, lt, dur, p) {
+    const c = el.querySelector('.cel'), x = E.outExpo(prog(lt, 0, 1));
+    const flut = Math.sin(lt * 1.6) * 10;
+    c.style.transform = `translateY(${lerp(900, 0, x) + flut}px) rotate(${lerp(14, -2, x) + Math.sin(lt * 1.1) * 1.2}deg) scale(${lerp(.8, 1, x)})`;
+    const n = p.notificacoes.length, gap = p.intervalo || Math.min(1.1, (dur - 1.3) / n);
+    el.querySelectorAll('.notif').forEach((it) => {
+      const k = +it.dataset.k, y = E.mola(prog(lt, .9 + k * gap, .6));
+      it.style.opacity = clamp(y * 1.6);
+      it.style.transform = `translateY(${lerp(-80, 0, y)}px) scale(${lerp(.85, 1, y)})`;
+    });
+  },
+
+  // antes x depois, com a cortina passando
+  contraste(el, p) {
+    el.innerHTML = `<div class="split" style="top:0;background:rgba(255,77,77,.08);justify-content:flex-end;padding-bottom:110px">
+        <div class="tag" style="color:var(--vermelho)">${esc(p.antesTag || 'ANTES')}</div><div class="frase" data-a="antes">${esc(p.antes)}</div></div>
+      <div class="split" style="bottom:0;background:rgba(255,107,26,.12);justify-content:flex-start;padding-top:110px">
+        <div class="tag" style="color:var(--laranja)">${esc(p.depoisTag || 'COM O OFICINAOS')}</div><div class="frase" data-a="depois">${esc(p.depois)}</div></div>
+      <div data-a="faixa" style="position:absolute;left:0;right:0;top:50%;height:10px;margin-top:-5px;background:linear-gradient(90deg,#FFB020,#FF6B1A);transform-origin:left"></div>`;
+  },
+  contraste_t(el, lt, dur) {
+    const a = E.outExpo(prog(lt, .1, .7)), meio = dur * .45, b = E.outExpo(prog(lt, meio, .8));
+    const antes = el.querySelector('[data-a=antes]'), depois = el.querySelector('[data-a=depois]');
+    antes.style.opacity = a; antes.style.transform = `translateX(${lerp(-200, 0, a)}px)`;
+    antes.style.textDecoration = lt > meio ? 'line-through' : 'none';
+    antes.style.color = lt > meio ? 'rgba(247,243,238,.45)' : 'var(--ink)';
+    depois.style.opacity = b; depois.style.transform = `translateX(${lerp(200, 0, b)}px)`;
+    el.querySelector('[data-a=faixa]').style.transform = `scaleX(${E.inOutCubic(prog(lt, meio - .35, .6))})`;
+  },
+
+  // fecho: marca, frase, botão pulsando
+  chamada(el, p) {
+    el.innerHTML = `<div class="centro" style="gap:54px">
+      <div class="logo" data-a="logo"><i></i><span>Oficina<b>OS</b></span></div>
+      <div class="linha" style="font-size:${p.tamanho || 104}px">${palavras(p.titulo).map((x, i) =>
+        `<span class="palavra${x.dest ? ' dest' : ''}" data-i="${i}">${esc(x.w)}</span>`).join('')}</div>
+      <div class="botao" data-a="botao">${esc(p.botao || 'Teste grátis por 14 dias')}</div>
+      <div class="bio" data-a="bio"><b>Link na bio</b><span>oficinaosbr.cloud</span></div>
+    </div>`;
+  },
+  chamada_t(el, lt) {
+    const l = E.mola(prog(lt, 0, .7)), logo = el.querySelector('[data-a=logo]');
+    logo.style.opacity = clamp(l * 1.5); logo.style.transform = `scale(${lerp(.6, 1, l)})`;
+    el.querySelectorAll('.palavra').forEach((w) => {
+      const x = E.mola(prog(lt, .25 + +w.dataset.i * .08, .55));
+      w.style.opacity = clamp(x * 1.5); w.style.transform = `translateY(${lerp(70, 0, x)}px)`;
+    });
+    const b = el.querySelector('[data-a=botao]'), y = E.mola(prog(lt, .9, .7));
+    const pulso = lt > 1.6 ? 1 + Math.sin((lt - 1.6) * 5) * .035 : 1;
+    b.style.opacity = clamp(y * 1.5); b.style.transform = `scale(${lerp(.5, 1, y) * pulso})`;
+    const bio = el.querySelector('[data-a=bio]'), z = E.outExpo(prog(lt, 1.3, .6));
+    bio.style.opacity = z; bio.style.transform = `translateY(${lerp(30, 0, z)}px)`;
+  },
+};
+
+// ---------------------------------------------------------------- o roteiro
+let R = null;
+window.carregar = (roteiro) => {
+  R = roteiro;
+  const raiz = document.getElementById('cenas');
+  raiz.innerHTML = '';
+  R.cenas.forEach((c, k) => {
+    const el = document.createElement('div');
+    el.className = 'cena'; el.dataset.k = k;
+    CENAS[c.tipo](el, c);
+    raiz.appendChild(el);
+    c._el = el;
+    // cada linha do roteiro cabe numa linha só: se passar da largura, a fonte encolhe
+    const ls = [...el.querySelectorAll('.linha')];
+    if (c.tipo === 'impacto' && ls.length) {
+      ls.forEach((l) => { l.style.flexWrap = 'nowrap'; });
+      const largura = Math.max(...ls.map((l) => l.scrollWidth));
+      if (largura > 920) ls.forEach((l) => { l.style.fontSize = `${parseFloat(getComputedStyle(l).fontSize) * 900 / largura}px`; });
+    }
+  });
+};
+
+const TRANS = 0.42; // entrada e saída de cada cena
+
+window.renderFrame = (t) => {
+  // fundo vivo: as manchas de cor passeiam devagar
+  const b1 = document.getElementById('b1'), b2 = document.getElementById('b2'), b3 = document.getElementById('b3');
+  b1.style.transform = `translate(${200 + Math.sin(t * .35) * 260}px, ${300 + Math.cos(t * .28) * 300}px)`;
+  b2.style.transform = `translate(${600 + Math.cos(t * .3) * 240}px, ${1200 + Math.sin(t * .22) * 260}px)`;
+  b3.style.transform = `translate(${500 + Math.sin(t * .25 + 2) * 300}px, ${700 + Math.cos(t * .33 + 1) * 380}px)`;
+  document.getElementById('grade').style.transform = `translateY(${(t * 22) % 90}px)`;
+
+  let flash = 0;
+  R.cenas.forEach((c) => {
+    const el = c._el, lt = t - c.inicio, dur = c.fim - c.inicio;
+    if (lt < -0.01 || lt > dur + TRANS) { el.style.display = 'none'; return; }
+    el.style.display = 'block';
+    CENAS[c.tipo + '_t'](el, lt, dur, c);
+    // entrada: zoom suave de fora; saída: empurra para cima e desfoca
+    const e = E.outExpo(prog(lt, 0, TRANS)), s = E.inCubic(prog(lt, dur, TRANS));
+    el.style.opacity = Math.min(e * 1.2, 1 - s);
+    el.style.transform = `translateY(${-s * 160}px) scale(${lerp(1.08, 1, e) * lerp(1, .94, s)})`;
+    el.style.filter = s > 0 ? `blur(${s * 16}px)` : 'none';
+    if (c.flash && lt >= 0 && lt < .18) flash = Math.max(flash, (1 - lt / .18) * .22);
+  });
+  document.getElementById('flash').style.opacity = flash;
+
+  // legenda: a frase falada agora, palavra acesa em laranja
+  const leg = document.getElementById('leg');
+  const bloco = R.legendas.find((b) => t >= b.inicio && t < b.fim + .25);
+  if (!bloco) { leg.innerHTML = ''; return; }
+  if (leg._b !== bloco) {
+    leg._b = bloco;
+    leg.innerHTML = bloco.palavras.map((w) => `<span>${esc(w.texto)}</span>`).join('');
+  }
+  leg.querySelectorAll('span').forEach((s, k) => {
+    const w = bloco.palavras[k], x = E.mola(prog(t, w.t - .05, .35));
+    const ativa = t >= w.t - .05 && t < w.fim + .08;
+    s.style.opacity = t < w.t - .05 ? .0 : 1;
+    s.style.transform = `translateY(${lerp(26, 0, x)}px) scale(${ativa ? 1.08 : 1})`;
+    s.style.color = ativa ? '#FFB020' : '#FFFFFF';
+  });
+};
+</script>
+</body>
+</html>

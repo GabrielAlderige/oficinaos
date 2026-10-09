@@ -1,0 +1,6 @@
+videos/
+tmp/
+cache-voz/
+__pycache__/
+*.pyc
+render.log
