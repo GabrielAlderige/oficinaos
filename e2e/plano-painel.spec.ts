@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import { captura, criarOficina, entrarNoPainel, expect, test, textoDe, vencerOTesteDaOficina } from './helpers';
+import { api, captura, criarOficina, entrarNoPainel, expect, test, textoDe, vencerOTesteDaOficina } from './helpers';
 
 /**
  * Assinatura do SaaS (E20). O que este roteiro prova no navegador:
@@ -9,6 +9,9 @@ import { captura, criarOficina, entrarNoPainel, expect, test, textoDe, vencerOTe
  */
 test('a oficina vê o teste correndo, assina, troca de plano e cancela', async ({ page }) => {
   const oficina = await criarOficina('plano', 'PLA1A23');
+  // o documento vai na cobrança: sem CPF/CNPJ a assinatura é recusada com o
+  // caminho para preencher (é o que a oficina de verdade faz antes de assinar)
+  await api('/organization', { token: oficina.token, method: 'PATCH', payload: { document: '11.222.333/0001-81' } });
 
   await entrarNoPainel(page, oficina.email);
 
