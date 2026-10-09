@@ -28,6 +28,12 @@ export const fiscalSettingsSchema = z.object({
   environment: z.enum(FISCAL_ENVIRONMENTS),
   provider: z.string().trim().max(40).nullable(),
   providerCompanyId: z.string().trim().max(120).nullable(),
+  /** código IBGE do município (7 dígitos), exigido pelo padrão nacional da NFS-e */
+  ibgeCityCode: z.string().trim().regex(/^\d{7}$/, 'O código IBGE do município tem 7 dígitos').nullable(),
+  /** código de tributação nacional do ISS (6 dígitos); vazio sai do item da LC 116 (14.01 vira 140101) */
+  nationalServiceCode: z.string().trim().regex(/^\d{6}$/, 'O código nacional do serviço tem 6 dígitos').nullable(),
+  /** a oficina já tem emissor de verdade ligado (o token em si nunca sai da API) */
+  emissorConectado: z.boolean(),
   /** o que a oficina quer que apareça no fim da discriminação (ex.: garantia) */
   additionalInformation: z.string().trim().max(1000).nullable(),
   updatedAt: z.iso.datetime().nullable(),
@@ -35,7 +41,7 @@ export const fiscalSettingsSchema = z.object({
 export type FiscalSettings = z.infer<typeof fiscalSettingsSchema>;
 
 export const updateFiscalSettingsSchema = fiscalSettingsSchema
-  .omit({ updatedAt: true, environment: true, provider: true, providerCompanyId: true })
+  .omit({ updatedAt: true, environment: true, provider: true, providerCompanyId: true, emissorConectado: true })
   .partial()
   .extend({
     providerCompanyId: z.string().trim().max(120).nullable().optional(),

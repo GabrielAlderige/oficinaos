@@ -27,10 +27,18 @@ import type { Tx } from '../../db/tenant';
 import * as customerRepo from '../customers/customers.repository';
 import * as orgRepo from '../organizations/organizations.repository';
 import * as workOrderRepo from '../work-orders/work-orders.repository';
-import type { PedidoDeNfse } from '../../integrations/fiscal/nfse';
+import type { NfseProvider, PedidoDeNfse, RespostaDoEmissor } from '../../integrations/fiscal/nfse';
+import { decifrar } from '../../core/secrets';
 import * as repo from './invoices.repository';
 
 const milli = (value: string) => parseQuantity(value) ?? 0;
+
+/** Quantas vezes perguntar pela nota logo depois de emitir, antes de devolver "em processamento". */
+const CONSULTAS_NA_EMISSAO = 4;
+const espera = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const SEM_CLIENTE: ClientInfo = { ip: null, userAgent: null };
+
+type LinhaFiscal = Awaited<ReturnType<typeof repo.findFiscalSettings>>;
 
 /** Rateio: quanto do desconto da OS cabe à parte de serviços. */
 function descontoDosServicos(descontoCents: number, servicosCents: number, subtotalCents: number): number {
@@ -79,6 +87,9 @@ export class InvoicesService {
       environment: row?.environment ?? this.deps.nfse.environment,
       provider: row?.provider ?? this.deps.nfse.driver,
       providerCompanyId: row?.providerCompanyId ?? null,
+      ibgeCityCode: row?.ibgeCityCode ?? null,
+      nationalServiceCode: row?.nationalServiceCode ?? null,
+      emissorConectado: this.conectada(row),
       additionalInformation: row?.additionalInformation ?? null,
       updatedAt: row?.updatedAt?.toISOString() ?? null,
     };
@@ -89,10 +100,11 @@ export class InvoicesService {
       const antes = await repo.findFiscalSettings(tx, auth.organizationId);
       await repo.upsertFiscalSettings(tx, auth.organizationId, {
         ...input,
-        // o ambiente e o driver saem da configuração do servidor, não da tela:
-        // ninguém "vira produção" clicando num campo do painel
-        environment: this.deps.nfse.environment,
-        provider: this.deps.nfse.driver,
+        // o ambiente e o driver saem do servidor (ou do script que liga o
+        // emissor da oficina), nunca da tela: ninguém "vira produção" clicando
+        // num campo do painel — e salvar o formulário não desliga o emissor
+        environment: this.conectada(antes) ? antes!.environment : this.deps.nfse.environment,
+        provider: this.conectada(antes) ? antes!.provider : this.deps.nfse.driver,
       });
       await recordActivity(tx, {
         organizationId: auth.organizationId,
@@ -143,13 +155,13 @@ export class InvoicesService {
   // ------------------------------- emissão -------------------------------
 
   async issue(auth: AuthContext, workOrderId: string, input: IssueInvoiceInput, client: ClientInfo): Promise<Invoice> {
-    const { invoiceId, pedido } = await withTenant(this.deps.db, auth, async (tx) => {
+    const { invoiceId, pedido, emissor } = await withTenant(this.deps.db, auth, async (tx) => {
       const order = await workOrderRepo.lockWorkOrder(tx, auth.organizationId, workOrderId);
       if (!order) throw notFound('OS não encontrada.');
 
       // o mesmo POST repetido devolve a nota que já saiu (D32)
       const repetida = await repo.findByClientRequest(tx, auth.organizationId, input.clientRequestId);
-      if (repetida) return { invoiceId: repetida.id, pedido: null };
+      if (repetida) return { invoiceId: repetida.id, pedido: null, emissor: this.deps.nfse };
 
       if (order.status !== 'COMPLETED' && order.status !== 'DELIVERED') {
         throw new AppError(
@@ -170,6 +182,16 @@ export class InvoicesService {
       }
 
       const base = await this.montar(tx, auth.organizationId, workOrderId, input);
+      const emissor = this.emissorPara(await repo.findFiscalSettings(tx, auth.organizationId));
+      // o padrão nacional identifica a cidade pelo código IBGE: sem ele a nota
+      // nem sai daqui (o script que liga o emissor já preenche)
+      if (emissor.driver === 'focus' && !base.settings.ibgeCityCode) {
+        base.pendencias.push({
+          onde: 'oficina',
+          campo: 'ibgeCityCode',
+          mensagem: 'Falta o código IBGE do município da oficina (7 dígitos).',
+        });
+      }
       if (base.pendencias.length) {
         throw new AppError(
           422,
@@ -185,8 +207,8 @@ export class InvoicesService {
         organizationId: auth.organizationId,
         kind: 'NFSE',
         status: 'QUEUED',
-        environment: this.deps.nfse.environment,
-        provider: this.deps.nfse.driver,
+        environment: emissor.environment,
+        provider: emissor.driver,
         workOrderId,
         customerId: base.customer.id,
         vehicleId: base.vehicle.id,
@@ -239,6 +261,8 @@ export class InvoicesService {
           municipalServiceCode: base.settings.municipalServiceCode,
           cnae: base.settings.cnae,
           providerCompanyId: base.settings.providerCompanyId,
+          ibgeCityCode: base.settings.ibgeCityCode,
+          nationalServiceCode: base.settings.nationalServiceCode,
         },
         tomador: {
           name: base.customer.name,
@@ -275,16 +299,16 @@ export class InvoicesService {
           totalCents: base.totais.totalCents,
         },
       };
-      return { invoiceId: nota.id, pedido };
+      return { invoiceId: nota.id, pedido, emissor };
     });
 
     if (!pedido) return this.get(auth, invoiceId);
 
     // fora da transação: emissor real demora, e prender o banco esperando a
     // prefeitura é o jeito mais rápido de derrubar a oficina inteira
-    let resposta;
+    let resposta: RespostaDoEmissor;
     try {
-      resposta = await this.deps.nfse.emitir(pedido);
+      resposta = await emissor.emitir(pedido);
     } catch (erro) {
       this.deps.log.error({ err: erro, invoiceId }, 'emissor de NFS-e falhou');
       await withTenant(this.deps.db, auth, async (tx) =>
@@ -297,6 +321,54 @@ export class InvoicesService {
       return this.get(auth, invoiceId);
     }
 
+    // emissor de verdade costuma autorizar em segundos: pergunta algumas vezes
+    // antes de devolver "em processamento" (a tela e a leitura seguem perguntando)
+    for (let i = 0; resposta.status === 'QUEUED' && emissor.consultar && i < CONSULTAS_NA_EMISSAO; i++) {
+      await espera(this.deps.env.NFSE_ESPERA_MS);
+      try {
+        resposta = await emissor.consultar({ providerRef: resposta.providerRef, invoiceId });
+      } catch (erro) {
+        this.deps.log.warn({ err: erro, invoiceId }, 'consulta da NFS-e falhou; fica em processamento');
+        break;
+      }
+    }
+
+    await this.gravarResposta(auth, invoiceId, workOrderId, resposta, client);
+    return this.get(auth, invoiceId);
+  }
+
+  // ----------------------- emissor e resposta dele ------------------------
+
+  /** A plataforma ligou o emissor de verdade desta oficina (script `nfse-focus`). */
+  private conectada(linha: LinhaFiscal): boolean {
+    return Boolean(
+      linha?.provider === 'focus' &&
+        linha.providerTokenEnc &&
+        (linha.environment === 'HOMOLOGATION' || linha.environment === 'PRODUCTION'),
+    );
+  }
+
+  /** O emissor desta oficina: o de verdade quando está ligado, o simulador quando não. */
+  private emissorPara(linha: LinhaFiscal): NfseProvider {
+    if (!this.conectada(linha)) return this.deps.nfse;
+    return this.deps.emissorDaOficina({
+      token: decifrar(linha!.providerTokenEnc!, this.deps.env.SECRETS_KEY),
+      environment: linha!.environment as 'HOMOLOGATION' | 'PRODUCTION',
+    });
+  }
+
+  /**
+   * Grava o que o emissor respondeu. O evento na OS e a auditoria só saem
+   * quando a nota muda de verdade (autorizada, rejeitada ou cancelada): a
+   * nota que segue "em processamento" não deixa rastro a cada consulta.
+   */
+  private async gravarResposta(
+    auth: AuthContext,
+    invoiceId: string,
+    workOrderId: string,
+    resposta: RespostaDoEmissor,
+    client: ClientInfo,
+  ): Promise<void> {
     await withTenant(this.deps.db, auth, async (tx) => {
       const nota = await repo.updateInvoice(tx, invoiceId, {
         status: resposta.status,
@@ -311,8 +383,10 @@ export class InvoicesService {
         issuedAt: resposta.issuedAt,
         rejectionReason: resposta.rejectionReason,
         providerResponse: resposta.raw,
+        ...(resposta.status === 'CANCELED' ? { canceledAt: new Date() } : {}),
       });
-      if (resposta.status !== 'REJECTED') {
+      if (resposta.status === 'QUEUED') return;
+      if (resposta.status === 'AUTHORIZED') {
         await workOrderRepo.insertEvent(tx, {
           organizationId: auth.organizationId,
           workOrderId,
@@ -329,15 +403,41 @@ export class InvoicesService {
       await recordActivity(tx, {
         organizationId: auth.organizationId,
         actorUserId: auth.userId,
-        action: resposta.status === 'REJECTED' ? 'invoice.rejected' : 'invoice.issued',
+        action:
+          resposta.status === 'REJECTED' ? 'invoice.rejected' : resposta.status === 'CANCELED' ? 'invoice.canceled' : 'invoice.issued',
         entityType: 'invoice',
         entityId: invoiceId,
         workOrderId,
         ...client,
       });
     });
+  }
 
-    return this.get(auth, invoiceId);
+  /**
+   * Nota que ficou "em processamento": pergunta de novo ao emissor. Roda em
+   * toda leitura da nota (a tela pergunta a cada poucos segundos enquanto ela
+   * está na fila). Se o emissor não responder, a nota só continua na fila.
+   */
+  private async atualizarSePendente(
+    auth: AuthContext,
+    nota: { id: string; status: string; provider: string | null; workOrderId: string },
+  ): Promise<boolean> {
+    if (nota.status !== 'QUEUED' || nota.provider !== 'focus') return false;
+    const emissor = await withTenant(this.deps.db, auth, async (tx) =>
+      this.emissorPara(await repo.findFiscalSettings(tx, auth.organizationId)),
+    );
+    if (!emissor.consultar) return false;
+    let resposta: RespostaDoEmissor;
+    try {
+      // a referência na Focus é o próprio id da nota
+      resposta = await emissor.consultar({ providerRef: nota.id, invoiceId: nota.id });
+    } catch (erro) {
+      this.deps.log.warn({ err: erro, invoiceId: nota.id }, 'consulta da NFS-e falhou; segue em processamento');
+      return false;
+    }
+    if (resposta.status === 'QUEUED') return false;
+    await this.gravarResposta(auth, nota.id, nota.workOrderId, resposta, SEM_CLIENTE);
+    return true;
   }
 
   // ----------------------------- cancelamento -----------------------------
@@ -360,11 +460,25 @@ export class InvoicesService {
       return travada;
     });
 
-    const resposta = await this.deps.nfse.cancelar({
-      providerRef: nota.providerRef,
-      invoiceId: nota.id,
-      reason: input.reason,
-    });
+    // cancela no mesmo emissor que emitiu: nota da Focus não se cancela no simulador
+    const emissor =
+      nota.provider === 'focus'
+        ? await withTenant(this.deps.db, auth, async (tx) =>
+            this.emissorPara(await repo.findFiscalSettings(tx, auth.organizationId)),
+          )
+        : this.deps.nfse;
+    let resposta;
+    try {
+      resposta = await emissor.cancelar({ providerRef: nota.providerRef, invoiceId: nota.id, reason: input.reason });
+    } catch (erro) {
+      this.deps.log.warn({ err: erro, invoiceId }, 'cancelamento da NFS-e recusado');
+      throw new AppError(
+        422,
+        ErrorCode.VALIDATION_FAILED,
+        'A prefeitura não cancelou a nota',
+        erro instanceof Error ? erro.message : 'Tente de novo em alguns minutos.',
+      );
+    }
 
     await withTenant(this.deps.db, auth, async (tx) => {
       await repo.updateInvoice(tx, invoiceId, {
@@ -399,6 +513,17 @@ export class InvoicesService {
   // ------------------------------- leitura --------------------------------
 
   async get(auth: AuthContext, id: string): Promise<Invoice> {
+    const primeira = await this.ler(auth, id);
+    const mudou = await this.atualizarSePendente(auth, {
+      id,
+      status: primeira.status,
+      provider: primeira.provider,
+      workOrderId: primeira.workOrderId,
+    });
+    return mudou ? this.ler(auth, id) : primeira;
+  }
+
+  private async ler(auth: AuthContext, id: string): Promise<Invoice> {
     return withTenant(this.deps.db, auth, async (tx) => {
       const row = await repo.findInvoice(tx, auth.organizationId, id);
       if (!row) throw notFound('Nota não encontrada.');
@@ -416,6 +541,15 @@ export class InvoicesService {
   }
 
   async byWorkOrder(auth: AuthContext, workOrderId: string): Promise<Invoice[]> {
+    const notas = await this.listarDaOs(auth, workOrderId);
+    let mudou = false;
+    for (const nota of notas) {
+      if (await this.atualizarSePendente(auth, nota)) mudou = true;
+    }
+    return mudou ? this.listarDaOs(auth, workOrderId) : notas;
+  }
+
+  private async listarDaOs(auth: AuthContext, workOrderId: string): Promise<Invoice[]> {
     return withTenant(this.deps.db, auth, async (tx) => {
       const { rows } = await repo.listInvoices(tx, auth.organizationId, { page: 1, pageSize: 50 });
       return rows.filter((row) => row.invoice.workOrderId === workOrderId).map((row) => this.toDto(row, []));

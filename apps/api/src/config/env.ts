@@ -113,6 +113,8 @@ const envSchema = z.object({
    * guardado, e cada oficina precisa conectar de novo.
    */
   SECRETS_KEY: z.string().optional(),
+  /** pausa entre as consultas da NFS-e logo depois de emitir (os testes usam 0) */
+  NFSE_ESPERA_MS: z.coerce.number().int().min(0).default(1500),
   /**
    * A API do WhatsApp Business (E22). Aponta para a Meta em produção; nos
    * testes, para um endereço falso — teste nenhum fala com a Meta de verdade.

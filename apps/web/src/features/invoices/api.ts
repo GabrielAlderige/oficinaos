@@ -30,6 +30,9 @@ export function useInvoicesOfWorkOrder(workOrderId: string, enabled = true) {
     queryKey: invoiceKeys.byWorkOrder(workOrderId),
     queryFn: () => api<{ data: Invoice[] }>(`/work-orders/${workOrderId}/invoices`),
     enabled,
+    // nota "em processamento" espera a prefeitura: pergunta de novo a cada 5 s
+    // até sair (a API consulta o emissor a cada leitura)
+    refetchInterval: (query) => (query.state.data?.data.some((nota) => nota.status === 'QUEUED') ? 5_000 : false),
   });
 }
 

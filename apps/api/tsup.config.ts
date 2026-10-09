@@ -12,6 +12,8 @@ export default defineConfig({
     'seed-tutoriais': 'scripts/seed-tutoriais.ts',
     // a oficina de demonstração do servidor, para as reuniões de venda (DEMO_DOMINIO e DEMO_SENHA próprios)
     'seed-demo': 'scripts/seed-demo.ts',
+    // liga a NFS-e de verdade (Focus NFe) de uma oficina: docs/DEPLOY.md, "Nota fiscal de verdade"
+    'nfse-focus': 'scripts/nfse-focus.ts',
   },
   format: ['esm'],
   platform: 'node',

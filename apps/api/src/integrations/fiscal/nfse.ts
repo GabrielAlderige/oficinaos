@@ -29,6 +29,10 @@ export interface PedidoDeNfse {
     municipalServiceCode: string | null;
     cnae: string | null;
     providerCompanyId: string | null;
+    /** código IBGE de 7 dígitos do município (padrão nacional da NFS-e) */
+    ibgeCityCode: string | null;
+    /** código de tributação nacional do ISS, 6 dígitos (14.01 vira 140101) */
+    nationalServiceCode: string | null;
   };
   tomador: {
     name: string;
@@ -68,7 +72,7 @@ export interface PedidoDeNfse {
 
 export interface RespostaDoEmissor {
   /** `AUTHORIZED` quando a prefeitura já autorizou; `QUEUED` quando ficou na fila */
-  status: 'AUTHORIZED' | 'QUEUED' | 'REJECTED';
+  status: 'AUTHORIZED' | 'QUEUED' | 'REJECTED' | 'CANCELED';
   environment: FiscalEnvironment;
   provider: string;
   providerRef: string | null;
@@ -93,6 +97,12 @@ export interface NfseProvider {
   readonly driver: string;
   readonly environment: FiscalEnvironment;
   emitir(pedido: PedidoDeNfse): Promise<RespostaDoEmissor>;
+  /**
+   * Pergunta de novo pela nota que ficou `QUEUED`: o emissor real recebe na
+   * hora e a prefeitura autoriza depois. Driver que responde na hora não
+   * precisa implementar.
+   */
+  consultar?(input: { providerRef: string | null; invoiceId: string }): Promise<RespostaDoEmissor>;
   cancelar(input: { providerRef: string | null; invoiceId: string; reason: string }): Promise<RespostaDeCancelamento>;
 }
 

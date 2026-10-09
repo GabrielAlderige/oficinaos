@@ -97,6 +97,11 @@ export interface ServiceDeps {
   email: EmailProvider;
   storage: StorageProvider;
   nfse: NfseProvider;
+  /**
+   * Monta o emissor de verdade de UMA oficina (Focus NFe, com o token dela).
+   * Os testes trocam por um que não sai para a internet.
+   */
+  emissorDaOficina: (opcoes: { token: string; environment: 'HOMOLOGATION' | 'PRODUCTION' }) => NfseProvider;
   /** o da plataforma: assinatura do SaaS e leitura dos avisos */
   gateway: PaymentGateway;
   /** o da cobrança da oficina para o cliente; `null` é desligado */

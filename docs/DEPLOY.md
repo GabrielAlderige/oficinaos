@@ -402,6 +402,58 @@ docker compose up -d api    # recria só a API, com a configuração nova
 
 ---
 
+### 8.3 Nota fiscal de verdade (Focus NFe), no dia do primeiro cliente que pedir
+
+O sistema já emite pela **Focus NFe** no **padrão nacional da NFS-e**: o
+conector está pronto e testado. Cada oficina é ligada **uma a uma**, pela
+plataforma, nunca por botão no painel. Quem não está ligada continua no
+simulador, com o selo "Simulação" em tudo. Decisão comercial: só no **Nitro**.
+
+**Uma vez só (a conta do OficinaOS):**
+
+1. Assine o **Focus NFe Start** (R$ 119,90/mês, 3 CNPJs; R$ 39,90 por CNPJ a mais)
+   em https://focusnfe.com.br/precos/ . Com umas 15 oficinas, vale o Growth.
+
+**Para cada oficina (uns 30 minutos):**
+
+1. **Com a oficina:** o certificado digital **A1 e-CNPJ** dela (arquivo `.pfx` e
+   a senha; custa de R$ 100 a R$ 275 por ano, pago por ela), a inscrição
+   municipal e o regime (MEI, Simples...). Peça para o contador confirmar a
+   alíquota do ISS e o código do serviço: oficina costuma ser o item **14.01**
+   (código nacional **140101**).
+2. **No painel da Focus:** cadastre a empresa (CNPJ, endereço), envie o
+   certificado e **habilite NFS-e Nacional** (primeiro em homologação). Copie o
+   **token de homologação** e, depois, o **de produção** da empresa.
+3. **No OficinaOS, a oficina** preenche *Configurações > Nota fiscal*
+   (inscrição municipal, regime, alíquota) e confere o CNPJ e o endereço no
+   cadastro da oficina.
+4. **No servidor**, ligue em **homologação** (nota sem valor fiscal, para teste):
+
+   ```sh
+   cd /opt/oficinaos
+   sg docker -c "docker compose exec api node dist/nfse-focus.js ver --email dono@oficina.com"
+   sg docker -c "docker compose exec api node dist/nfse-focus.js ligar --email dono@oficina.com --token TOKEN_HOMOLOGACAO --ambiente homologacao"
+   ```
+
+   O comando testa o token na Focus antes de gravar, acha o código IBGE da
+   cidade sozinho (ou use `--ibge 3151800`) e guarda o token **cifrado**.
+5. **Emita uma nota de teste** numa OS finalizada. Ela aparece como
+   "Homologação". Se a prefeitura recusar, o motivo aparece na nota (com a
+   correção sugerida pela Focus): ajuste e tente de novo.
+6. Deu certo? **Ligue em produção** com o token de produção:
+
+   ```sh
+   sg docker -c "docker compose exec api node dist/nfse-focus.js ligar --email dono@oficina.com --token TOKEN_PRODUCAO --ambiente producao"
+   ```
+
+Para voltar ao simulador: `nfse-focus.js desligar --email dono@oficina.com`.
+
+Ainda **não** está pronto: a nota das **peças** (NF-e/NFC-e, estadual) e o
+aviso automático da Focus por webhook (hoje o sistema consulta: logo depois de
+emitir e a cada 5 segundos enquanto a OS está aberta com nota em processamento).
+
+---
+
 ## 9. Backup (faça hoje, não depois)
 
 ```sh

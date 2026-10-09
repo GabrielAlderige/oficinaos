@@ -53,6 +53,16 @@ export const organizationFiscalSettings = pgTable(
     environment: text({ enum: FISCAL_ENVIRONMENTS }).notNull().default('SIMULATOR'),
     provider: text(),
     providerCompanyId: text(),
+    /** código IBGE do município, 7 dígitos: o padrão nacional da NFS-e identifica a cidade por ele */
+    ibgeCityCode: text(),
+    /** código de tributação nacional do ISS (6 dígitos); vazio sai do item da LC 116 */
+    nationalServiceCode: text(),
+    /**
+     * Token do emissor desta oficina (Focus NFe dá um por empresa), CIFRADO com
+     * a SECRETS_KEY como o do WhatsApp. Nunca volta para a tela: quem liga e
+     * desliga é o script da plataforma, não o painel.
+     */
+    providerTokenEnc: text(),
     additionalInformation: text(),
     ...timestamps,
   },

@@ -2,7 +2,7 @@ import type { LightMyRequestResponse } from 'fastify';
 import { v7 as uuidv7 } from 'uuid';
 import { afterAll, expect } from 'vitest';
 import type { Me, Role, SignupInput } from '@oficinaos/shared';
-import { buildApp, type App } from '../src/app';
+import { buildApp, type App, type AppDeps } from '../src/app';
 import { readEnv, type Env } from '../src/config/env';
 import { loadEnv } from '../src/config/load-env';
 import { createDatabase, type DatabaseHandle } from '../src/db/client';
@@ -52,11 +52,14 @@ export interface TestApp {
   storage: MemoryStorageProvider;
 }
 
-export async function createTestApp(overrides: Partial<NodeJS.ProcessEnv> = {}): Promise<TestApp> {
+export async function createTestApp(
+  overrides: Partial<NodeJS.ProcessEnv> = {},
+  extra: Pick<AppDeps, 'emissorDaOficina'> = {},
+): Promise<TestApp> {
   const env = testEnv(overrides);
   const email = new MemoryEmailProvider();
   const storage = new MemoryStorageProvider(env.JWT_SECRET);
-  const app = await buildApp({ env, db: testDb().db, email, storage });
+  const app = await buildApp({ env, db: testDb().db, email, storage, ...extra });
   await app.ready();
   return { app, email, storage };
 }

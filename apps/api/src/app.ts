@@ -14,6 +14,7 @@ import { registerSecurity } from './core/plugins/security';
 import type { Database } from './db/client';
 import { createEmailProvider, type EmailProvider } from './integrations/email/email';
 import { createNfseProvider, type NfseProvider } from './integrations/fiscal/nfse';
+import { FocusNfseProvider } from './integrations/fiscal/focus';
 import { createChargesGateway, createPaymentGateway, type PaymentGateway } from './integrations/payments';
 import { AutomationsService } from './modules/automations/automations.service';
 import { automationRoutes } from './modules/automations/automations.routes';
@@ -174,8 +175,10 @@ export interface AppDeps {
   email?: EmailProvider;
   /** os testes injetam o storage em memória: nenhum arquivo toca o disco */
   storage?: StorageProvider;
-  /** emissor de nota fiscal; hoje só o simulador (E18) */
+  /** emissor de nota fiscal padrão: o simulador (E18) */
   nfse?: NfseProvider;
+  /** emissor de verdade por oficina (Focus NFe); os testes injetam um falso */
+  emissorDaOficina?: ServiceDeps['emissorDaOficina'];
   /** gateway de cobrança; o padrão é o simulador (E19) */
   gateway?: PaymentGateway;
   /** cobrança da oficina para o cliente; `null` desliga */
@@ -189,6 +192,7 @@ export async function buildApp({
   email = createEmailProvider(env),
   storage = createStorageProvider(env),
   nfse = createNfseProvider(env),
+  emissorDaOficina = (opcoes) => new FocusNfseProvider(opcoes),
   gateway = createPaymentGateway(env),
   chargesGateway = createChargesGateway(env, gateway),
 }: AppDeps) {
@@ -226,7 +230,19 @@ export async function buildApp({
 
   const tokens = new AccessTokens(env.JWT_SECRET);
   const caches = createAuthCaches(AUTH_CACHE_TTL_MS);
-  const deps: ServiceDeps = { db, env, email, storage, nfse, gateway, chargesGateway, tokens, caches, log: app.log };
+  const deps: ServiceDeps = {
+    db,
+    env,
+    email,
+    storage,
+    nfse,
+    emissorDaOficina,
+    gateway,
+    chargesGateway,
+    tokens,
+    caches,
+    log: app.log,
+  };
   // o canal de WhatsApp nasce antes de quem manda mensagem por ele (E22)
   const messaging = new MessagingService(deps);
   const packages = new PackagesService(deps);
