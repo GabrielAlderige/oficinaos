@@ -1,0 +1,12 @@
+import type { Reel } from "../tipos";
+import r0 from "./antes-e-depois.json";
+import r1 from "./aprovou-no-cafe.json";
+import r2 from "./cliente-esquece.json";
+import r3 from "./faz-essa-conta.json";
+import r4 from "./ja-ficou-pronto.json";
+import r5 from "./mecanico-nao-secretario.json";
+import r6 from "./nao-autorizei.json";
+import r7 from "./oficina-pequena.json";
+import r8 from "./quatorze-dias.json";
+import r9 from "./tres-sinais.json";
+export const REELS = [r0, r1, r2, r3, r4, r5, r6, r7, r8, r9] as Reel[];
