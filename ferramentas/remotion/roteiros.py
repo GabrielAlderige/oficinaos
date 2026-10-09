@@ -515,7 +515,8 @@ R45 = reel(45, "terca-de-manha",
 
 R46 = reel(46, "nao-e-caro",
     g("Sistema de oficina é caro?", "Sistema é", "*caro?*"),
-    ct("Caro é o orçamento esquecido e o cliente que não volta.", "Mensalidade do sistema", "Orçamento esquecido", depoisTag="CARO MESMO É"),
+    {**ct("Caro é o orçamento esquecido e o cliente que não volta.", "A mensalidade", "Orçamento esquecido", depoisTag="CARO MESMO É"),
+     "params": {"antesTag": "PARECE CARO", "antes": "A mensalidade", "depoisTag": "CARO MESMO É", "depois": "Orçamento esquecido"}},
     num("O OficinaOS começa em cento e quarenta e nove reais por mês.", 149, "por mês", "sem fidelidade", sobre="A partir de", prefixo="R$ "),
     fim("Faça", "*a conta.*"))
 
