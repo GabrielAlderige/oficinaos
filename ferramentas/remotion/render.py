@@ -29,7 +29,7 @@ def quadros(comp: str) -> str:
     shutil.rmtree(pasta, ignore_errors=True)
     # concorrência baixa: cada aba do Chrome come memória e a máquina não tem sobra
     subprocess.run([NPX, "remotion", "render", "src/index.ts", comp, pasta, "--sequence", "--image-format=jpeg",
-                    "--jpeg-quality=94", '--props={"som":false}', "--concurrency=3", "--log=error"],
+                    "--jpeg-quality=94", '--props={"som":false}', "--concurrency=2", "--log=error"],
                    cwd=AQUI, check=True)
     nomes = sorted(os.listdir(pasta))
     largura = len(re.search(r"(\d+)\.jpeg$", nomes[0]).group(1))
@@ -63,6 +63,9 @@ def audio(d: dict, saida: str):
 def render(slug: str):
     d = json.load(open(os.path.join(DADOS, f"{slug}.json"), encoding="utf-8"))
     comp = f"R{d['numero']:02d}"
+    if "--pula-prontos" in sys.argv and os.path.exists(os.path.join(SAIDA, f"remotion-{d['numero']:02d}-{slug}.mp4")):
+        print(f"já pronto: {slug}", flush=True)
+        return
     t = time.time()
     padrao = quadros(comp)
     som = os.path.join(AQUI, "out", f"{comp}.m4a")
@@ -79,6 +82,7 @@ def render(slug: str):
 if __name__ == "__main__":
     todos = [f for f in glob.glob(os.path.join(DADOS, "*.json"))]
     por_numero = {json.load(open(f, encoding="utf-8"))["numero"]: os.path.basename(f)[:-5] for f in todos}
-    pedidos = sorted(por_numero) if sys.argv[1:] == ["todos"] else [int(x) for x in sys.argv[1:]]
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    pedidos = sorted(por_numero) if args == ["todos"] else [int(x) for x in args]
     for n in pedidos:
         render(por_numero[n])

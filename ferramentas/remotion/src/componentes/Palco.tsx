@@ -1,4 +1,4 @@
-import React from "react";
+import React, { createContext, useContext } from "react";
 import { AbsoluteFill, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { theme } from "../theme";
 import { ip } from "./Movimento";
@@ -27,19 +27,20 @@ export const Palco: React.FC<{ dur: number; ultima: boolean; children: React.Rea
   );
 };
 
+/** Centro vertical do conteúdo: acima da legenda, ou no meio da tela quando o reel não tem legenda. */
+export const CentroCtx = createContext<number>(theme.layout.centro);
+export const useCentro = () => useContext(CentroCtx);
+
 /** Área do conteúdo: centrada acima da legenda, com as margens laterais. */
-export const Area: React.FC<{ centro?: number; gap?: number; alinhar?: "flex-start" | "center"; children: React.ReactNode }> = ({
-  centro = theme.layout.centro,
-  gap = 40,
-  alinhar = "flex-start",
-  children,
-}) => (
+export const Area: React.FC<{ centro?: number; gap?: number; alinhar?: "flex-start" | "center"; children: React.ReactNode }> = ({ centro, gap = 40, alinhar = "flex-start", children }) => {
+  const padrao = useCentro();
+  return (
   <div
     style={{
       position: "absolute",
       left: theme.layout.margem,
       right: theme.layout.margem,
-      top: centro,
+      top: centro ?? padrao,
       transform: "translateY(-50%)",
       display: "flex",
       flexDirection: "column",
@@ -49,7 +50,8 @@ export const Area: React.FC<{ centro?: number; gap?: number; alinhar?: "flex-sta
   >
     {children}
   </div>
-);
+  );
+};
 
 /** Clarão curto no corte entre cenas. */
 export const Clarao: React.FC<{ cortes: number[] }> = ({ cortes }) => {

@@ -47,6 +47,7 @@ export const theme = {
     util: 920, // largura útil (1080 - 2 x 80)
     legenda: 1390, // topo da legenda falada
     centro: 820, // centro vertical do conteúdo (acima da legenda)
+    centroSemLegenda: 960, // sem legenda: o meio da tela
   },
   tempo: {
     stagger: 3, // palavras

@@ -44,7 +44,8 @@ async def preparar(r: dict) -> dict:
     for tipo in ("whoosh", "pop", "impacto"):
         _salvar_wav(os.path.join(PUBLIC, "sfx", f"{tipo}.wav"), efeito(tipo, 7))
     dados = {"numero": r["numero"], "slug": slug, "duracao": total, "musica": f"{slug}/musica.wav",
-             "cenas": cenas, "falas": falas, "legendas": legendas, "marcas": marcas}
+             "cenas": cenas, "falas": falas, "legendas": legendas, "marcas": marcas,
+             "legenda": r.get("legenda", True)}
     with open(os.path.join(DADOS, f"{slug}.json"), "w", encoding="utf-8") as f:
         json.dump(dados, f, ensure_ascii=False, indent=1)
     print(f"ok {slug}: {total:.1f}s, {len(cenas)} cenas")

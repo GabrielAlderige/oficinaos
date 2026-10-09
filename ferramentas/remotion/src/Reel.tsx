@@ -3,7 +3,7 @@ import { AbsoluteFill, Audio, Sequence, staticFile, useVideoConfig } from "remot
 import { theme } from "./theme";
 import type { Reel } from "./tipos";
 import { Fundo, Grade, Grao, Vinheta } from "./componentes/Camadas";
-import { Clarao, Palco } from "./componentes/Palco";
+import { CentroCtx, Clarao, Palco } from "./componentes/Palco";
 import { Legenda } from "./componentes/Legenda";
 import { CENAS } from "./cenas/Cenas";
 
@@ -36,7 +36,9 @@ export const ReelComp: React.FC<{ reel: Reel; som?: boolean }> = ({ reel, som = 
     return (VOLUME.musica * (1 - v) + VOLUME.musicaSobVoz * v) * fim;
   };
 
+  const comLegenda = reel.legenda !== false;
   return (
+    <CentroCtx.Provider value={comLegenda ? theme.layout.centro : theme.layout.centroSemLegenda}>
     <AbsoluteFill style={{ background: theme.colors.bg, fontFamily: theme.fonts.display }}>
       <Fundo />
       {reel.cenas.map((c, i) => {
@@ -53,7 +55,7 @@ export const ReelComp: React.FC<{ reel: Reel; som?: boolean }> = ({ reel, som = 
         );
       })}
       <Clarao cortes={cortes} />
-      <Legenda blocos={reel.legendas} />
+      {comLegenda && <Legenda blocos={reel.legendas} />}
       <Grade />
       <Grao />
       <Vinheta />
@@ -70,5 +72,6 @@ export const ReelComp: React.FC<{ reel: Reel; som?: boolean }> = ({ reel, som = 
         </Sequence>
       ))}
     </AbsoluteFill>
+    </CentroCtx.Provider>
   );
 };

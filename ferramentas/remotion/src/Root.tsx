@@ -3,6 +3,7 @@ import { Composition } from "remotion";
 import { ALTURA, FPS, LARGURA } from "./theme";
 import { ReelComp } from "./Reel";
 import { REELS } from "./dados";
+import { Capa } from "./Capa";
 
 // Um reel por roteiro preparado (python preparar.py N): id R01, R02...
 export const Root: React.FC = () => (
@@ -19,5 +20,6 @@ export const Root: React.FC = () => (
         defaultProps={{ reel: r }}
       />
     ))}
+    <Composition id="Capa" component={Capa} durationInFrames={90} fps={FPS} width={1200} height={630} />
   </>
 );

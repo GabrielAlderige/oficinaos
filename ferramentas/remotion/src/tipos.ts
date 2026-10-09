@@ -13,4 +13,5 @@ export type Reel = {
   falas: Fala[];
   legendas: Bloco[];
   marcas: Marca[];
+  legenda?: boolean; // false: só motion e voz, conteúdo no meio da tela
 };

@@ -1,7 +1,7 @@
 import React from "react";
 import { spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { theme } from "../theme";
-import { Area } from "../componentes/Palco";
+import { Area, useCentro } from "../componentes/Palco";
 import { Entrada, ip, Respira, Sobre, Titulo, palavras, useQ } from "../componentes/Movimento";
 import { Check, Icone, Marca, VistoDuplo, Xis } from "../componentes/Icones";
 
@@ -48,7 +48,7 @@ export const Numero: React.FC<Props> = ({ p, dur }) => {
   const tam = 720;
   const texto = `${p.prefixo ?? ""}${valor.toLocaleString("pt-BR")}${p.sufixo ?? ""}`;
   return (
-    <Area centro={theme.layout.centro - 40} alinhar="center" gap={26}>
+    <Area centro={useCentro() - 40} alinhar="center" gap={26}>
       {p.sobre && <Sobre texto={p.sobre} />}
       <Respira>
         <div style={{ position: "relative", width: tam, height: tam, display: "grid", placeItems: "center" }}>
