@@ -85,7 +85,7 @@ describe('e-mails do teste grátis', () => {
   it('quando acaba, avisa que os dados continuam lá', async () => {
     await fimDoTesteEm(-DIA);
     expect(await t.app.services.cicloDoTeste.enviarDevido(dono.orgId, DEZ_DA_MANHA)).toBe('TESTE_ACABOU');
-    expect(enviados().at(-1)!.text).toContain('Nada foi apagado');
+    expect(enviados().at(-1)!.text, 'a carência: ainda funciona por 7 dias').toContain('nada parou: até 14/10');
     expect(enviados().filter((m) => m.subject.startsWith('Bem-vindo')), 'e as boas-vindas não voltaram').toHaveLength(1);
   });
 

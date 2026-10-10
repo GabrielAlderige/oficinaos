@@ -389,6 +389,8 @@ export class BillingService {
         paidAt: aviso.paidAt,
         periodStart: pago ? base : null,
         periodEnd: pago ? fimDoPeriodo : null,
+        // aviso sem link não apaga o link que um aviso anterior trouxe
+        ...(aviso.invoiceUrl ? { invoiceUrl: aviso.invoiceUrl } : {}),
       };
       const existente = await repo.lockPaymentByProviderRef(tx, this.deps.gateway.driver, aviso.providerChargeId);
       if (!existente) {
@@ -407,6 +409,15 @@ export class BillingService {
         await repo.updatePayment(tx, existente.id, fatura);
       }
 
+      /**
+       * O botão "Abrir a página de pagamento" da tela do plano é o
+       * `checkoutUrl`. Antes ele era só o da PRIMEIRA fatura, gravado ao
+       * assinar: na renovação, a oficina em atraso era mandada para um boleto
+       * já pago. Agora ele acompanha a fatura em aberto, e some quando ela é
+       * paga.
+       */
+      const pagina = aviso.invoiceUrl ?? existente?.invoiceUrl ?? null;
+
       if (pago) {
         await repo.updateSubscription(tx, assinatura.organizationId, {
           status: 'ACTIVE',
@@ -414,17 +425,23 @@ export class BillingService {
           currentPeriodEnd: new Date(`${fimDoPeriodo}T12:00:00-03:00`),
           pastDueSince: null,
           trialEndsAt: null,
+          ...(pagina && travada.checkoutUrl === pagina ? { checkoutUrl: null } : {}),
         });
         return { handled: true, reason: 'assinatura renovada' };
       }
+
+      const emAberto = aviso.status === 'PENDING' || aviso.status === 'EXPIRED' || aviso.status === 'FAILED';
+      const novaPagina = emAberto && pagina ? { checkoutUrl: pagina } : {};
 
       if (aviso.status === 'EXPIRED' || aviso.status === 'FAILED') {
         await repo.updateSubscription(tx, assinatura.organizationId, {
           status: 'PAST_DUE',
           pastDueSince: travada.pastDueSince ?? hoje,
+          ...novaPagina,
         });
         return { handled: true, reason: 'assinatura em atraso' };
       }
+      if (emAberto && pagina) await repo.updateSubscription(tx, assinatura.organizationId, novaPagina);
       return { handled: true, reason: `situação ${aviso.status}` };
     });
 

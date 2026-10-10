@@ -323,6 +323,7 @@ export class AsaasPaymentGateway implements PaymentGateway {
       paidAmountCents: status === 'PAID' ? centavos(cobranca.value) : null,
       paidAt: status === 'PAID' ? (quando ? new Date(`${quando}T12:00:00-03:00`) : new Date()) : null,
       dueDate: cobranca.dueDate ?? null,
+      invoiceUrl: cobranca.invoiceUrl ?? null,
       failureReason: status === 'FAILED' ? `Situação ${cobranca.status} no gateway` : null,
       raw: corpo as unknown as Record<string, unknown>,
     };

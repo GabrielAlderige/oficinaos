@@ -484,6 +484,13 @@
       "when": 1791571071300,
       "tag": "0068_nfse_focus",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1791597896020,
+      "tag": "0069_avisos_de_atraso",
+      "breakpoints": true
     }
   ]
 }

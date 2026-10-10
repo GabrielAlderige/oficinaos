@@ -18,6 +18,7 @@ import type { Tx } from '../../db/tenant';
 import { sincronizarFilaDePosVenda } from '../aftersales/follow-ups.sync';
 import * as orgRepo from '../organizations/organizations.repository';
 import * as repo from './automations.repository';
+import { AvisosDeAtraso } from '../billing/avisos-de-atraso';
 import { CicloDoTeste } from '../billing/ciclo-do-teste';
 
 /** Hora local (0..23) da oficina. */
@@ -61,6 +62,10 @@ export class AutomationsService {
 
   private get ciclo(): CicloDoTeste {
     return new CicloDoTeste(this.deps);
+  }
+
+  private get atraso(): AvisosDeAtraso {
+    return new AvisosDeAtraso(this.deps);
   }
 
   // ---------------------------- configuração -----------------------------
@@ -157,10 +162,12 @@ export class AutomationsService {
         }
       }
       // os e-mails do teste grátis (metade, faltam 3 dias, último dia, acabou)
+      // e, se nenhum saiu, os de atraso (vai travar, travou): um por volta
       try {
-        await this.ciclo.enviarDevido(oficina.id);
+        const saiu = await this.ciclo.enviarDevido(oficina.id);
+        if (!saiu) await this.atraso.enviarDevido(oficina.id);
       } catch (erro) {
-        this.deps.log.error({ err: erro, organizationId: oficina.id }, 'e-mail do teste grátis falhou');
+        this.deps.log.error({ err: erro, organizationId: oficina.id }, 'e-mail do teste grátis ou de atraso falhou');
       }
     }
     return { organizations: oficinas.length, ran };

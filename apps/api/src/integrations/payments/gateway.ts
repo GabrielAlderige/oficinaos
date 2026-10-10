@@ -65,6 +65,11 @@ export interface AvisoDeCobranca {
    * não pode perder os dias que faltavam.
    */
   dueDate: string | null;
+  /**
+   * A página da fatura no gateway (Pix, boleto e cartão numa tela só). Na
+   * assinatura, é por ela que a oficina paga a renovação em aberto.
+   */
+  invoiceUrl?: string | null;
   failureReason: string | null;
   raw: Record<string, unknown>;
 }
@@ -186,6 +191,7 @@ export class SimuladorPaymentGateway implements PaymentGateway {
       externalId?: string;
       amountCents?: number;
       dueDate?: string;
+      invoiceUrl?: string;
     };
     if (!corpo.providerChargeId) return null;
     const evento = corpo.event ?? 'PAYMENT_RECEIVED';
@@ -207,6 +213,7 @@ export class SimuladorPaymentGateway implements PaymentGateway {
       paidAmountCents: status === 'PAID' ? (corpo.amountCents ?? null) : null,
       paidAt: status === 'PAID' ? new Date() : null,
       dueDate: corpo.dueDate ?? null,
+      invoiceUrl: corpo.invoiceUrl ?? null,
       failureReason: null,
       raw: { ...corpo, simulacao: true },
     };

@@ -105,6 +105,7 @@ import { MessagingService } from './modules/messaging/messaging.service';
 import { OrganizationsService } from './modules/organizations/organizations.service';
 import { systemRoutes } from './modules/system/system.routes';
 import { CicloDoTeste } from './modules/billing/ciclo-do-teste';
+import { AvisosDeAtraso } from './modules/billing/avisos-de-atraso';
 
 export interface Services {
   auth: AuthService;
@@ -140,6 +141,8 @@ export interface Services {
   billing: BillingService;
   /** os e-mails do teste grátis (boas-vindas, metade, faltam 3 dias, último dia, acabou) */
   cicloDoTeste: CicloDoTeste;
+  /** os avisos de que o sistema vai ficar só para consulta (atraso e fim da carência) */
+  avisosDeAtraso: AvisosDeAtraso;
   automations: AutomationsService;
   messaging: MessagingService;
   commissions: CommissionsService;
@@ -286,6 +289,7 @@ export async function buildApp({
     charges: new ChargesService(deps),
     billing: new BillingService(deps),
     cicloDoTeste: new CicloDoTeste(deps),
+    avisosDeAtraso: new AvisosDeAtraso(deps),
     automations: new AutomationsService(deps),
     messaging,
     commissions: new CommissionsService(deps),

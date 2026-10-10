@@ -1,5 +1,5 @@
 import { and, asc, eq } from 'drizzle-orm';
-import { formatBRL } from '@oficinaos/shared';
+import { formatBRL, GRACE_DAYS } from '@oficinaos/shared';
 import type { ServiceDeps } from '../../core/auth-context';
 import { lifecycleEmails, plans, subscriptions } from '../../db/schema';
 import { withTenant } from '../../db/tenant';
@@ -25,6 +25,11 @@ export const TIPOS_DE_EMAIL = ['BOAS_VINDAS', 'METADE_DO_TESTE', 'FALTAM_3_DIAS'
 export type TipoDeEmail = (typeof TIPOS_DE_EMAIL)[number];
 
 const DIA = 86_400_000;
+
+/** O fecho de todo e-mail para o dono da oficina. */
+export const ASSINATURA_DO_EMAIL =
+  '\n\nQualquer dúvida, é só responder este e-mail ou chamar no WhatsApp (35) 99755-8675.\n\n' +
+  'Gabriel Alderige\nOficinaOS · oficinaosbr.cloud';
 
 interface Plano {
   name: string;
@@ -57,15 +62,15 @@ export function etapaDoTeste(
   return null;
 }
 
-function horaLocal(agora: Date, timezone: string): number {
+export function horaLocal(agora: Date, timezone: string): number {
   return Number(new Intl.DateTimeFormat('en-GB', { timeZone: timezone, hour: '2-digit', hourCycle: 'h23' }).format(agora));
 }
 
-function dataLocal(data: Date, timezone: string): string {
+export function dataLocal(data: Date, timezone: string): string {
   return new Intl.DateTimeFormat('pt-BR', { timeZone: timezone, day: '2-digit', month: '2-digit' }).format(data);
 }
 
-const primeiroNome = (nome: string) => nome.trim().split(/\s+/)[0] || nome;
+export const primeiroNome = (nome: string) => nome.trim().split(/\s+/)[0] || nome;
 
 export class CicloDoTeste {
   constructor(private readonly deps: ServiceDeps) {}
@@ -151,9 +156,8 @@ export class CicloDoTeste {
   private escrever(tipo: TipoDeEmail, d: Dados): { subject: string; text: string } {
     const app = this.deps.env.APP_URL;
     const ate = d.fimDoTeste ? dataLocal(d.fimDoTeste, d.timezone) : '';
-    const assinatura =
-      '\n\nQualquer dúvida, é só responder este e-mail ou chamar no WhatsApp (35) 99755-8675.\n\n' +
-      'Gabriel Alderige\nOficinaOS · oficinaosbr.cloud';
+    const assinatura = ASSINATURA_DO_EMAIL;
+    const fimDaCarencia = d.fimDoTeste ? dataLocal(new Date(d.fimDoTeste.getTime() + GRACE_DAYS * DIA), d.timezone) : '';
     const tabela = d.planos
       .map((p) => {
         const anual = p.priceYearlyCents ? ` (ou ${formatBRL(p.priceYearlyCents)} por ano)` : '';
@@ -223,8 +227,9 @@ export class CicloDoTeste {
           subject: 'Seu teste do OficinaOS terminou (seus dados continuam lá)',
           text:
             `Olá, ${d.dono}!\n\n` +
-            `O teste grátis da ${d.oficina} terminou. Nada foi apagado: você ainda entra, vê e consulta tudo o ` +
-            'que cadastrou. Para voltar a lançar ordens de serviço e orçamentos, é só assinar um plano:\n\n' +
+            `O teste grátis da ${d.oficina} terminou, mas nada parou: até ${fimDaCarencia} o sistema funciona ` +
+            'normalmente, para dar tempo de escolher o plano com calma. Depois disso ele fica só para consulta ' +
+            '(nada é apagado) até a assinatura.\n\n' +
             `${tabela}\n\n` +
             `Assinar: ${app}/configuracoes/plano\n\n` +
             'Se o OficinaOS não fez sentido para a sua oficina, eu gostaria muito de saber o motivo. ' +
