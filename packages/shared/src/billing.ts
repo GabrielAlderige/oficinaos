@@ -23,6 +23,16 @@ export const BILLING_CYCLE_LABELS: Record<BillingCycle, string> = {
  */
 export const GRACE_DAYS = 7;
 
+/**
+ * O motivo gravado quando o sistema cancela a assinatura sozinho, no fim da
+ * carência (D91). Cancelada assim, a oficina fica só para consulta e só volta
+ * assinando de novo E pagando: não existe plano grátis, nem carência nova.
+ */
+export const CANCELADA_POR_ATRASO = 'INADIMPLENCIA';
+
+export const canceladaPorAtraso = (assinatura: { status: string; cancelReason: string | null }): boolean =>
+  assinatura.status === 'EXPIRED' && assinatura.cancelReason === CANCELADA_POR_ATRASO;
+
 /** O que a tela mostra, e o que a API usa para decidir se ainda pode escrever. */
 export interface SituacaoDaAssinatura {
   status: SubscriptionStatus;

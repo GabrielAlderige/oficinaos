@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm';
-import { formatBRL, GRACE_DAYS } from '@oficinaos/shared';
+import { CANCELADA_POR_ATRASO, formatBRL, GRACE_DAYS } from '@oficinaos/shared';
 import type { ServiceDeps } from '../../core/auth-context';
 import { lifecycleEmails, plans, subscriptions } from '../../db/schema';
 import { withTenant } from '../../db/tenant';
@@ -38,6 +38,7 @@ interface AssinaturaParaAviso {
   trialEndsAt: Date | null;
   pastDueSince: Date | null;
   providerSubscriptionId: string | null;
+  cancelReason?: string | null;
 }
 
 /** Qual aviso vale agora, e desde quando corre a carência (sem olhar o que já foi enviado). */
@@ -47,7 +48,9 @@ export function etapaDoAtraso(
 ): { etapa: EtapaDoAtraso; desde: Date; motivo: 'MENSALIDADE' | 'TESTE' } | null {
   let desde: Date;
   let motivo: 'MENSALIDADE' | 'TESTE';
-  if (assinatura.status === 'PAST_DUE' && assinatura.pastDueSince) {
+  // cancelada por atraso continua contando do mesmo atraso: é o "travou"
+  const canceladaPorAtraso = assinatura.status === 'EXPIRED' && assinatura.cancelReason === CANCELADA_POR_ATRASO;
+  if ((assinatura.status === 'PAST_DUE' || canceladaPorAtraso) && assinatura.pastDueSince) {
     desde = assinatura.pastDueSince;
     motivo = 'MENSALIDADE';
   } else if (
@@ -91,6 +94,7 @@ export class AvisosDeAtraso {
           trialEndsAt: subscriptions.trialEndsAt,
           pastDueSince: subscriptions.pastDueSince,
           providerSubscriptionId: subscriptions.providerSubscriptionId,
+          cancelReason: subscriptions.cancelReason,
           priceCents: subscriptions.priceCents,
           billingCycle: subscriptions.billingCycle,
           checkoutUrl: subscriptions.checkoutUrl,
@@ -130,6 +134,7 @@ export class AvisosDeAtraso {
       valor: assinatura.priceCents,
       ciclo: assinatura.billingCycle,
       paginaDaFatura: assinatura.checkoutUrl,
+      cancelada: assinatura.status === 'EXPIRED' && assinatura.cancelReason === CANCELADA_POR_ATRASO,
     });
     try {
       await this.deps.email.send({ to: contato.email, ...texto });
@@ -155,6 +160,8 @@ export class AvisosDeAtraso {
       valor: number | null;
       ciclo: string;
       paginaDaFatura: string | null;
+      /** o sistema já cancelou a assinatura por falta de pagamento */
+      cancelada: boolean;
     },
   ): { subject: string; text: string } {
     const app = this.deps.env.APP_URL;
@@ -164,10 +171,11 @@ export class AvisosDeAtraso {
       `${d.ciclo === 'YEARLY' ? 'anuidade' : 'mensalidade'}${d.plano ? ` do plano ${d.plano}` : ''}` +
       (d.valor !== null ? ` (${formatBRL(d.valor)})` : '');
     const comoPagar =
-      devido.motivo === 'TESTE'
+      devido.motivo === 'TESTE' || d.cancelada
         ? `Assinar: ${app}/configuracoes/plano`
-        : (d.paginaDaFatura ? `Pagar agora (Pix, boleto ou cartão): ${d.paginaDaFatura}\n` : '') +
-          `Ou pelo sistema, em ${app}/configuracoes/plano`;
+        : d.paginaDaFatura
+          ? `Pagar agora (Pix, boleto ou cartão): ${d.paginaDaFatura}\nOu pelo sistema, em ${app}/configuracoes/plano`
+          : `Pagar pelo sistema: ${app}/configuracoes/plano`;
 
     switch (devido.etapa) {
       case 'PAGAMENTO_PENDENTE':
@@ -190,7 +198,11 @@ export class AvisosDeAtraso {
               ? `O teste grátis da ${d.oficina} terminou e a assinatura ainda não foi feita. `
               : `A ${conta} da ${d.oficina} continua em aberto. `) +
             `Em ${travaEm}, o sistema passa a ser só para consulta: dá para ver tudo, mas não para abrir ` +
-            'ordens de serviço, orçamentos ou agendamentos.\n\n' +
+            'ordens de serviço, orçamentos ou agendamentos.' +
+            (devido.motivo === 'MENSALIDADE'
+              ? ' Nesse dia a assinatura também é cancelada, e para voltar será preciso assinar de novo e pagar.'
+              : '') +
+            '\n\n' +
             'Para não parar o atendimento:\n' +
             comoPagar +
             '\n\nNada é apagado em nenhum momento.' +
@@ -202,12 +214,17 @@ export class AvisosDeAtraso {
           text:
             `Olá, ${d.dono}!\n\n` +
             `O OficinaOS da ${d.oficina} está só para consulta: ` +
-            (devido.motivo === 'TESTE' ? 'o teste terminou sem assinatura.' : `a ${conta} não foi paga.`) +
+            (devido.motivo === 'TESTE'
+              ? 'o teste terminou sem assinatura.'
+              : `a ${conta} não foi paga${d.cancelada ? ', e a assinatura foi cancelada' : ''}.`) +
             ' Clientes, carros, ordens de serviço e estoque continuam todos lá, e você ainda entra e consulta tudo.\n\n' +
             (devido.motivo === 'TESTE'
               ? 'Para voltar a trabalhar, é só escolher o plano:\n'
-              : 'Para liberar, é só pagar: o sistema volta sozinho assim que o pagamento é confirmado ' +
-                '(no Pix e no cartão, em minutos).\n') +
+              : d.cancelada
+                ? 'Para voltar a trabalhar, é só assinar de novo e pagar a primeira mensalidade: o sistema libera ' +
+                  'sozinho assim que o pagamento é confirmado (no Pix e no cartão, em minutos).\n'
+                : 'Para liberar, é só pagar: o sistema volta sozinho assim que o pagamento é confirmado ' +
+                  '(no Pix e no cartão, em minutos).\n') +
             comoPagar +
             ASSINATURA_DO_EMAIL,
         };

@@ -52,6 +52,12 @@ describe('etapa do atraso', () => {
     expect(etapaDoAtraso(testeAcabou(5.5 * DIA, 'sub_1'), DEZ_DA_MANHA)).toBeNull();
   });
 
+  it('cancelada por atraso continua recebendo o "travou" do mesmo atraso', () => {
+    const cancelada = { ...atraso(7.5 * DIA), status: 'EXPIRED', cancelReason: 'INADIMPLENCIA' };
+    expect(etapaDoAtraso(cancelada, DEZ_DA_MANHA)?.etapa).toBe('SISTEMA_TRAVADO');
+    expect(etapaDoAtraso(cancelada, DEZ_DA_MANHA)?.motivo).toBe('MENSALIDADE');
+  });
+
   it('em dia não recebe nada', () => {
     expect(
       etapaDoAtraso({ status: 'ACTIVE', pastDueSince: null, trialEndsAt: null, providerSubscriptionId: 'sub_1' }, DEZ_DA_MANHA),

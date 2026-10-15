@@ -54,7 +54,7 @@ export interface TestApp {
 
 export async function createTestApp(
   overrides: Partial<NodeJS.ProcessEnv> = {},
-  extra: Pick<AppDeps, 'emissorDaOficina'> = {},
+  extra: Pick<AppDeps, 'emissorDaOficina' | 'gateway'> = {},
 ): Promise<TestApp> {
   const env = testEnv(overrides);
   const email = new MemoryEmailProvider();

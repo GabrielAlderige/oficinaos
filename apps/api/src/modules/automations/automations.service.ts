@@ -19,6 +19,7 @@ import { sincronizarFilaDePosVenda } from '../aftersales/follow-ups.sync';
 import * as orgRepo from '../organizations/organizations.repository';
 import * as repo from './automations.repository';
 import { AvisosDeAtraso } from '../billing/avisos-de-atraso';
+import { BillingService } from '../billing/billing.service';
 import { CicloDoTeste } from '../billing/ciclo-do-teste';
 
 /** Hora local (0..23) da oficina. */
@@ -66,6 +67,10 @@ export class AutomationsService {
 
   private get atraso(): AvisosDeAtraso {
     return new AvisosDeAtraso(this.deps);
+  }
+
+  private get cobranca(): BillingService {
+    return new BillingService(this.deps);
   }
 
   // ---------------------------- configuração -----------------------------
@@ -160,6 +165,16 @@ export class AutomationsService {
         } catch (erro) {
           this.deps.log.error({ err: erro, organizationId: oficina.id, key }, 'automação falhou');
         }
+      }
+      // acabou a carência sem pagar: cancela no gateway ANTES dos e-mails, para
+      // o "travou" já sair dizendo que a assinatura foi cancelada
+      try {
+        await this.cobranca.cancelarSeInadimplente(oficina.id);
+      } catch (erro) {
+        this.deps.log.error(
+          { err: erro, organizationId: oficina.id },
+          'cancelar por falta de pagamento falhou; tenta de novo na próxima volta',
+        );
       }
       // os e-mails do teste grátis (metade, faltam 3 dias, último dia, acabou)
       // e, se nenhum saiu, os de atraso (vai travar, travou): um por volta

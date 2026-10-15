@@ -1,5 +1,8 @@
 import {
+  CANCELADA_POR_ATRASO,
+  canceladaPorAtraso,
   dayKey,
+  GRACE_DAYS,
   ErrorCode,
   precoDoCiclo,
   proximoVencimento,
@@ -25,6 +28,15 @@ const inicioDoMes = (): Date => {
   const agora = new Date();
   return new Date(agora.getFullYear(), agora.getMonth(), 1);
 };
+
+/**
+ * Para onde o gateway manda os avisos da mensalidade (vence em 10 dias, vence
+ * hoje, venceu). O e-mail da oficina é opcional e quase ninguém preenche: sem
+ * o fallback do dono, o cliente nascia no Asaas sem e-mail e nenhum aviso de
+ * vencimento chegava (achado em produção, 15/10/2026).
+ */
+const emailDaCobranca = (daOficina: string | null, doDono: string | undefined): string | null =>
+  daOficina ?? doDono ?? null;
 
 /**
  * Assinatura do SaaS (V3, E20).
@@ -82,7 +94,10 @@ export class BillingService {
       bloqueada: situacao.bloqueada,
       diasRestantes: situacao.diasRestantes,
       trabalhaAte: situacao.trabalhaAte,
-      subscribed: assinatura.providerSubscriptionId !== null,
+      // cancelada por falta de pagamento: a referência antiga fica guardada
+      // (um aviso atrasado ainda acha a oficina), mas o botão volta a "Assinar"
+      subscribed: assinatura.providerSubscriptionId !== null && !canceladaPorAtraso(assinatura),
+      canceladaPorAtraso: canceladaPorAtraso(assinatura),
       provider: assinatura.provider ?? this.deps.gateway.driver,
       environment: this.deps.gateway.environment,
       checkoutUrl: assinatura.checkoutUrl,
@@ -116,7 +131,7 @@ export class BillingService {
     const preparo = await withTenant(this.deps.db, auth, async (tx) => {
       const assinatura = await repo.lockSubscription(tx, auth.organizationId);
       if (!assinatura) throw notFound('Assinatura não encontrada.');
-      if (assinatura.providerSubscriptionId) {
+      if (assinatura.providerSubscriptionId && !canceladaPorAtraso(assinatura)) {
         // já assinou: trocar de plano é outra porta
         throw new AppError(
           409,
@@ -139,13 +154,14 @@ export class BillingService {
         );
       }
       const hoje = dayKey(new Date(), oficina.timezone);
+      const dono = await repo.ownerContact(tx, auth.organizationId);
       // quem ainda está em teste só começa a pagar quando o teste acabar
       const emTeste = assinatura.status === 'TRIALING' && (assinatura.trialEndsAt?.getTime() ?? 0) > Date.now();
       const vencimento = emTeste
         ? new Intl.DateTimeFormat('en-CA', { timeZone: oficina.timezone }).format(assinatura.trialEndsAt!)
         : hoje;
 
-      return { assinatura, plano, oficina, vencimento };
+      return { assinatura, plano, oficina, vencimento, email: emailDaCobranca(oficina.email, dono?.email) };
     });
 
     const resposta = await this.deps.gateway.criarAssinatura({
@@ -157,7 +173,7 @@ export class BillingService {
       cliente: {
         name: preparo.oficina.legalName ?? preparo.oficina.name,
         document: preparo.oficina.document,
-        email: preparo.oficina.email,
+        email: preparo.email,
         phone: preparo.oficina.whatsapp ?? preparo.oficina.phone,
         providerCustomerId: preparo.assinatura.providerCustomerId,
       },
@@ -310,6 +326,7 @@ export class BillingService {
     const oficina = await withTenant(this.deps.db, auth, async (tx) =>
       orgRepo.findOrganization(tx, auth.organizationId),
     );
+    const dono = await withTenant(this.deps.db, auth, async (tx) => repo.ownerContact(tx, auth.organizationId));
     if (!plano || !oficina) throw notFound('Plano não encontrado.');
     const preco = assinatura.priceCents ?? precoDoCiclo(plano, assinatura.billingCycle) ?? plano.priceMonthlyCents;
 
@@ -322,16 +339,20 @@ export class BillingService {
       cliente: {
         name: oficina.legalName ?? oficina.name,
         document: oficina.document,
-        email: oficina.email,
+        email: emailDaCobranca(oficina.email, dono?.email),
         phone: oficina.whatsapp ?? oficina.phone,
         providerCustomerId: assinatura.providerCustomerId,
       },
     });
 
     await withTenant(this.deps.db, auth, async (tx) => {
+      const aindaPago = assinatura.currentPeriodEnd !== null && assinatura.currentPeriodEnd > new Date();
       await repo.updateSubscription(tx, auth.organizationId, {
-        status: assinatura.currentPeriodEnd && assinatura.currentPeriodEnd > new Date() ? 'ACTIVE' : 'PAST_DUE',
-        pastDueSince: assinatura.currentPeriodEnd && assinatura.currentPeriodEnd > new Date() ? null : new Date(),
+        // o período pago acabou: volta só quando a cobrança nova for paga. Antes
+        // virava PAST_DUE com atraso "de agora", e a reativação ganhava 7 dias
+        // de carência de graça
+        status: aindaPago ? 'ACTIVE' : 'EXPIRED',
+        pastDueSince: null,
         cancelAtPeriodEnd: false,
         canceledAt: null,
         cancelReason: null,
@@ -350,6 +371,61 @@ export class BillingService {
     this.deps.caches.subscriptions.delete(auth.organizationId);
 
     return withTenant(this.deps.db, auth, async (tx) => this.montar(tx, auth.organizationId));
+  }
+
+  // ------------------------- falta de pagamento --------------------------
+
+  /**
+   * Acabou a carência e não pagou: cancela a assinatura no gateway (D91).
+   *
+   * Sem isto, a recorrência seguia viva no Asaas e gerava uma fatura nova por
+   * mês para uma oficina que já tinha parado de usar. Cancelar lá também apaga
+   * as faturas pendentes e vencidas (as pagas ficam). Aqui, a assinatura vira
+   * EXPIRED com o motivo gravado: só consulta, e para voltar é assinar de novo
+   * e pagar. Não existe plano grátis.
+   *
+   * Chamado de hora em hora pelo trabalhador de fundo. O gateway é chamado
+   * FORA da transação; se falhar, nada muda e a próxima volta tenta de novo.
+   */
+  async cancelarSeInadimplente(organizationId: string, agora = new Date()): Promise<boolean> {
+    const auth = { organizationId };
+    const alvo = await withTenant(this.deps.db, auth, (tx) => repo.findSubscription(tx, organizationId));
+    if (!alvo || alvo.status !== 'PAST_DUE' || !situacaoDaAssinatura(alvo, agora).bloqueada) return false;
+
+    if (alvo.providerSubscriptionId) {
+      await this.deps.gateway.cancelarAssinatura(alvo.providerSubscriptionId);
+    }
+
+    const cancelou = await withTenant(this.deps.db, auth, async (tx) => {
+      const travada = await repo.lockSubscription(tx, organizationId);
+      // o pagamento pode ter entrado entre a leitura e agora
+      if (!travada || travada.status !== 'PAST_DUE') {
+        this.deps.log.warn(
+          { organizationId },
+          'pagou enquanto o sistema cancelava por atraso: conferir a recorrência no gateway',
+        );
+        return false;
+      }
+      await repo.updateSubscription(tx, organizationId, {
+        status: 'EXPIRED',
+        cancelReason: CANCELADA_POR_ATRASO,
+        canceledAt: agora,
+        cancelAtPeriodEnd: false,
+        checkoutUrl: null,
+      });
+      await recordActivity(tx, {
+        organizationId,
+        actorType: 'SYSTEM',
+        actorUserId: null,
+        action: 'subscription.canceled_for_nonpayment',
+        entityType: 'subscription',
+        entityId: organizationId,
+        metadata: { pastDueSince: travada.pastDueSince?.toISOString() ?? null },
+      });
+      return true;
+    });
+    this.deps.caches.subscriptions.delete(organizationId);
+    return cancelou;
   }
 
   // ----------------------------- conciliação ------------------------------
@@ -419,8 +495,18 @@ export class BillingService {
       const pagina = aviso.invoiceUrl ?? existente?.invoiceUrl ?? null;
 
       if (pago) {
+        if (canceladaPorAtraso(travada) && travada.providerSubscriptionId === ref) {
+          // pagou a fatura antiga no minuto em que o sistema cancelava: o plano
+          // ativa, mas a recorrência no gateway não existe mais
+          this.deps.log.warn(
+            { organizationId: assinatura.organizationId, providerSubscriptionId: ref },
+            'pagamento de assinatura já cancelada por atraso: recriar a recorrência no gateway',
+          );
+        }
         await repo.updateSubscription(tx, assinatura.organizationId, {
           status: 'ACTIVE',
+          canceledAt: null,
+          cancelReason: null,
           currentPeriodStart: new Date(`${base}T12:00:00-03:00`),
           currentPeriodEnd: new Date(`${fimDoPeriodo}T12:00:00-03:00`),
           pastDueSince: null,
@@ -434,9 +520,14 @@ export class BillingService {
       const novaPagina = emAberto && pagina ? { checkoutUrl: pagina } : {};
 
       if (aviso.status === 'EXPIRED' || aviso.status === 'FAILED') {
+        // quem já estava travado (voltou a assinar e não pagou) não ganha
+        // carência nova: o atraso conta como já vencido
+        const desde =
+          travada.pastDueSince ??
+          (travada.status === 'EXPIRED' ? new Date(hoje.getTime() - GRACE_DAYS * 86_400_000) : hoje);
         await repo.updateSubscription(tx, assinatura.organizationId, {
           status: 'PAST_DUE',
-          pastDueSince: travada.pastDueSince ?? hoje,
+          pastDueSince: desde,
           ...novaPagina,
         });
         return { handled: true, reason: 'assinatura em atraso' };

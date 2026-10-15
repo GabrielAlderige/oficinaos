@@ -48,6 +48,8 @@ export const billingOverviewSchema = z.object({
   trabalhaAte: z.iso.datetime().nullable(),
   /** já existe assinatura no gateway? (senão, o botão é "Assinar") */
   subscribed: z.boolean(),
+  /** o sistema cancelou por falta de pagamento: só volta assinando e pagando */
+  canceladaPorAtraso: z.boolean(),
   /** o gateway: `simulador` não cobra ninguém */
   provider: z.string(),
   environment: z.string(),

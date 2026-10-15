@@ -85,8 +85,18 @@ function Conteudo({ dados }: { dados: BillingOverview }) {
 
       {dados.bloqueada && (
         <Alert variant="danger">
-          <strong>Acesso limitado.</strong> A oficina continua com tudo salvo e visível, mas só volta a gravar depois
-          de acertar a assinatura.
+          {dados.canceladaPorAtraso ? (
+            <>
+              <strong>Assinatura cancelada por falta de pagamento.</strong> Tudo continua salvo e visível. Para voltar a
+              gravar, escolha um plano abaixo e pague a primeira mensalidade: o sistema libera assim que o pagamento é
+              confirmado.
+            </>
+          ) : (
+            <>
+              <strong>Acesso limitado.</strong> A oficina continua com tudo salvo e visível, mas só volta a gravar
+              depois de acertar a assinatura.
+            </>
+          )}
         </Alert>
       )}
       {dados.emCarencia && (
@@ -110,7 +120,11 @@ function Conteudo({ dados }: { dados: BillingOverview }) {
                       ? 'Pagamento em aberto'
                       : dados.status === 'CANCELED'
                         ? 'Cancelada'
-                        : 'Expirada'}
+                        : dados.canceladaPorAtraso
+                          ? 'Cancelada por falta de pagamento'
+                          : dados.subscribed
+                            ? 'Aguardando pagamento'
+                            : 'Expirada'}
               </Badge>
             </span>
           }
@@ -131,7 +145,7 @@ function Conteudo({ dados }: { dados: BillingOverview }) {
             valor={dados.usage.workOrdersThisMonth}
             teto={dados.usage.maxWorkOrdersPerMonth}
           />
-          {dados.trabalhaAte && (
+          {dados.trabalhaAte && !dados.bloqueada && (
             <p className="text-sm text-muted sm:col-span-2">
               {dados.status === 'CANCELED'
                 ? `Cancelada: a oficina trabalha até ${formatDate(dados.trabalhaAte)}.`

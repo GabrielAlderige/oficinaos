@@ -149,7 +149,7 @@ export class AsaasPaymentGateway implements PaymentGateway {
   /**
    * Cliente novo no Asaas nasce com SMS e ligação de robô ligados nos avisos
    * de cobrança, e esses canais são COBRADOS por envio (o e-mail é grátis).
-   * Desliga os pagos logo depois de criar, antes da primeira cobrança: o aviso
+   * Liga o e-mail e desliga os pagos logo depois de criar, antes da primeira cobrança: o aviso
    * de "cobrança criada" sai no momento em que ela nasce.
    *
    * Falhar aqui não derruba a venda: a cobrança segue, só com os avisos padrão.
@@ -166,6 +166,9 @@ export class AsaasPaymentGateway implements PaymentGateway {
         customer: providerCustomerId,
         notifications: avisos.map((aviso) => ({
           id: aviso.id,
+          // ligado de forma explícita: em produção o cliente apareceu com o
+          // e-mail DESLIGADO em todos os avisos, e aí ninguém sabe que vai vencer
+          emailEnabledForCustomer: true,
           smsEnabledForCustomer: false,
           phoneCallEnabledForCustomer: false,
           whatsappEnabledForCustomer: false,

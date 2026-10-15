@@ -111,7 +111,7 @@ describe('driver do Asaas', () => {
     expect(resposta.paymentUrl).toBe('https://sandbox.asaas.com/i/000456');
   });
 
-  it('cliente novo fica só com aviso por e-mail: SMS e ligação são cobrados', async () => {
+  it('cliente novo fica com aviso por e-mail ligado, e SMS e ligação (cobrados) desligados', async () => {
     const { gateway, chamadas } = gatewayFalso({
       'POST /customers': { id: 'cus_9' },
       'GET /customers/cus_9/notifications': { data: [{ id: 'not_a' }, { id: 'not_b' }] },
@@ -129,7 +129,7 @@ describe('driver do Asaas', () => {
       expect(aviso.smsEnabledForCustomer).toBe(false);
       expect(aviso.phoneCallEnabledForCustomer).toBe(false);
       expect(aviso.whatsappEnabledForCustomer).toBe(false);
-      expect(aviso.emailEnabledForCustomer, 'o e-mail, que é grátis, fica como está').toBeUndefined();
+      expect(aviso.emailEnabledForCustomer, 'o e-mail, que é grátis, fica ligado de propósito').toBe(true);
     }
     // e isso acontece ANTES da cobrança: o aviso de "cobrança criada" sai na hora
     const ordem = chamadas.map((c) => `${c.method} ${c.url.replace('https://api-sandbox.asaas.com/v3', '')}`);
