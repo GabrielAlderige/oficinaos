@@ -55,11 +55,13 @@ describe('e-mails do teste grátis', () => {
     await t.app.close();
   });
 
-  it('as boas-vindas saem no cadastro, explicando os 14 dias', () => {
+  it('as boas-vindas saem no cadastro, explicando os 30 dias e a implantação grátis', () => {
     const boasVindas = enviados().filter((m) => m.subject.startsWith('Bem-vindo'));
     expect(boasVindas, 'uma vez só').toHaveLength(1);
     expect(boasVindas[0]!.subject).toBe('Bem-vindo ao OficinaOS, Marcos!');
-    expect(boasVindas[0]!.text).toContain('14 dias grátis');
+    expect(boasVindas[0]!.text).toContain('30 dias grátis');
+    expect(boasVindas[0]!.text, 'o teste ainda não começou: diz quando começa sozinho').toContain('começa sozinho em');
+    expect(boasVindas[0]!.text).toContain('https://wa.me/5535997558675');
     expect(boasVindas[0]!.text).toContain('Auto Mecânica Oliveira');
   });
 

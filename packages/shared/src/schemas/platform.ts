@@ -23,6 +23,17 @@ export const platformOrganizationSchema = z.object({
   planName: z.string(),
   status: z.enum(SUBSCRIPTION_STATUSES),
   trialEndsAt: z.string().nullable(),
+  /** null = o teste ainda espera a implantação ou o 1º orçamento (D92) */
+  trialStartedAt: z.string().nullable(),
+  /** quando a equipe marcou a implantação como feita */
+  setupDoneAt: z.string().nullable(),
+  founder: z.boolean(),
+  founderPriceUntil: z.string().nullable(),
+  /** a última OS aberta: oficina parada é a que vai desistir */
+  lastWorkOrderAt: z.string().nullable(),
+  workOrders: z.number().int(),
+  /** dias sem abrir OS (desde a última, ou desde o cadastro se nunca abriu) */
+  diasParada: z.number().int(),
   subscribed: z.boolean(),
   /** calculado, igual à tela da oficina: em teste, em carência ou bloqueada */
   emTeste: z.boolean(),
@@ -38,6 +49,10 @@ export const platformOverviewSchema = z.object({
   emTeste: z.number().int(),
   assinantes: z.number().int(),
   bloqueadas: z.number().int(),
+  fundadoras: z.number().int(),
+  vagasDeFundadora: z.number().int(),
+  /** em teste e sem abrir OS há 5 dias ou mais: é para quem ligar hoje */
+  paradas: z.number().int(),
 });
 export type PlatformOverview = z.infer<typeof platformOverviewSchema>;
 
@@ -55,3 +70,21 @@ export const extendTrialSchema = z.object({
   reason: z.string().trim().min(3, 'Diga o motivo').max(200),
 });
 export type ExtendTrialInput = z.infer<typeof extendTrialSchema>;
+
+/**
+ * A implantação da oferta Oficina Pronta (D92). Marcar como feita COMEÇA o
+ * teste de 30 dias na hora, se ele ainda não tiver começado.
+ */
+export const markSetupDoneSchema = z.object({
+  note: z.string().trim().max(200).optional(),
+});
+export type MarkSetupDoneInput = z.infer<typeof markSetupDoneSchema>;
+
+/**
+ * Tornar fundadora (D92). O motivo é obrigatório pela mesma razão de estender
+ * o teste: são só 10 vagas, e cada uma tem de ter uma história na trilha.
+ */
+export const makeFounderSchema = z.object({
+  reason: z.string().trim().min(3, 'Diga o motivo').max(200),
+});
+export type MakeFounderInput = z.infer<typeof makeFounderSchema>;

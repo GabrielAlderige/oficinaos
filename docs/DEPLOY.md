@@ -160,8 +160,9 @@ primeira visita (leva alguns segundos).
 ## 6. A primeira oficina
 
 O cadastro é público — é assim que um SaaS funciona. Crie a sua conta pelo
-próprio painel, em **Criar conta**, e ela nasce com 14 dias de teste no plano
-**Nitro**, o mais alto (E40): o teste mostra o produto inteiro, inclusive
+próprio painel, em **Criar conta**, e ela nasce com 30 dias de teste no plano
+**Nitro**, o mais alto (E40), que só começam a contar na implantação (marcada em
+**Plataforma → Oficinas → Implantação feita**) ou no primeiro orçamento (D92): o teste mostra o produto inteiro, inclusive
 pesquisa de peças, WhatsApp oficial e automações. Ao assinar um plano menor, a
 oficina perde o que não estiver nele — e a tela diz em qual plano cada coisa
 mora, com o caminho para subir.

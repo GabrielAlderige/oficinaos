@@ -1,4 +1,4 @@
-import { ROLE_LABELS } from '@oficinaos/shared';
+import { ROLE_LABELS, TRIAL_DAYS } from '@oficinaos/shared';
 import { Check, ChevronRight, ChevronsUpDown, LogOut, Moon, ShieldCheck, Sun, X } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useMatches, useNavigate } from 'react-router';
@@ -17,6 +17,7 @@ import { api } from '../../lib/api-client';
 import { cn } from '../../lib/cn';
 import { errorMessage } from '../../lib/errors';
 import { formatDate, initials } from '../../lib/format';
+import { linkDaImplantacao } from '../../lib/implantacao';
 import { useMe, useSession } from '../../lib/session';
 import { useTheme } from '../../lib/theme';
 import { usePersistentState } from '../../lib/use-persistent-state';
@@ -232,7 +233,8 @@ export function EmailVerificationNotice() {
  * restam) e o bloqueio — que é só de escrita, e a frase diz isso.
  */
 export function TrialNotice() {
-  const { subscription } = useMe();
+  const me = useMe();
+  const { subscription } = me;
   if (!subscription) return null;
 
   if (subscription.bloqueada) {
@@ -265,6 +267,23 @@ export function TrialNotice() {
   }
 
   if (!subscription.emTeste || !subscription.trialEndsAt) return null;
+  // o teste de 30 dias ainda não começou (D92): o relógio está parado até o 1º orçamento
+  if (!subscription.trialStartedAt) {
+    return (
+      <div className="rounded-lg border border-border bg-surface-muted/60 p-3 text-xs">
+        <p className="font-medium">Teste de {TRIAL_DAYS} dias no {subscription.planName}</p>
+        <p className="mt-0.5 text-muted">Começa a contar no primeiro orçamento que você enviar.</p>
+        <a
+          className="mt-1 inline-block underline underline-offset-2"
+          href={linkDaImplantacao(me.organization.name)}
+          target="_blank"
+          rel="noreferrer"
+        >
+          Pedir a implantação grátis
+        </a>
+      </div>
+    );
+  }
   return (
     <div className="rounded-lg border border-border bg-surface-muted/60 p-3 text-xs">
       <p className="font-medium">Plano {subscription.planName} em teste</p>

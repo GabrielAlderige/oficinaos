@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { bloqueiaEscrita, GRACE_DAYS, mensalEquivalente, precoDoCiclo, proximoVencimento, situacaoDaAssinatura } from './billing';
+import {
+  bloqueiaEscrita,
+  fimDoTesteAoIniciar,
+  GRACE_DAYS,
+  mensalEquivalente,
+  precoComFundadora,
+  precoDoCiclo,
+  proximoVencimento,
+  situacaoDaAssinatura,
+} from './billing';
 
 const AGORA = new Date('2026-09-20T12:00:00Z');
 const emDias = (dias: number) => new Date(AGORA.getTime() + dias * 86_400_000);
@@ -89,5 +98,39 @@ describe('preço e ciclo', () => {
   it('o próximo vencimento anda 30 dias no mensal e 365 no anual', () => {
     expect(proximoVencimento('2026-09-20', 'MONTHLY')).toBe('2026-10-20');
     expect(proximoVencimento('2026-09-20', 'YEARLY')).toBe('2027-09-20');
+  });
+});
+
+describe('fimDoTesteAoIniciar (D92)', () => {
+  const agora = new Date('2026-10-20T13:00:00Z');
+  const emDiasDe = (base: Date, dias: number) => new Date(base.getTime() + dias * 86_400_000);
+
+  it('quem começa antes do 15º dia ganha os 30 dias a partir de agora', () => {
+    const gravado = emDiasDe(agora, 40); // cadastro há 5 dias: 45 - 5
+    expect(fimDoTesteAoIniciar(gravado, agora, 30)).toEqual(emDiasDe(agora, 30));
+  });
+
+  it('quem já estava em teste sozinho não ganha dias novos', () => {
+    const gravado = emDiasDe(agora, 25); // cadastro há 20 dias: começou sozinho no 15º
+    expect(fimDoTesteAoIniciar(gravado, agora, 30)).toEqual(gravado);
+  });
+});
+
+describe('precoComFundadora (D92)', () => {
+  const agora = new Date('2026-10-20T13:00:00Z');
+  const fundadora = { priceCents: 27_900, until: new Date('2028-01-20T13:00:00Z'), plan: 'NITRO' };
+
+  it('o Nitro mensal sai pelo preço travado', () => {
+    expect(precoComFundadora(49_900, 'NITRO', 'MONTHLY', fundadora, agora)).toBe(27_900);
+  });
+
+  it('outro plano, o anual ou depois do prazo: preço da tabela', () => {
+    expect(precoComFundadora(27_900, 'SUPERCHARGER', 'MONTHLY', fundadora, agora)).toBe(27_900);
+    expect(precoComFundadora(499_000, 'NITRO', 'YEARLY', fundadora, agora)).toBe(499_000);
+    expect(precoComFundadora(49_900, 'NITRO', 'MONTHLY', fundadora, new Date('2028-02-01T00:00:00Z'))).toBe(49_900);
+  });
+
+  it('quem não é fundadora paga a tabela', () => {
+    expect(precoComFundadora(49_900, 'NITRO', 'MONTHLY', { priceCents: null, until: null, plan: 'NITRO' }, agora)).toBe(49_900);
   });
 });

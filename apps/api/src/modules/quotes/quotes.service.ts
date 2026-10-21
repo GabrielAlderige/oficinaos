@@ -33,6 +33,7 @@ import { releaseReservations, reserveApprovedItems } from '../../core/reservatio
 import { organizations, quotes as quotesTable, type QuoteSnapshot } from '../../db/schema';
 import type { Tx } from '../../db/tenant';
 import { withQuoteToken, withTenant } from '../../db/tenant';
+import { iniciarTeste } from '../billing/inicio-do-teste';
 import type { MessagingService } from '../messaging/messaging.service';
 import * as workOrderRepo from '../work-orders/work-orders.repository';
 import { applyWorkOrderChange } from '../work-orders/totals';
@@ -63,7 +64,8 @@ export class QuotesService {
    * O que o cliente vê não muda mais — mexer num item pendente gera versão nova.
    */
   async create(auth: AuthContext, workOrderId: string, input: CreateQuoteInput, client: ClientInfo): Promise<Quote> {
-    return withTenant(this.deps.db, auth, async (tx) => {
+    let testeComecou = false;
+    const enviado = await withTenant(this.deps.db, auth, async (tx) => {
       const order = await workOrderRepo.lockWorkOrder(tx, auth.organizationId, workOrderId);
       if (!order) throw notFound('OS não encontrada.');
 
@@ -203,9 +205,14 @@ export class QuotesService {
         metadata: { number, version, totalCents: subtotal },
         ...client,
       });
+      // o primeiro orçamento enviado é quando o sistema passou a valer: o
+      // teste de 30 dias começa aqui, se a implantação não o começou antes (D92)
+      testeComecou = await iniciarTeste(tx, auth.organizationId);
 
       return this.load(tx, auth.organizationId, saved.id);
     });
+    if (testeComecou) this.deps.caches.subscriptions.delete(auth.organizationId);
+    return enviado;
   }
 
   async get(auth: AuthContext, id: string): Promise<Quote> {

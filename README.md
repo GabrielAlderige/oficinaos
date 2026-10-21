@@ -192,9 +192,11 @@ que não prometer. Multi-filial, papéis customizados, API pública, fornecedore
 e compras **não estão em plano nenhum**: aparecem numa lista separada de "em
 desenvolvimento", porque ainda não existem.
 
-O teste é de 14 dias no **Nitro**, o plano mais alto, sem cartão, com mais 7 dias de carência depois de vencer (D78) — quem termina
-os 14 dias sem ter visto pesquisa de peças, WhatsApp oficial e automações não
-paga por elas. O preço saiu de uma conta de
+O teste é de 30 dias no **Nitro**, o plano mais alto, sem cartão, com mais 7 dias de carência depois de vencer (D78) — quem termina
+o teste sem ter visto pesquisa de peças, WhatsApp oficial e automações não
+paga por elas. Os 30 dias só começam na implantação grátis feita pela equipe
+ou no primeiro orçamento enviado (oferta **Oficina Pronta**, D92); as 10
+primeiras oficinas fundadoras têm 90 dias e o Nitro a R$ 279 por 12 meses. O preço saiu de uma conta de
 custo real por oficina (**R$ 55 com 20 oficinas, R$ 17 com 100**) — a margem não
 é o gargalo em escala nenhuma; o gargalo é custo de aquisição e churn. A conta
 inteira está na decisão **D71** do ARCHITECTURE.

@@ -28,10 +28,23 @@ export function RequireAuth() {
 export function PublicOnly() {
   const { state } = useSession();
   const [params] = useSearchParams();
+  const location = useLocation();
   if (state.status === 'loading') return <FullPageSpinner />;
   if (state.status === 'authenticated') {
     const pedido = params.get('next');
-    const destino = pedido ? safeNext(pedido) : state.me.role === 'MECHANIC' ? '/minhas-os' : '/';
+    /**
+     * Quem acabou de criar a conta vai para as boas-vindas (D92). O destino é
+     * decidido AQUI, e não por um `navigate` no cadastro: a rota das
+     * boas-vindas é lazy, e enquanto ela carregava este redirecionamento já
+     * mandava para o Início, atropelando o `navigate`.
+     */
+    const destino = pedido
+      ? safeNext(pedido)
+      : location.pathname === '/criar-conta'
+        ? '/boas-vindas'
+        : state.me.role === 'MECHANIC'
+          ? '/minhas-os'
+          : '/';
     return <Navigate to={destino} replace />;
   }
   return <Outlet />;

@@ -81,6 +81,10 @@ export const meSchema = z.object({
       planName: z.string(),
       status: z.enum(SUBSCRIPTION_STATUSES),
       trialEndsAt: z.string().nullable(),
+      /** null = o teste ainda não começou: espera a implantação ou o 1º orçamento (D92) */
+      trialStartedAt: z.string().nullable(),
+      /** oficina fundadora (D92): 3 meses grátis e o Nitro com preço travado */
+      founder: z.boolean(),
       /** situação calculada (E20): é o que decide o aviso no painel */
       emTeste: z.boolean(),
       emCarencia: z.boolean(),

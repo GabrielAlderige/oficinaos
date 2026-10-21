@@ -4,6 +4,8 @@ import {
   dayKey,
   GRACE_DAYS,
   ErrorCode,
+  FOUNDER_PLAN,
+  precoComFundadora,
   precoDoCiclo,
   proximoVencimento,
   situacaoDaAssinatura,
@@ -87,6 +89,9 @@ export class BillingService {
       cycle: assinatura.billingCycle,
       priceCents: assinatura.priceCents ?? (planoAtual ? precoDoCiclo(planoAtual, assinatura.billingCycle) : null),
       trialEndsAt: assinatura.trialEndsAt?.toISOString() ?? null,
+      trialStartedAt: assinatura.trialStartedAt?.toISOString() ?? null,
+      founderPriceCents: assinatura.founderPriceCents,
+      founderPriceUntil: assinatura.founderPriceUntil?.toISOString() ?? null,
       currentPeriodEnd: assinatura.currentPeriodEnd?.toISOString() ?? null,
       cancelAtPeriodEnd: assinatura.cancelAtPeriodEnd,
       emTeste: situacao.emTeste,
@@ -140,7 +145,7 @@ export class BillingService {
           'Esta oficina já tem assinatura. Para mudar de plano, use "Trocar de plano".',
         );
       }
-      const plano = await this.planoEscolhido(tx, input.plan, input.cycle);
+      const plano = await this.planoEscolhido(tx, input.plan, input.cycle, assinatura);
       const oficina = await orgRepo.findOrganization(tx, auth.organizationId);
       if (!oficina) throw notFound('Oficina não encontrada.');
       // o gateway não emite cobrança sem CPF/CNPJ de quem paga: melhor dizer
@@ -212,7 +217,7 @@ export class BillingService {
     const preparo = await withTenant(this.deps.db, auth, async (tx) => {
       const assinatura = await repo.lockSubscription(tx, auth.organizationId);
       if (!assinatura) throw notFound('Assinatura não encontrada.');
-      const plano = await this.planoEscolhido(tx, input.plan, input.cycle);
+      const plano = await this.planoEscolhido(tx, input.plan, input.cycle, assinatura);
       if (plano.row.id === assinatura.planId && assinatura.billingCycle === input.cycle) {
         throw new AppError(409, ErrorCode.CONFLICT, 'Já é este plano', 'A oficina já está neste plano e ciclo.');
       }
@@ -542,10 +547,24 @@ export class BillingService {
 
   // ------------------------------- interno --------------------------------
 
-  private async planoEscolhido(tx: Tx, code: ChangePlanInput['plan'], cycle: BillingCycle) {
+  private async planoEscolhido(
+    tx: Tx,
+    code: ChangePlanInput['plan'],
+    cycle: BillingCycle,
+    assinatura: { founderPriceCents: number | null; founderPriceUntil: Date | null },
+  ) {
     const row = await repo.findPlanByCode(tx, code);
     if (!row) throw notFound('Plano não encontrado.');
-    const preco = precoDoCiclo(row, cycle);
+    const daTabela = precoDoCiclo(row, cycle);
+    // fundadora (D92): o Nitro mensal sai pelo preço travado até a data combinada
+    const preco =
+      daTabela === null
+        ? null
+        : precoComFundadora(daTabela, row.code, cycle, {
+            priceCents: assinatura.founderPriceCents,
+            until: assinatura.founderPriceUntil,
+            plan: FOUNDER_PLAN,
+          });
     if (preco === null) {
       throw new AppError(
         422,

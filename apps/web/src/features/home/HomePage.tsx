@@ -12,7 +12,7 @@ import { DinheiroDoPeriodo } from '../dashboard/DinheiroDoPeriodo';
 import { MetricChart } from '../dashboard/MetricChart';
 import { PatioAgora } from '../dashboard/PatioAgora';
 import { ProducaoDoPeriodo } from '../dashboard/ProducaoDoPeriodo';
-import { SetupChecklist } from './SetupChecklist';
+import { SampleDataNotice, SetupChecklist } from './SetupChecklist';
 
 const PERIODOS: DashboardPeriod[] = ['today', 'week', 'month'];
 const ehPeriodo = (valor: string | null): valor is DashboardPeriod =>
@@ -65,6 +65,13 @@ export function HomePage() {
 
       <AcoesRapidas />
 
+      {/* quem está começando vê isto primeiro (D92): o painel ainda não tem número
+          nenhum, e os dois somem sozinhos quando a oficina manda o 1º orçamento */}
+      <div className="mb-4 space-y-3 empty:hidden">
+        <SampleDataNotice />
+        <SetupChecklist />
+      </div>
+
       {podeVer && resumo.isError && (
         <Alert variant="danger">Não deu para carregar os números. Atualize a página.</Alert>
       )}
@@ -105,15 +112,11 @@ export function HomePage() {
               <MetricChart periodo={{ period: periodo }} podeVerDinheiro={dados.billedCents !== null} />
               <ProducaoDoPeriodo dados={dados} />
               <MaisUsados dados={dados} />
-              {/* os primeiros passos são de quem está começando: ficam no fim,
-                  e somem sozinhos quando a oficina termina a configuração */}
-              <SetupChecklist />
             </div>
           </div>
         </div>
       )}
 
-      {!dados && <SetupChecklist />}
     </>
   );
 }

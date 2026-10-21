@@ -204,3 +204,28 @@
     radial-gradient(45rem 24rem at 50% 120%, #2f1a10, transparent 70%),
     var(--surface);
 }
+
+/* A faixa da oferta Oficina Pronta (D92): o único bloco laranja cheio da
+ * página, para a oferta não se perder entre os painéis escuros. O laranja é o
+ * escuro da marca (#c2410c → #9a3412): texto branco em cima passa de 4,5:1, o
+ * que o laranja vivo (#f26b1d) não alcança. */
+.oferta {
+  background:
+    radial-gradient(36rem 18rem at 90% -10%, rgb(255 255 255 / 0.16), transparent 70%),
+    linear-gradient(135deg, #c2410c, #9a3412);
+}
+.oferta::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgb(255 255 255 / 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 0.06) 1px, transparent 1px);
+  background-size: 28px 28px;
+  mask-image: linear-gradient(to bottom, black, transparent 80%);
+}
+.oferta > * {
+  position: relative;
+  z-index: 1;
+}

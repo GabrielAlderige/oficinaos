@@ -38,6 +38,12 @@ export const billingOverviewSchema = z.object({
   cycle: z.enum(BILLING_CYCLES),
   priceCents: z.number().int().nullable(),
   trialEndsAt: z.iso.datetime().nullable(),
+  /** null = o teste ainda não começou (D92) */
+  trialStartedAt: z.iso.datetime().nullable(),
+  /** preço de fundadora do Nitro mensal (D92); null = não é fundadora */
+  founderPriceCents: z.number().int().nullable(),
+  /** até quando vale o preço de fundadora */
+  founderPriceUntil: z.iso.datetime().nullable(),
   currentPeriodEnd: z.iso.datetime().nullable(),
   cancelAtPeriodEnd: z.boolean(),
   /** situação calculada (ver `situacaoDaAssinatura`) */

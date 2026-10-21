@@ -37,9 +37,12 @@ describe('autenticação', () => {
       expect(s.me.organization.name).toBe('Auto Center Beta');
       expect(s.me.organizations).toHaveLength(1);
       expect(s.me.subscription).toMatchObject({ plan: 'NITRO', status: 'TRIALING' });
+      // o teste ainda não começou (D92): o fim gravado é o do início sozinho,
+      // 15 dias depois do cadastro, mais os 30 do teste
+      expect(s.me.subscription!.trialStartedAt, 'começa no 1º orçamento ou na implantação').toBeNull();
       const trialDays = (Date.parse(s.me.subscription!.trialEndsAt!) - Date.now()) / 86_400_000;
-      expect(trialDays).toBeGreaterThan(13.9);
-      expect(trialDays).toBeLessThanOrEqual(14);
+      expect(trialDays).toBeGreaterThan(44.9);
+      expect(trialDays).toBeLessThanOrEqual(45);
 
       const cookie = s.response.cookies.find((c) => c.name === 'oos_rt');
       expect(cookie).toMatchObject({ httpOnly: true, path: '/api/v1/auth', sameSite: 'Strict' });

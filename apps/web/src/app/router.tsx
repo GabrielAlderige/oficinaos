@@ -92,6 +92,12 @@ export const router = createBrowserRouter([
             children: [
               { index: true, lazy: page(() => import('../features/home/HomePage'), 'HomePage'), handle: { crumb: 'Início' } },
               {
+                // logo depois do cadastro: os dois caminhos da oferta Oficina Pronta (D92)
+                path: 'boas-vindas',
+                lazy: page(() => import('../features/home/WelcomePage'), 'WelcomePage'),
+                handle: { crumb: 'Boas-vindas' },
+              },
+              {
                 path: 'agenda',
                 lazy: page(() => import('../features/appointments/AgendaPage'), 'AgendaPage'),
                 handle: { crumb: 'Agenda' },

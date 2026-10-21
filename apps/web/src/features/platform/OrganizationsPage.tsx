@@ -1,5 +1,5 @@
-import type { PlatformOrganization } from '@oficinaos/shared';
-import { CalendarPlus } from 'lucide-react';
+import { FOUNDER_SLOTS, formatBRL, FOUNDER_PRICE_CENTS, type PlatformOrganization } from '@oficinaos/shared';
+import { CalendarPlus, Crown, Wrench } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '../../components/ui/button';
@@ -9,7 +9,7 @@ import { Input } from '../../components/ui/input';
 import { Dialog, DialogContent, DialogFooter, DialogHeader } from '../../components/ui/overlays';
 import { errorMessage } from '../../lib/errors';
 import { formatDate } from '../../lib/format';
-import { useExtendTrial, usePlatformOrganizations } from './api';
+import { useExtendTrial, useMakeFounder, useMarkSetupDone, usePlatformOrganizations } from './api';
 
 /**
  * As oficinas do SaaS, para a PLATAFORMA operar (E41).
@@ -22,6 +22,8 @@ import { useExtendTrial, usePlatformOrganizations } from './api';
 export function OrganizationsPage() {
   const visao = usePlatformOrganizations();
   const [estendendo, setEstendendo] = useState<PlatformOrganization | null>(null);
+  const [fundando, setFundando] = useState<PlatformOrganization | null>(null);
+  const implantacao = useMarkSetupDone();
 
   return (
     <>
@@ -36,11 +38,13 @@ export function OrganizationsPage() {
         <Alert variant="danger">{errorMessage(visao.error)}</Alert>
       ) : (
         <div className="space-y-5">
-          <div className="grid gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             <Resumo titulo="Oficinas" valor={visao.data.total} />
             <Resumo titulo="Em teste" valor={visao.data.emTeste} />
             <Resumo titulo="Assinantes" valor={visao.data.assinantes} />
             <Resumo titulo="Bloqueadas" valor={visao.data.bloqueadas} destaque={visao.data.bloqueadas > 0} />
+            <Resumo titulo={`Fundadoras (de ${FOUNDER_SLOTS})`} valor={visao.data.fundadoras} />
+            <Resumo titulo="Paradas 5+ dias" valor={visao.data.paradas} destaque={visao.data.paradas > 0} />
           </div>
 
           <Card>
@@ -51,7 +55,25 @@ export function OrganizationsPage() {
               <ul className="divide-y divide-border">
                 {visao.data.organizations.map((oficina) => (
                   <li key={oficina.id}>
-                    <Linha oficina={oficina} onEstender={() => setEstendendo(oficina)} />
+                    <Linha
+                      oficina={oficina}
+                      vagas={visao.data.vagasDeFundadora}
+                      onEstender={() => setEstendendo(oficina)}
+                      onFundadora={() => setFundando(oficina)}
+                      implantando={implantacao.isPending && implantacao.variables?.id === oficina.id}
+                      onImplantacao={async () => {
+                        try {
+                          const depois = await implantacao.mutateAsync({ id: oficina.id });
+                          toast.success(
+                            depois.trialEndsAt
+                              ? `Implantação registrada. O teste vai até ${formatDate(depois.trialEndsAt)}.`
+                              : 'Implantação registrada.',
+                          );
+                        } catch (erro) {
+                          toast.error(errorMessage(erro));
+                        }
+                      }}
+                    />
                   </li>
                 ))}
               </ul>
@@ -61,6 +83,7 @@ export function OrganizationsPage() {
       )}
 
       <EstenderDialog oficina={estendendo} onFechar={() => setEstendendo(null)} />
+      <FundadoraDialog oficina={fundando} onFechar={() => setFundando(null)} />
     </>
   );
 }
@@ -74,15 +97,33 @@ function Resumo({ titulo, valor, destaque }: { titulo: string; valor: number; de
   );
 }
 
-function Linha({ oficina, onEstender }: { oficina: PlatformOrganization; onEstender(): void }) {
+function Linha({
+  oficina,
+  vagas,
+  onEstender,
+  onFundadora,
+  onImplantacao,
+  implantando,
+}: {
+  oficina: PlatformOrganization;
+  vagas: number;
+  onEstender(): void;
+  onFundadora(): void;
+  onImplantacao(): void;
+  implantando: boolean;
+}) {
   /** Um selo só, o mais urgente: dois selos competindo escondem o que importa. */
   const selo = oficina.bloqueada
     ? { tone: 'danger' as const, texto: 'Bloqueada' }
     : oficina.emCarencia
       ? { tone: 'warning' as const, texto: `Carência · ${oficina.diasRestantes} d` }
-      : oficina.emTeste
-        ? { tone: 'info' as const, texto: `Teste · ${oficina.diasRestantes} d` }
-        : { tone: 'success' as const, texto: 'Em dia' };
+      : oficina.emTeste && !oficina.trialStartedAt
+        ? { tone: 'neutral' as const, texto: 'Teste não começou' }
+        : oficina.emTeste
+          ? { tone: 'info' as const, texto: `Teste · ${oficina.diasRestantes} d` }
+          : { tone: 'success' as const, texto: 'Em dia' };
+  const parada = oficina.emTeste && oficina.diasParada >= 5;
+  const emTeste = oficina.status === 'TRIALING';
 
   return (
     <div className="flex flex-wrap items-center gap-3 px-5 py-3">
@@ -92,14 +133,31 @@ function Linha({ oficina, onEstender }: { oficina: PlatformOrganization; onEsten
           <Badge tone={selo.tone}>{selo.texto}</Badge>
           <Badge tone="neutral">{oficina.planName}</Badge>
           {oficina.subscribed && <Badge tone="success">Assinou</Badge>}
+          {oficina.founder && <Badge tone="accent">Fundadora</Badge>}
+          {parada && <Badge tone="warning">{`Parada há ${oficina.diasParada} d`}</Badge>}
         </span>
         <span className="block truncate text-xs text-muted">
           {oficina.activeUsers} {oficina.activeUsers === 1 ? 'pessoa' : 'pessoas'}
+          {` · ${oficina.workOrders} OS`}
           {oficina.whatsapp ? ` · ${oficina.whatsapp}` : ''}
           {` · entrou em ${formatDate(oficina.createdAt)}`}
+          {oficina.setupDoneAt ? ` · implantação em ${formatDate(oficina.setupDoneAt)}` : ''}
+          {oficina.founder && oficina.founderPriceUntil ? ` · preço de fundadora até ${formatDate(oficina.founderPriceUntil)}` : ''}
         </span>
       </div>
-      {oficina.status === 'TRIALING' && (
+      {emTeste && !oficina.setupDoneAt && (
+        <Button variant="secondary" size="sm" loading={implantando} onClick={onImplantacao}>
+          <Wrench />
+          Implantação feita
+        </Button>
+      )}
+      {emTeste && !oficina.founder && !oficina.subscribed && vagas > 0 && (
+        <Button variant="secondary" size="sm" onClick={onFundadora}>
+          <Crown />
+          Tornar fundadora
+        </Button>
+      )}
+      {emTeste && (
         <Button variant="secondary" size="sm" onClick={onEstender}>
           <CalendarPlus />
           Estender teste
@@ -179,6 +237,70 @@ function EstenderDialog({ oficina, onFechar }: { oficina: PlatformOrganization |
             }}
           >
             Estender
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * Tornar fundadora (D92). O diálogo diz exatamente o que muda, porque não tem
+ * volta pela tela: a vaga fica ocupada e o preço entra na assinatura.
+ */
+function FundadoraDialog({ oficina, onFechar }: { oficina: PlatformOrganization | null; onFechar(): void }) {
+  const fundar = useMakeFounder();
+  const [motivo, setMotivo] = useState('');
+
+  return (
+    <Dialog
+      open={oficina !== null}
+      onOpenChange={(aberto) => {
+        if (!aberto) {
+          setMotivo('');
+          onFechar();
+        }
+      }}
+    >
+      <DialogContent className="max-w-lg">
+        <DialogHeader
+          title={`Tornar ${oficina?.name ?? ''} fundadora`}
+          description={`3 meses grátis a partir de hoje e, depois, o Nitro mensal por ${formatBRL(FOUNDER_PRICE_CENTS)} durante 12 meses. Ocupa uma das ${FOUNDER_SLOTS} vagas.`}
+        />
+        <Field
+          label="Motivo"
+          htmlFor="fundadora-motivo"
+          hint="Fica na trilha da oficina. Ex.: visita de 22/10, topou dar depoimento."
+        >
+          <Input
+            {...fieldA11y('fundadora-motivo', undefined, true)}
+            value={motivo}
+            onChange={(evento) => setMotivo(evento.target.value)}
+          />
+        </Field>
+        <DialogFooter>
+          <Button variant="secondary" onClick={onFechar}>
+            Cancelar
+          </Button>
+          <Button
+            loading={fundar.isPending}
+            onClick={async () => {
+              if (!oficina) return;
+              if (motivo.trim().length < 3) {
+                toast.error('Escreva o motivo: ele fica registrado.');
+                return;
+              }
+              try {
+                await fundar.mutateAsync({ id: oficina.id, reason: motivo.trim() });
+                toast.success(`${oficina.name} agora é fundadora.`);
+                setMotivo('');
+                onFechar();
+              } catch (erro) {
+                toast.error(errorMessage(erro));
+              }
+            }}
+          >
+            Tornar fundadora
           </Button>
         </DialogFooter>
       </DialogContent>

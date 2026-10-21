@@ -12,6 +12,7 @@ import {
   type SessionInfo,
   type signupSchema,
   situacaoDaAssinatura,
+  TRIAL_AUTOSTART_DAYS,
   TRIAL_DAYS,
   TRIAL_PLAN,
 } from '@oficinaos/shared';
@@ -106,7 +107,10 @@ export class AuthService {
           organizationId,
           planId: plan.id,
           status: 'TRIALING',
-          trialEndsAt: new Date(Date.now() + TRIAL_DAYS * 86_400_000),
+          // o teste ainda NÃO começou (D92): começa na implantação ou no 1º
+          // orçamento. Este é o fim do caso em que ele começa sozinho, no 15º dia.
+          trialEndsAt: new Date(Date.now() + (TRIAL_AUTOSTART_DAYS + TRIAL_DAYS) * 86_400_000),
+          trialStartedAt: null,
         });
 
         await recordActivity(tx, {
@@ -415,6 +419,8 @@ export class AuthService {
               planName: subscription.planName,
               status: subscription.status,
               trialEndsAt: subscription.trialEndsAt?.toISOString() ?? null,
+              trialStartedAt: subscription.trialStartedAt?.toISOString() ?? null,
+              founder: subscription.founderPriceCents !== null,
               ...(() => {
                 const situacao = situacaoDaAssinatura(subscription);
                 return {

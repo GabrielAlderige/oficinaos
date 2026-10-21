@@ -134,6 +134,26 @@ const planos = [
   },
 ];
 
+/** A oferta Oficina Pronta (D92): o que a oficina recebe, em quatro cartões. */
+const oferta = [
+  {
+    titulo: 'Implantação grátis',
+    texto: 'Até 1 hora, na oficina ou por vídeo. Seus clientes, serviços e peças cadastrados, e a primeira OS feita junto.',
+  },
+  {
+    titulo: '30 dias para testar',
+    texto: 'Com tudo liberado, contados a partir da implantação — e não do cadastro.',
+  },
+  {
+    titulo: 'Sem cartão, sem fidelidade',
+    texto: 'Você não deixa cartão nenhum para testar e cancela quando quiser.',
+  },
+  {
+    titulo: 'Garantia no 1º mês',
+    texto: 'Pagou e não gostou do primeiro mês? Devolvemos o valor inteiro.',
+  },
+];
+
 const perguntas = [
   {
     q: 'Precisa instalar alguma coisa?',
@@ -156,8 +176,16 @@ const perguntas = [
     a: 'Não. Relatórios, clientes e financeiro saem em planilha a qualquer momento. E se você atrasar o pagamento, o sistema trava a escrita mas **nunca a leitura**: seus dados continuam visíveis e exportáveis.',
   },
   {
-    q: 'Quanto tempo para começar a usar?',
-    a: 'A conta nasce em cinco campos. Nas primeiras oficinas, a gente vai até lá e monta junto com você em uma hora: seus serviços, sua hora técnica e o app no celular de cada mecânico.',
+    q: 'Como funciona o teste grátis?',
+    a: 'São **30 dias no plano Nitro**, o mais completo, sem cartão. Eles só começam a contar quando o sistema está funcionando: no dia da implantação ou no primeiro orçamento que você mandar. Se nada disso acontecer, o teste começa sozinho 15 dias depois do cadastro. No fim, você escolhe o plano — ou não, e não paga nada.',
+  },
+  {
+    q: 'O que entra na implantação grátis?',
+    a: 'Até 1 hora, na sua oficina ou por chamada de vídeo: os clientes e carros que estão aí agora, os 10 serviços e as 10 peças que mais saem (com preço), o logo e o WhatsApp da oficina, o aplicativo no celular do dono e dos mecânicos, e a **primeira OS de verdade feita junto**. Se você usa planilha ou outro sistema, a gente traz os dados de lá também.',
+  },
+  {
+    q: 'E se eu pagar e não gostar?',
+    a: 'Se não gostar no **primeiro mês pago**, devolvemos o valor inteiro. É só pedir pelo WhatsApp ou pelo e-mail. Sem fidelidade e sem multa: você cancela quando quiser, pela própria tela de assinatura.',
   },
 ];
 ---
@@ -207,6 +235,7 @@ const perguntas = [
           <a class="hover:text-foreground" href="#como-funciona">Como funciona</a>
           <a class="hover:text-foreground" href="#recursos">Recursos</a>
           <a class="hover:text-foreground" href="#ficha">Ficha do carro</a>
+          <a class="hover:text-foreground" href="#oficina-pronta">Implantação grátis</a>
           <a class="hover:text-foreground" href="#planos">Planos</a>
         </nav>
         <div class="flex items-center gap-2">
@@ -228,7 +257,7 @@ const perguntas = [
           <div class="reveal">
             <p class="inline-flex items-center gap-2 rounded-full border border-accent/25 bg-accent-soft px-3 py-1 text-xs font-medium text-accent">
               <span class="pulso inline-block size-1.5 rounded-full bg-accent"></span>
-              14 dias grátis, sem cartão
+              Implantação grátis · 30 dias para testar · sem cartão
             </p>
             <h1 class="mt-5 text-4xl leading-[1.08] font-semibold tracking-tight text-balance sm:text-5xl lg:text-[3.4rem]">
               O cliente aprova o orçamento <span class="sublinhado">pelo celular</span>.
@@ -244,22 +273,23 @@ const perguntas = [
                 class="rounded-md bg-accent px-6 py-3.5 text-sm font-medium text-accent-foreground shadow-sm transition hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-md"
                 href={`${APP_URL}/criar-conta`}
               >
-                Testar 14 dias grátis
+                Começar grátis
               </a>
               <a
                 class="flex items-center gap-2 rounded-md border border-border bg-surface px-6 py-3.5 text-sm font-medium transition hover:-translate-y-0.5 hover:bg-surface-muted"
-                href={zap('Oi! Vi o OficinaOS no site e queria entender como funciona na minha oficina.')}
+                href={zap('Oi! Vi o OficinaOS no site e quero a implantação grátis na minha oficina.')}
                 target="_blank"
                 rel="noopener"
               >
                 <svg viewBox="0 0 24 24" class="size-4 fill-[#25D366]" aria-hidden="true">
                   <path d="M12 2a10 10 0 00-8.6 15L2 22l5.2-1.4A10 10 0 1012 2zm0 18a8 8 0 01-4.1-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8 8 0 1112 20zm4.4-6c-.2-.1-1.4-.7-1.6-.8-.2-.1-.4-.1-.5.1l-.7.9c-.1.2-.3.2-.5.1a6.6 6.6 0 01-3.2-2.8c-.1-.2 0-.4.1-.5l.4-.5.2-.4v-.4l-.7-1.7c-.2-.4-.4-.4-.5-.4h-.5a1 1 0 00-.7.3A2.9 2.9 0 006 8.9c0 1.7 1.2 3.3 1.4 3.5a11 11 0 004.3 3.8c1.6.6 2 .5 2.4.5.5 0 1.4-.6 1.6-1.1.2-.6.2-1 .1-1.1l-.4-.2z" />
                 </svg>
-                Falar no WhatsApp
+                Quero a implantação grátis
               </a>
             </div>
             <p class="mt-3 text-sm text-muted">
-              Sem instalar nada. Funciona no celular do mecânico e no computador do balcão.
+              A gente deixa funcionando na sua oficina, e você só paga se servir.
+              Sem instalar nada: funciona no celular do mecânico e no computador do balcão.
             </p>
           </div>
 
@@ -553,8 +583,9 @@ const perguntas = [
         <div class="mx-auto max-w-6xl px-5 py-16">
           <h2 class="reveal text-2xl font-semibold tracking-tight text-balance sm:text-3xl">Planos</h2>
           <p class="reveal mt-3 max-w-2xl text-muted">
-            Quatorze dias no plano mais alto, sem cartão. Depois você escolhe — e ainda
-            tem sete dias de folga para decidir.
+            Trinta dias no plano mais alto, sem cartão, contados a partir da implantação.
+            Depois você escolhe — e ainda tem sete dias de folga para decidir. Não gostou
+            do primeiro mês pago? A gente devolve.
           </p>
           <div class="mt-10 grid gap-5 lg:grid-cols-3">
             {
@@ -608,39 +639,68 @@ const perguntas = [
         </div>
       </section>
 
-      <!-- ============== PARA AS PRIMEIRAS OFICINAS ==============
+      <!-- ============== OFICINA PRONTA (D92) ==============
+           a oferta: o sistema já entra funcionando, e o teste só conta a partir daí.
            quando houver depoimento de verdade (com nome e autorização), ele entra aqui -->
-      <section class="mx-auto max-w-6xl px-5 py-16">
-        <div class="reveal rounded-2xl border-2 border-dashed border-accent/40 bg-accent-soft/40 p-8 sm:p-12">
-          <p class="text-xs font-semibold tracking-widest text-accent uppercase">Para as primeiras oficinas</p>
-          <h2 class="mt-3 max-w-3xl text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
-            Quem entra agora leva três vantagens.
+      <section id="oficina-pronta" class="mx-auto max-w-6xl scroll-mt-20 px-5 py-16">
+        <div class="reveal oferta relative overflow-hidden rounded-2xl p-8 text-white sm:p-12">
+          <p class="text-xs font-semibold tracking-widest text-white/80 uppercase">Oficina Pronta</p>
+          <h2 class="mt-3 max-w-3xl text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
+            A gente deixa funcionando. Você só paga se servir.
           </h2>
-          <div class="mt-7 grid gap-5 sm:grid-cols-3">
-            <div class="rounded-xl border border-border bg-surface p-5">
-              <p class="text-2xl font-semibold text-accent">1</p>
-              <h3 class="mt-2 font-semibold">Preço travado</h3>
-              <p class="mt-1.5 text-sm text-muted">
-                O valor de hoje vale enquanto você for cliente, mesmo quando a tabela subir.
-              </p>
-            </div>
-            <div class="rounded-xl border border-border bg-surface p-5">
-              <p class="text-2xl font-semibold text-accent">2</p>
-              <h3 class="mt-2 font-semibold">A gente vai até você</h3>
-              <p class="mt-1.5 text-sm text-muted">
-                Implantação presencial: seus serviços, sua hora técnica e o app no celular
-                de cada mecânico. Em uma hora.
-              </p>
-            </div>
-            <div class="rounded-xl border border-border bg-surface p-5">
-              <p class="text-2xl font-semibold text-accent">3</p>
-              <h3 class="mt-2 font-semibold">Você manda no que vem depois</h3>
-              <p class="mt-1.5 text-sm text-muted">
-                O que te incomodar vira prioridade. Falar direto com quem escreve o sistema
-                é o que você não tem em sistema grande.
-              </p>
-            </div>
+          <p class="mt-4 max-w-2xl text-white/85">
+            Sistema vazio ninguém usa. Por isso você não começa do zero: começa com os seus
+            clientes, os seus serviços e a primeira OS feita junto com a gente.
+          </p>
+          <div class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {
+              oferta.map((item) => (
+                <div class="rounded-xl bg-black/20 p-5 ring-1 ring-white/15 backdrop-blur-sm">
+                  <h3 class="font-semibold">{item.titulo}</h3>
+                  <p class="mt-1.5 text-sm text-white/80">{item.texto}</p>
+                </div>
+              ))
+            }
           </div>
+          <div class="mt-8 flex flex-wrap gap-3">
+            <a
+              class="flex items-center gap-2 rounded-md bg-white px-6 py-3.5 text-sm font-semibold text-[#0A0A0B] transition hover:-translate-y-0.5"
+              href={zap('Oi! Quero a implantação grátis do OficinaOS na minha oficina.')}
+              target="_blank"
+              rel="noopener"
+            >
+              Marcar a implantação pelo WhatsApp
+            </a>
+            <a
+              class="rounded-md px-6 py-3.5 text-sm font-medium text-white ring-1 ring-white/40 transition hover:-translate-y-0.5 hover:bg-white/10"
+              href={`${APP_URL}/criar-conta`}
+            >
+              Prefiro criar a conta sozinho
+            </a>
+          </div>
+        </div>
+
+        <div class="reveal mt-6 grid gap-6 rounded-2xl border-2 border-dashed border-accent/40 bg-accent-soft/40 p-8 sm:p-10 lg:grid-cols-[1fr_auto] lg:items-center" style="--atraso:.1s">
+          <div>
+            <p class="text-xs font-semibold tracking-widest text-accent uppercase">Só 10 vagas</p>
+            <h3 class="mt-2 text-xl font-semibold tracking-tight text-balance sm:text-2xl">
+              As 10 primeiras oficinas viram fundadoras.
+            </h3>
+            <p class="mt-2 max-w-2xl text-muted">
+              <strong class="text-foreground">3 meses grátis</strong> e depois o plano Nitro, o mais completo,
+              por <strong class="text-foreground">R$ 279 por mês, travado por 12 meses</strong> (a tabela é R$ 499).
+              Em troca, você usa de verdade, conta o que achou e indica para quem conhece.
+              E o que te incomodar no sistema vira prioridade.
+            </p>
+          </div>
+          <a
+            class="justify-self-start rounded-md bg-accent px-6 py-3.5 text-sm font-medium text-accent-foreground transition hover:-translate-y-0.5 hover:bg-accent-hover lg:justify-self-end"
+            href={zap('Oi! Quero saber das vagas de fundadora do OficinaOS.')}
+            target="_blank"
+            rel="noopener"
+          >
+            Quero uma vaga
+          </a>
         </div>
       </section>
 
@@ -761,7 +821,7 @@ const perguntas = [
               class="rounded-md bg-accent px-7 py-3.5 text-sm font-medium text-accent-foreground transition hover:-translate-y-0.5 hover:bg-accent-hover"
               href={`${APP_URL}/criar-conta`}
             >
-              Testar 14 dias grátis
+              Começar grátis
             </a>
             <a
               class="rounded-md border border-border bg-surface px-7 py-3.5 text-sm font-medium transition hover:-translate-y-0.5 hover:bg-surface-muted"
@@ -770,7 +830,7 @@ const perguntas = [
               Falar com a gente
             </a>
           </div>
-          <p class="reveal mt-4 text-sm text-muted">Sem cartão. Sem contrato. Sem instalar nada.</p>
+          <p class="reveal mt-4 text-sm text-muted">Implantação grátis. Sem cartão. Sem fidelidade. Sem instalar nada.</p>
         </div>
       </section>
     </main>

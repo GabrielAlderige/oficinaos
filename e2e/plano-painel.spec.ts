@@ -15,9 +15,15 @@ test('a oficina vê o teste correndo, assina, troca de plano e cancela', async (
 
   await entrarNoPainel(page, oficina.email);
 
-  await test.step('o painel mostra o teste correndo, com o caminho para o plano', async () => {
-    await expect(page.getByText(/em teste/i).first()).toBeVisible();
-    await page.getByRole('link', { name: 'Ver planos' }).click();
+  await test.step('o painel mostra o teste esperando o primeiro orçamento, com o caminho para o plano', async () => {
+    // o teste de 30 dias ainda não começou (D92): conta a partir do 1º orçamento
+    await expect(page.getByText('Teste de 30 dias no Nitro')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Pedir a implantação grátis' })).toHaveAttribute(
+      'href',
+      /wa\.me\/5535997558675/,
+    );
+    await page.goto('/configuracoes/plano');
+    await expect(page.getByText('Teste de 30 dias ainda não começou')).toBeVisible();
     // a conta nasce no NITRO, o plano mais alto (E40): quem termina o teste sem
     // ter visto pesquisa de peças, WhatsApp oficial e automações não paga por elas
     await expect(page.getByRole('heading', { name: /^Plano Nitro/ })).toBeVisible();

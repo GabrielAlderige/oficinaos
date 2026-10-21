@@ -1,5 +1,5 @@
 import { and, asc, eq } from 'drizzle-orm';
-import { formatBRL, GRACE_DAYS } from '@oficinaos/shared';
+import { formatBRL, GRACE_DAYS, SUPPORT_WHATSAPP, TRIAL_DAYS } from '@oficinaos/shared';
 import type { ServiceDeps } from '../../core/auth-context';
 import { lifecycleEmails, plans, subscriptions } from '../../db/schema';
 import { withTenant } from '../../db/tenant';
@@ -7,8 +7,8 @@ import * as orgRepo from '../organizations/organizations.repository';
 import { ownerContact } from './billing.repository';
 
 /**
- * Os e-mails do teste grátis (14 dias): boas-vindas no cadastro, um empurrão
- * na metade, o aviso de que faltam 3 dias, o do último dia e o de que acabou.
+ * Os e-mails do teste grátis (30 dias, D92): boas-vindas no cadastro, um
+ * empurrão a uma semana do fim, o aviso de que faltam 3 dias, o do último dia e o de que acabou.
  *
  * Regras que explicam o resto:
  * 1. **Cada um sai uma vez.** A linha em `lifecycle_emails` é gravada ANTES do
@@ -156,6 +156,10 @@ export class CicloDoTeste {
   private escrever(tipo: TipoDeEmail, d: Dados): { subject: string; text: string } {
     const app = this.deps.env.APP_URL;
     const ate = d.fimDoTeste ? dataLocal(d.fimDoTeste, d.timezone) : '';
+    // no cadastro o teste ainda não começou: o fim gravado é o do início sozinho (D92)
+    const comecaSozinho = d.fimDoTeste
+      ? dataLocal(new Date(d.fimDoTeste.getTime() - TRIAL_DAYS * DIA), d.timezone)
+      : '';
     const assinatura = ASSINATURA_DO_EMAIL;
     const fimDaCarencia = d.fimDoTeste ? dataLocal(new Date(d.fimDoTeste.getTime() + GRACE_DAYS * DIA), d.timezone) : '';
     const tabela = d.planos
@@ -171,16 +175,20 @@ export class CicloDoTeste {
           subject: `Bem-vindo ao OficinaOS, ${d.dono}!`,
           text:
             `Olá, ${d.dono}!\n\n` +
-            `A ${d.oficina} já está no OficinaOS. Você tem 14 dias grátis no plano Nitro, o mais completo, ` +
-            `até ${ate}. Sem cartão e sem compromisso: no fim, você escolhe se continua.\n\n` +
-            'Para tirar o melhor do teste, comece por aqui:\n\n' +
+            `A ${d.oficina} já está no OficinaOS. Você tem 30 dias grátis no plano Nitro, o mais completo, ` +
+            'e eles só começam a contar quando o sistema estiver funcionando: no primeiro orçamento que você ' +
+            `mandar ou quando a gente terminar a implantação. Se nada disso acontecer, o teste começa sozinho em ${comecaSozinho}. ` +
+            'Sem cartão e sem compromisso: no fim, você escolhe se continua.\n\n' +
+            'A implantação é grátis: em até 1 hora, na sua oficina ou por chamada de vídeo, a gente cadastra ' +
+            'seus clientes, os serviços e as peças que mais saem, e faz a primeira OS junto com você. ' +
+            `Para marcar, é só chamar no WhatsApp: https://wa.me/${SUPPORT_WHATSAPP}\n\n` +
+            'Prefere fazer sozinho? Comece por aqui:\n\n' +
             '  1. Cadastre os serviços que você mais faz e o valor da sua hora técnica.\n' +
             '  2. Abra a primeira ordem de serviço com um carro que está no pátio hoje.\n' +
             '  3. Mande o orçamento pelo link do WhatsApp e veja o cliente aprovar pelo celular.\n' +
             '  4. Instale o sistema no celular dos mecânicos (no Android, o Chrome oferece "Instalar aplicativo").\n\n' +
             'Na aba Tutoriais tem 30 aulas de 1 minuto, uma para cada tela.\n\n' +
-            `Entrar: ${app}\n\n` +
-            'Se quiser, eu cadastro tudo junto com você em uma conversa rápida. É só me chamar.' +
+            `Entrar: ${app}` +
             assinatura,
         };
       case 'METADE_DO_TESTE':
@@ -188,7 +196,7 @@ export class CicloDoTeste {
           subject: 'Como está indo o teste do OficinaOS?',
           text:
             `Olá, ${d.dono}!\n\n` +
-            `Você está na metade do teste grátis do OficinaOS. Ele vai até ${ate}.\n\n` +
+            `Falta uma semana para acabar o teste grátis do OficinaOS. Ele vai até ${ate}.\n\n` +
             'Três coisas que fazem diferença e muita oficina ainda não testou:\n\n' +
             '  • Mandar o orçamento por link: o cliente aprova item por item pelo celular, e a OS muda sozinha.\n' +
             '  • Fazer o check-in com fotos: o estado do carro na chegada fica guardado, com data.\n' +

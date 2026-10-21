@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   ExtendTrialInput,
+  MakeFounderInput,
+  MarkSetupDoneInput,
   PlatformOrganization,
   PlatformOverview,
   Prospect,
@@ -26,6 +28,26 @@ export function useExtendTrial() {
   return useMutation({
     mutationFn: ({ id, ...body }: ExtendTrialInput & { id: string }) =>
       api<PlatformOrganization>(`/platform/organizations/${id}/extend-trial`, { method: 'POST', json: body }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: platformKeys.organizations }),
+  });
+}
+
+/** Implantação grátis feita (D92): começa o teste de 30 dias, se ainda não começou. */
+export function useMarkSetupDone() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: MarkSetupDoneInput & { id: string }) =>
+      api<PlatformOrganization>(`/platform/organizations/${id}/setup-done`, { method: 'POST', json: body }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: platformKeys.organizations }),
+  });
+}
+
+/** Uma das 10 vagas de fundadora (D92). */
+export function useMakeFounder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: MakeFounderInput & { id: string }) =>
+      api<PlatformOrganization>(`/platform/organizations/${id}/founder`, { method: 'POST', json: body }),
     onSuccess: () => qc.invalidateQueries({ queryKey: platformKeys.organizations }),
   });
 }

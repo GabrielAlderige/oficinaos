@@ -54,6 +54,8 @@ import { platformRoutes } from './modules/platform/platform.routes';
 import { prospectsRoutes } from './modules/prospects/prospects.routes';
 import { ProspectsService } from './modules/prospects/prospects.service';
 import { PlatformService } from './modules/platform/platform.service';
+import { sampleDataRoutes } from './modules/sample-data/sample-data.routes';
+import { SampleDataService } from './modules/sample-data/sample-data.service';
 import {
   followUpRoutes,
   leadRoutes,
@@ -149,6 +151,7 @@ export interface Services {
   packages: PackagesService;
   platform: PlatformService;
   prospects: ProspectsService;
+  sampleData: SampleDataService;
   tutorials: TutorialsService;
   vehicleCatalog: VehicleCatalogService;
 }
@@ -296,6 +299,7 @@ export async function buildApp({
     packages,
     platform,
     prospects,
+    sampleData: new SampleDataService(deps),
     tutorials,
     vehicleCatalog,
   };
@@ -367,6 +371,7 @@ export async function buildApp({
   await app.register(packageRoutes, { prefix: '/api/v1/service-packages' });
   await app.register(vehicleCatalogRoutes, { prefix: '/api/v1/vehicle-catalog' });
   await app.register(platformRoutes, { prefix: '/api/v1/platform' });
+  await app.register(sampleDataRoutes, { prefix: '/api/v1/sample-data' });
   await app.register(prospectsRoutes, { prefix: '/api/v1/prospects' });
   await app.register(tutorialsRoutes, { prefix: '/api/v1/tutorials' });
   await app.register(workOrderChargeRoutes, { prefix: '/api/v1/work-orders' });

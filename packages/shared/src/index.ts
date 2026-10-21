@@ -79,6 +79,7 @@ export * from './billing';
 export * from './vin';
 export * from './schemas/billing';
 export * from './schemas/platform';
+export * from './schemas/sample-data';
 export * from './schemas/prospects';
 export * from './enums/automations';
 export * from './automations';

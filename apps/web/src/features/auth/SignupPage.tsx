@@ -1,8 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { signupSchema, type AuthResponse } from '@oficinaos/shared';
+import { signupSchema, TRIAL_DAYS, type AuthResponse } from '@oficinaos/shared';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Link, useNavigate } from 'react-router';
+import { Link } from 'react-router';
 import { AuthHeader } from '../../app/layouts/AuthLayout';
 import { Button } from '../../components/ui/button';
 import { Alert } from '../../components/ui/display';
@@ -18,7 +18,6 @@ const SITE_URL = import.meta.env.VITE_SITE_URL ?? 'https://oficinaosbr.cloud';
 /** Cadastro curto (5 campos): o resto vira checklist dentro do painel. */
 export function SignupPage() {
   const { signIn } = useSession();
-  const navigate = useNavigate();
   const [formError, setFormError] = useState<string | null>(null);
   const {
     register,
@@ -33,8 +32,8 @@ export function SignupPage() {
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null);
     try {
+      // quem decide para onde vai é a guarda das rotas públicas: as boas-vindas (D92)
       signIn(await api<AuthResponse>('/auth/signup', { method: 'POST', json: values }));
-      navigate('/', { replace: true });
     } catch (err) {
       if (err instanceof ApiError && err.code === 'EMAIL_ALREADY_REGISTERED') {
         setError('email', { message: err.problem?.detail ?? 'E-mail já cadastrado' });
@@ -46,7 +45,10 @@ export function SignupPage() {
 
   return (
     <>
-      <AuthHeader title="Crie a conta da sua oficina" description="14 dias de teste do plano Supercharger, sem cartão." />
+      <AuthHeader
+        title="Crie a conta da sua oficina"
+        description={`Implantação grátis e ${TRIAL_DAYS} dias para testar o plano completo, sem cartão.`}
+      />
       <form onSubmit={onSubmit} noValidate className="space-y-4">
         {formError && <Alert variant="danger">{formError}</Alert>}
         <Field label="Seu nome" htmlFor="name" error={errors.name?.message}>

@@ -174,6 +174,8 @@ export async function getSubscriptionSummary(tx: Tx, organizationId: string) {
       planName: plans.name,
       status: subscriptions.status,
       trialEndsAt: subscriptions.trialEndsAt,
+      trialStartedAt: subscriptions.trialStartedAt,
+      founderPriceCents: subscriptions.founderPriceCents,
       currentPeriodEnd: subscriptions.currentPeriodEnd,
       pastDueSince: subscriptions.pastDueSince,
     })

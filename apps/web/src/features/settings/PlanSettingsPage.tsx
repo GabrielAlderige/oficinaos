@@ -1,6 +1,9 @@
 import {
   BILLING_CYCLE_LABELS,
+  FOUNDER_PLAN,
   formatBRL,
+  precoComFundadora,
+  TRIAL_DAYS,
   mensalEquivalente,
   PAYMENT_ENVIRONMENT_LABELS,
   PLAN_FEATURE_LABELS,
@@ -112,7 +115,9 @@ function Conteudo({ dados }: { dados: BillingOverview }) {
             <span className="flex flex-wrap items-center gap-2">
               Plano {dados.planName}
               <Badge tone={dados.bloqueada ? 'danger' : dados.emTeste ? 'info' : 'success'}>
-                {dados.emTeste
+                {dados.emTeste && !dados.trialStartedAt
+                  ? `Teste de ${TRIAL_DAYS} dias ainda não começou`
+                  : dados.emTeste
                   ? `Em teste — ${dados.diasRestantes} ${dados.diasRestantes === 1 ? 'dia' : 'dias'}`
                   : dados.status === 'ACTIVE'
                     ? 'Ativa'
@@ -149,9 +154,17 @@ function Conteudo({ dados }: { dados: BillingOverview }) {
             <p className="text-sm text-muted sm:col-span-2">
               {dados.status === 'CANCELED'
                 ? `Cancelada: a oficina trabalha até ${formatDate(dados.trabalhaAte)}.`
-                : dados.emTeste
-                  ? `O teste vai até ${formatDate(dados.trabalhaAte)}.`
-                  : `Próxima renovação em ${formatDate(dados.trabalhaAte)}.`}
+                : dados.emTeste && !dados.trialStartedAt && dados.trialEndsAt
+                  ? `O teste de ${TRIAL_DAYS} dias começa no primeiro orçamento enviado ou na implantação. Se nenhum dos dois acontecer, ele começa sozinho em ${formatDate(new Date(Date.parse(dados.trialEndsAt) - TRIAL_DAYS * 86_400_000).toISOString())}.`
+                  : dados.emTeste
+                    ? `O teste vai até ${formatDate(dados.trabalhaAte)}.`
+                    : `Próxima renovação em ${formatDate(dados.trabalhaAte)}.`}
+            </p>
+          )}
+          {dados.founderPriceCents !== null && dados.founderPriceUntil && (
+            <p className="rounded-md border border-accent/40 bg-accent-soft px-3 py-2 text-sm sm:col-span-2">
+              <strong>Oficina fundadora.</strong> O Nitro mensal sai por {formatBRL(dados.founderPriceCents)} até{' '}
+              {formatDate(dados.founderPriceUntil)}. Depois disso, vale o preço da tabela.
             </p>
           )}
           {dados.checkoutUrl && (
@@ -191,7 +204,16 @@ function Conteudo({ dados }: { dados: BillingOverview }) {
         />
         <div className="grid gap-4 px-5 pb-5 lg:grid-cols-3">
           {dados.plans.map((plano) => {
-            const preco = ciclo === 'MONTHLY' ? plano.priceMonthlyCents : plano.priceYearlyCents;
+            const daTabela = ciclo === 'MONTHLY' ? plano.priceMonthlyCents : plano.priceYearlyCents;
+            // fundadora (D92): o Nitro mensal mostra o preço que vai ser cobrado de verdade
+            const preco =
+              daTabela === null
+                ? null
+                : precoComFundadora(daTabela, plano.code, ciclo, {
+                    priceCents: dados.founderPriceCents,
+                    until: dados.founderPriceUntil ? new Date(dados.founderPriceUntil) : null,
+                    plan: FOUNDER_PLAN,
+                  });
             return (
               <div
                 key={plano.code}
@@ -211,6 +233,11 @@ function Conteudo({ dados }: { dados: BillingOverview }) {
                     <p className="mt-1">
                       <span className="text-2xl font-semibold tabular-nums">{formatBRL(preco)}</span>
                       <span className="text-sm text-muted">/{ciclo === 'MONTHLY' ? 'mês' : 'ano'}</span>
+                      {daTabela !== null && preco < daTabela && (
+                        <span className="block text-xs text-muted">
+                          <s>{formatBRL(daTabela)}</s> · preço de fundadora
+                        </span>
+                      )}
                       {ciclo === 'YEARLY' && (
                         <span className="block text-xs text-muted">
                           equivale a {formatBRL(mensalEquivalente(preco))} por mês

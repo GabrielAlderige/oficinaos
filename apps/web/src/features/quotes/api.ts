@@ -16,12 +16,13 @@ export const quoteKeys = {
   detail: (id: string) => ['quotes', 'detail', id] as const,
 };
 
-export function useQuotes(params: QuoteListParams) {
+export function useQuotes(params: QuoteListParams, options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: quoteKeys.list(params),
     queryFn: () =>
       api<Page<QuoteListItem>>(`/quotes?${toQueryString({ status: params.status, page: params.page, pageSize: params.pageSize ?? 25 })}`),
     placeholderData: keepPreviousData,
+    enabled: options.enabled ?? true,
   });
 }
 

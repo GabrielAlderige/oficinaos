@@ -50,6 +50,17 @@ export const subscriptions = pgTable(
     /** o preço congelado no momento da assinatura: mudar a tabela não remarca */
     priceCents: bigint({ mode: 'number' }),
     trialEndsAt: timestamptz(),
+    /**
+     * Quando o teste começou de verdade (D92): implantação feita ou primeiro
+     * orçamento enviado. `null` = ainda esperando; o `trialEndsAt` já guarda o
+     * fim do caso em que ele começa sozinho, 15 dias depois do cadastro.
+     */
+    trialStartedAt: timestamptz(),
+    /** a equipe marcou a implantação grátis como feita (D92) */
+    setupDoneAt: timestamptz(),
+    /** fundadora (D92): o preço travado do Nitro mensal e até quando ele vale */
+    founderPriceCents: bigint({ mode: 'number' }),
+    founderPriceUntil: timestamptz(),
     currentPeriodStart: timestamptz(),
     currentPeriodEnd: timestamptz(),
     /**

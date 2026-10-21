@@ -168,3 +168,37 @@ export function proximoVencimento(hoje: string, ciclo: BillingCycle): string {
 export function mensalEquivalente(precoAnualCents: number): number {
   return Math.round(precoAnualCents / 12);
 }
+
+/**
+ * O fim do teste quando ele COMEÇA de verdade (D92): implantação feita ou
+ * primeiro orçamento enviado.
+ *
+ * O cadastro grava o fim mais distante (`TRIAL_AUTOSTART_DAYS` + `TRIAL_DAYS`),
+ * que é o caso de quem nunca manda orçamento: o teste começa sozinho no 15º
+ * dia. Começar antes só pode ENCURTAR esse fim — por isso o menor dos dois.
+ * Quem manda o primeiro orçamento no 20º dia já está em teste desde o 15º, e
+ * o orçamento não lhe dá 30 dias novos.
+ */
+export function fimDoTesteAoIniciar(fimGravado: Date, agora: Date, dias: number): Date {
+  const daquiAPouco = new Date(agora.getTime() + dias * dia);
+  return daquiAPouco.getTime() < fimGravado.getTime() ? daquiAPouco : fimGravado;
+}
+
+/**
+ * O preço da assinatura, com o de fundadora quando ele vale (D92): só no plano
+ * e no ciclo travados (Nitro mensal) e só até a data combinada. Fora disso, a
+ * fundadora paga a tabela como todo mundo — trocar de plano não leva o desconto
+ * junto.
+ */
+export function precoComFundadora(
+  precoDaTabela: number,
+  plano: string,
+  ciclo: BillingCycle,
+  fundadora: { priceCents: number | null; until: Date | null; plan: string },
+  agora: Date = new Date(),
+): number {
+  if (fundadora.priceCents === null || !fundadora.until) return precoDaTabela;
+  if (plano !== fundadora.plan || ciclo !== 'MONTHLY') return precoDaTabela;
+  if (fundadora.until.getTime() <= agora.getTime()) return precoDaTabela;
+  return Math.min(precoDaTabela, fundadora.priceCents);
+}

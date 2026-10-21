@@ -56,9 +56,9 @@ test('o painel mostra o pátio, o que travou e o dinheiro do período', async ({
   await test.step('a produção e os primeiros passos ficam em segundo plano', async () => {
     const tela = await textoDe(page.locator('main'));
     expect(tela).toContain('Serviços concluídos');
-    // a oficina já cadastrou cliente, serviço e peça: os primeiros passos têm
-    // de refletir isso, em vez de pedir o que já foi feito
-    expect(tela).toContain('3 de 5 concluídos');
+    // a oficina já mandou orçamento: os primeiros passos somem (D92) — é ali
+    // que o teste começa e a oficina já entendeu para que o sistema serve
+    expect(tela).not.toContain('Primeiros passos');
 
     const auditoria = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])

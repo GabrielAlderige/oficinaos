@@ -30,4 +30,35 @@ export interface PlanLimits {
  * teste inclui, e a de bloqueio diz em qual plano a funcionalidade mora.
  */
 export const TRIAL_PLAN: PlanCode = 'NITRO';
-export const TRIAL_DAYS = 14;
+
+/**
+ * A oferta "Oficina Pronta" (D92, 20/10/2026): o teste é de 30 dias e só começa
+ * a contar quando o sistema está de pé — na implantação feita pela equipe ou
+ * no primeiro orçamento enviado, o que vier antes.
+ *
+ * Os 14 dias contados do cadastro perdiam a oficina na tela vazia: o dono
+ * abria, não via nada dele ali e desistia antes de mandar o primeiro
+ * orçamento. Gastar o relógio enquanto ninguém usa é cobrar pelo vazio.
+ *
+ * Para a conta não ficar parada esperando para sempre, o teste começa sozinho
+ * `TRIAL_AUTOSTART_DAYS` depois do cadastro. Por isso o cadastro já grava o
+ * fim mais distante possível (15 + 30 dias) e o início de verdade só ENCURTA
+ * esse fim — nunca estica (ver `iniciarTeste`).
+ */
+export const TRIAL_DAYS = 30;
+export const TRIAL_AUTOSTART_DAYS = 15;
+
+/**
+ * Fundadoras (D92): as 10 primeiras oficinas, escolhidas pela equipe. Ganham 3
+ * meses grátis e depois o Nitro a R$ 279 por 12 meses, em troca de uso de
+ * verdade, depoimento e indicação. Não é plano novo: é o Nitro com o preço
+ * travado na assinatura, que já guarda o preço congelado (`priceCents`).
+ */
+export const FOUNDER_SLOTS = 10;
+export const FOUNDER_TRIAL_DAYS = 90;
+export const FOUNDER_PRICE_CENTS = 27_900;
+export const FOUNDER_PRICE_MONTHS = 12;
+export const FOUNDER_PLAN: PlanCode = 'NITRO';
+
+/** O WhatsApp oficial da equipe: é para onde vai quem pede a implantação grátis. */
+export const SUPPORT_WHATSAPP = '5535997558675';
