@@ -126,6 +126,25 @@ describe('oferta Oficina Pronta', () => {
     expect(diasAte(depois.trialStartedAt)).toBeCloseTo(-5, 0);
   });
 
+  it('quem assinou antes do primeiro orçamento não tem o teste encurtado (a fatura vence no fim gravado)', async () => {
+    const dono = await signup(t.app);
+    expect((await req('PATCH', '/api/v1/organization', dono, { document: '11.222.333/0001-81' })).statusCode).toBe(200);
+    const assinou = await req('POST', '/api/v1/billing/subscribe', dono, {
+      plan: 'NITRO',
+      cycle: 'MONTHLY',
+      clientRequestId: randomUUID(),
+    });
+    expect(assinou.statusCode, assinou.body).toBe(200);
+    const antes = await assinatura(dono);
+
+    const os = await osComServico(dono);
+    expect((await req('POST', `/api/v1/work-orders/${os.id}/quotes`, dono, {})).statusCode).toBe(201);
+    const depois = await assinatura(dono);
+    // encurtar para 30 dias travava a oficina dias antes de a 1ª fatura vencer
+    expect(depois.trialEndsAt).toBe(antes.trialEndsAt);
+    expect(diasAte(depois.trialEndsAt)).toBeGreaterThan(44.9);
+  });
+
   // ------------------------------ plataforma -------------------------------
 
   it('a implantação marcada pela plataforma começa o teste; a oficina não marca sozinha', async () => {

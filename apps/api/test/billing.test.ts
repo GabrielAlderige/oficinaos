@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { sql } from 'drizzle-orm';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { GRACE_DAYS } from '@oficinaos/shared';
 import { withTenant } from '../src/db/tenant';
+import { SimuladorPaymentGateway } from '../src/integrations/payments/gateway';
 import { addMember, bearer, createCustomer, createTestApp, signup, testDb, type TestApp, type TestSession } from './helpers';
 
 interface Visao {
@@ -349,8 +350,44 @@ describe('assinatura do SaaS', () => {
 
     expect((await post('/api/v1/billing/cancel', {})).statusCode).toBe(409);
 
+    const pedido = vi.spyOn(SimuladorPaymentGateway.prototype, 'criarAssinatura');
     const voltou = await post('/api/v1/billing/resume', {});
     expect(voltou.statusCode, voltou.body).toBe(200);
-    expect((voltou.json() as Visao).status).toBe('ACTIVE');
+    const visto = voltou.json() as Visao;
+    expect(visto.status).toBe('ACTIVE');
+    // a nova recorrência só cobra no fim do que já está pago: cobrar hoje era
+    // pagar duas vezes o mesmo mês
+    expect(pedido.mock.calls[0]![0].nextDueDate).toBe(
+      new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date(visto.currentPeriodEnd!)),
+    );
+    pedido.mockRestore();
+  });
+
+  it('quem cancela no teste trabalha até o fim dele, e quem volta continua no teste', async () => {
+    const outro = await signup(t.app);
+    const req = (url: string, payload: unknown = {}) =>
+      t.app.inject({ method: 'POST', url, headers: bearer(outro.accessToken), payload: payload as never });
+    const doc = await t.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/organization',
+      headers: bearer(outro.accessToken),
+      payload: { document: '11.222.333/0001-81' },
+    });
+    expect(doc.statusCode, doc.body).toBe(200);
+    expect((await req('/api/v1/billing/subscribe', { plan: 'NITRO', cycle: 'MONTHLY', clientRequestId: randomUUID() })).statusCode).toBe(200);
+
+    const cancelou = (await req('/api/v1/billing/cancel', { reason: 'Ainda estou vendo' })).json() as Visao;
+    expect(cancelou.status).toBe('CANCELED');
+    expect(cancelou.bloqueada, 'antes travava no mesmo minuto').toBe(false);
+    expect((await req('/api/v1/customers', { name: 'Cliente do Teste Cancelado' })).statusCode).toBe(201);
+
+    const pedido = vi.spyOn(SimuladorPaymentGateway.prototype, 'criarAssinatura');
+    const voltou = (await req('/api/v1/billing/resume')).json() as Visao & { trialEndsAt: string };
+    expect(voltou.status, 'antes voltava EXPIRED e travava').toBe('TRIALING');
+    expect(voltou.bloqueada).toBe(false);
+    expect(pedido.mock.calls[0]![0].nextDueDate, 'a 1ª fatura vence no fim do teste').toBe(
+      new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date(voltou.trialEndsAt)),
+    );
+    pedido.mockRestore();
   });
 });

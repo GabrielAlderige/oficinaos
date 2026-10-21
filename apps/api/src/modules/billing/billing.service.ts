@@ -335,12 +335,24 @@ export class BillingService {
     if (!plano || !oficina) throw notFound('Plano não encontrado.');
     const preco = assinatura.priceCents ?? precoDoCiclo(plano, assinatura.billingCycle) ?? plano.priceMonthlyCents;
 
+    // a próxima cobrança é no fim do que já está pago (ou do teste): cobrar
+    // hoje fazia quem desistiu de cancelar pagar duas vezes o mesmo mês
+    const agora = new Date();
+    const aindaPago = assinatura.currentPeriodEnd !== null && assinatura.currentPeriodEnd > agora;
+    const aindaEmTeste =
+      !aindaPago && assinatura.currentPeriodEnd === null && assinatura.trialEndsAt !== null && assinatura.trialEndsAt > agora;
+    const vencimento = aindaPago
+      ? assinatura.currentPeriodEnd!
+      : aindaEmTeste
+        ? assinatura.trialEndsAt!
+        : agora;
+
     const resposta = await this.deps.gateway.criarAssinatura({
       organizationId: auth.organizationId,
       amountCents: preco,
       cycle: assinatura.billingCycle,
       description: `OficinaOS — plano ${plano.name}`,
-      nextDueDate: dayKey(new Date(), oficina.timezone),
+      nextDueDate: dayKey(vencimento, oficina.timezone),
       cliente: {
         name: oficina.legalName ?? oficina.name,
         document: oficina.document,
@@ -351,12 +363,11 @@ export class BillingService {
     });
 
     await withTenant(this.deps.db, auth, async (tx) => {
-      const aindaPago = assinatura.currentPeriodEnd !== null && assinatura.currentPeriodEnd > new Date();
       await repo.updateSubscription(tx, auth.organizationId, {
         // o período pago acabou: volta só quando a cobrança nova for paga. Antes
         // virava PAST_DUE com atraso "de agora", e a reativação ganhava 7 dias
-        // de carência de graça
-        status: aindaPago ? 'ACTIVE' : 'EXPIRED',
+        // de carência de graça. Quem cancelou no teste volta ao teste
+        status: aindaPago ? 'ACTIVE' : aindaEmTeste ? 'TRIALING' : 'EXPIRED',
         pastDueSince: null,
         cancelAtPeriodEnd: false,
         canceledAt: null,

@@ -72,6 +72,15 @@ describe('situação da assinatura', () => {
     expect(depois.bloqueada).toBe(true);
   });
 
+  it('quem cancelou no teste (sem nunca ter pago) trabalha até o fim do teste', () => {
+    const noTeste = situacaoDaAssinatura({ ...base, status: 'CANCELED', trialEndsAt: emDias(10) }, AGORA);
+    expect(noTeste.bloqueada, 'antes travava no mesmo minuto').toBe(false);
+    expect(noTeste.diasRestantes).toBe(10);
+
+    const acabou = situacaoDaAssinatura({ ...base, status: 'CANCELED', trialEndsAt: emDias(-1) }, AGORA);
+    expect(acabou.bloqueada).toBe(true);
+  });
+
   it('expirada é bloqueio, sem conversa', () => {
     expect(situacaoDaAssinatura({ ...base, status: 'EXPIRED' }, AGORA).bloqueada).toBe(true);
   });
@@ -95,9 +104,13 @@ describe('preço e ciclo', () => {
     expect(mensalEquivalente(199_000)).toBe(16_583);
   });
 
-  it('o próximo vencimento anda 30 dias no mensal e 365 no anual', () => {
+  it('o próximo vencimento anda um mês (ou um ano) de calendário, como o gateway', () => {
     expect(proximoVencimento('2026-09-20', 'MONTHLY')).toBe('2026-10-20');
     expect(proximoVencimento('2026-09-20', 'YEARLY')).toBe('2027-09-20');
+    // com 30 dias fixos a tela dizia 20/01, e o Asaas cobrava em 21/01
+    expect(proximoVencimento('2026-12-21', 'MONTHLY')).toBe('2027-01-21');
+    expect(proximoVencimento('2027-01-31', 'MONTHLY'), 'fevereiro prende no último dia').toBe('2027-02-28');
+    expect(proximoVencimento('2028-02-29', 'YEARLY')).toBe('2029-02-28');
   });
 });
 

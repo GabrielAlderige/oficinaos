@@ -4,7 +4,7 @@
  * API (quem pode escrever) e no aviso do gateway (renovou, atrasou).
  */
 
-import { addDays } from './calendar';
+import { addMonths } from './calendar';
 import type { SubscriptionStatus } from './enums/billing';
 
 /** Cobrança mensal ou anual. O anual só existe se o plano tiver preço anual. */
@@ -118,15 +118,17 @@ export function situacaoDaAssinatura(
   }
 
   if (assinatura.status === 'CANCELED') {
-    // cancelou: trabalha até o fim do período que já pagou
-    const dentro = fimDoPeriodo !== null && fimDoPeriodo.getTime() > agora.getTime();
+    // cancelou: trabalha até o fim do período que já pagou. Quem cancela no
+    // teste nunca pagou: trabalha até o fim do teste (antes travava na hora)
+    const ate = fimDoPeriodo ?? fimDoTeste;
+    const dentro = ate !== null && ate.getTime() > agora.getTime();
     return {
       status: 'CANCELED',
       emTeste: false,
       emCarencia: false,
       bloqueada: !dentro,
-      diasRestantes: fimDoPeriodo ? diasEntre(agora, fimDoPeriodo) : 0,
-      trabalhaAte: fimDoPeriodo?.toISOString() ?? null,
+      diasRestantes: ate ? diasEntre(agora, ate) : 0,
+      trabalhaAte: ate?.toISOString() ?? null,
     };
   }
 
@@ -159,9 +161,13 @@ export function precoDoCiclo(
   return ciclo === 'MONTHLY' ? plano.priceMonthlyCents : plano.priceYearlyCents;
 }
 
-/** O próximo vencimento a partir de hoje, no ciclo escolhido. */
+/**
+ * O próximo vencimento a partir de hoje, no ciclo escolhido. É mês de
+ * calendário, como o gateway faz: com 30 dias fixos, o vencimento de 21/12
+ * renovava "em 20/01" na tela e o Asaas cobrava em 21/01.
+ */
 export function proximoVencimento(hoje: string, ciclo: BillingCycle): string {
-  return addDays(hoje, ciclo === 'MONTHLY' ? 30 : 365);
+  return addMonths(hoje, ciclo === 'MONTHLY' ? 1 : 12);
 }
 
 /** Quanto por mês sai o anual, para a tela comparar com honestidade. */
