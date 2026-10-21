@@ -117,6 +117,15 @@ export interface PaymentGateway {
     providerSubscriptionId: string,
     mudanca: { amountCents: number; cycle: BillingCycle; description: string },
   ): Promise<{ raw: Record<string, unknown> }>;
+  /**
+   * Muda o valor da assinatura A PARTIR DE uma data (fim do preço de
+   * fundadora). Diferente de trocar de plano: as faturas já geradas que vencem
+   * antes da data ficam com o valor antigo, porque são do período combinado.
+   */
+  reajustarAssinatura(
+    providerSubscriptionId: string,
+    mudanca: { amountCents: number; aPartirDe: string },
+  ): Promise<{ raw: Record<string, unknown>; faturasReajustadas: number }>;
   cancelarAssinatura(providerSubscriptionId: string): Promise<{ raw: Record<string, unknown> }>;
 }
 
@@ -173,6 +182,10 @@ export class SimuladorPaymentGateway implements PaymentGateway {
 
   async atualizarAssinatura(providerSubscriptionId: string, mudanca: { amountCents: number; cycle: BillingCycle }) {
     return { raw: { simulacao: true, assinatura: providerSubscriptionId, ...mudanca } };
+  }
+
+  async reajustarAssinatura(providerSubscriptionId: string, mudanca: { amountCents: number; aPartirDe: string }) {
+    return { raw: { simulacao: true, assinatura: providerSubscriptionId, ...mudanca }, faturasReajustadas: 0 };
   }
 
   async cancelarAssinatura(providerSubscriptionId: string) {

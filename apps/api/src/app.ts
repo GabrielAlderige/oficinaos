@@ -108,6 +108,7 @@ import { OrganizationsService } from './modules/organizations/organizations.serv
 import { systemRoutes } from './modules/system/system.routes';
 import { CicloDoTeste } from './modules/billing/ciclo-do-teste';
 import { AvisosDeAtraso } from './modules/billing/avisos-de-atraso';
+import { FimDaFundadora } from './modules/billing/fim-da-fundadora';
 
 export interface Services {
   auth: AuthService;
@@ -145,6 +146,8 @@ export interface Services {
   cicloDoTeste: CicloDoTeste;
   /** os avisos de que o sistema vai ficar só para consulta (atraso e fim da carência) */
   avisosDeAtraso: AvisosDeAtraso;
+  /** o fim dos 12 meses do preço de fundadora: aviso e reajuste no gateway */
+  fimDaFundadora: FimDaFundadora;
   automations: AutomationsService;
   messaging: MessagingService;
   commissions: CommissionsService;
@@ -293,6 +296,7 @@ export async function buildApp({
     billing: new BillingService(deps),
     cicloDoTeste: new CicloDoTeste(deps),
     avisosDeAtraso: new AvisosDeAtraso(deps),
+    fimDaFundadora: new FimDaFundadora(deps),
     automations: new AutomationsService(deps),
     messaging,
     commissions: new CommissionsService(deps),

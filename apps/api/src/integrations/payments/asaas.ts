@@ -67,6 +67,7 @@ interface AsaasCustomer {
 interface AsaasPayment {
   id: string;
   status: string;
+  billingType?: string;
   value?: number;
   invoiceUrl?: string;
   bankSlipUrl?: string;
@@ -291,6 +292,31 @@ export class AsaasPaymentGateway implements PaymentGateway {
       updatePendingPayments: true,
     });
     return { raw };
+  }
+
+  async reajustarAssinatura(providerSubscriptionId: string, mudanca: { amountCents: number; aPartirDe: string }) {
+    // as próximas faturas que o Asaas ainda vai gerar já nascem com o valor novo
+    const raw = await this.chamar<Record<string, unknown>>('PUT', `/subscriptions/${providerSubscriptionId}`, {
+      value: reais(mudanca.amountCents),
+      updatePendingPayments: false,
+    });
+    // e as que ele já gerou (ele gera antes do vencimento): só as que vencem
+    // na data ou depois. As de antes são do período combinado
+    const lista = await this.chamar<{ data?: AsaasPayment[] }>(
+      'GET',
+      `/subscriptions/${providerSubscriptionId}/payments?status=PENDING`,
+    );
+    let faturasReajustadas = 0;
+    for (const fatura of lista.data ?? []) {
+      if (!fatura.dueDate || fatura.dueDate < mudanca.aPartirDe) continue;
+      await this.chamar<unknown>('PUT', `/payments/${fatura.id}`, {
+        billingType: fatura.billingType ?? 'UNDEFINED',
+        value: reais(mudanca.amountCents),
+        dueDate: fatura.dueDate,
+      });
+      faturasReajustadas += 1;
+    }
+    return { raw, faturasReajustadas };
   }
 
   async cancelarAssinatura(providerSubscriptionId: string) {

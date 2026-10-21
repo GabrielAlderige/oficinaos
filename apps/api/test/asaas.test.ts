@@ -202,6 +202,28 @@ describe('driver do Asaas', () => {
     payment: { id: 'pay_000456', status: 'RECEIVED', value: 680, paymentDate: '2026-09-21' },
   });
 
+  it('fim do preço de fundadora: sobe a assinatura e só as faturas que vencem na data ou depois', async () => {
+    const { gateway, chamadas } = gatewayFalso({
+      'GET /subscriptions/sub_1/payments?status=PENDING': {
+        data: [
+          { id: 'pay_antes', status: 'PENDING', billingType: 'UNDEFINED', value: 279, dueDate: '2028-01-05' },
+          { id: 'pay_depois', status: 'PENDING', billingType: 'UNDEFINED', value: 279, dueDate: '2028-02-05' },
+        ],
+      },
+    });
+    const { faturasReajustadas } = await gateway.reajustarAssinatura('sub_1', { amountCents: 49_900, aPartirDe: '2028-02-05' });
+
+    expect(faturasReajustadas).toBe(1);
+    const assinatura = chamadas.find((c) => c.method === 'PUT' && c.url.endsWith('/subscriptions/sub_1'));
+    expect(assinatura?.body, 'as próximas nascem com o valor novo, sem remarcar as já geradas').toEqual({
+      value: 499,
+      updatePendingPayments: false,
+    });
+    const faturas = chamadas.filter((c) => c.method === 'PUT' && c.url.includes('/payments/'));
+    expect(faturas.map((c) => c.url.split('/').pop()), 'a fatura do período combinado fica em R$ 279').toEqual(['pay_depois']);
+    expect(faturas[0]!.body).toEqual({ billingType: 'UNDEFINED', value: 499, dueDate: '2028-02-05' });
+  });
+
   it('aviso sem o token combinado é recusado: dinheiro não se aceita de desconhecido', () => {
     const { gateway } = gatewayFalso({});
     expect(() => gateway.lerAviso({}, AVISO)).toThrow(/token/i);

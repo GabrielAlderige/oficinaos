@@ -21,6 +21,7 @@ import * as repo from './automations.repository';
 import { AvisosDeAtraso } from '../billing/avisos-de-atraso';
 import { BillingService } from '../billing/billing.service';
 import { CicloDoTeste } from '../billing/ciclo-do-teste';
+import { FimDaFundadora } from '../billing/fim-da-fundadora';
 
 /** Hora local (0..23) da oficina. */
 const horaNaOficina = (timezone: string): number =>
@@ -67,6 +68,10 @@ export class AutomationsService {
 
   private get atraso(): AvisosDeAtraso {
     return new AvisosDeAtraso(this.deps);
+  }
+
+  private get fundadora(): FimDaFundadora {
+    return new FimDaFundadora(this.deps);
   }
 
   private get cobranca(): BillingService {
@@ -176,11 +181,22 @@ export class AutomationsService {
           'cancelar por falta de pagamento falhou; tenta de novo na próxima volta',
         );
       }
-      // os e-mails do teste grátis (metade, faltam 3 dias, último dia, acabou)
-      // e, se nenhum saiu, os de atraso (vai travar, travou): um por volta
+      // fim do preço de fundadora: o valor sobe no gateway 20 dias antes da
+      // data, porque o Asaas gera e avisa a fatura adiantado
+      try {
+        await this.fundadora.reajustarSeChegou(oficina.id);
+      } catch (erro) {
+        this.deps.log.error(
+          { err: erro, organizationId: oficina.id },
+          'reajuste do fim da fundadora falhou; tenta de novo na próxima volta',
+        );
+      }
+      // os e-mails do teste grátis (metade, faltam 3 dias, último dia, acabou),
+      // os de atraso (vai travar, travou) e o do fim da fundadora: um por volta
       try {
         const saiu = await this.ciclo.enviarDevido(oficina.id);
-        if (!saiu) await this.atraso.enviarDevido(oficina.id);
+        const atrasou = saiu ? null : await this.atraso.enviarDevido(oficina.id);
+        if (!saiu && !atrasou) await this.fundadora.avisarSeDevido(oficina.id);
       } catch (erro) {
         this.deps.log.error({ err: erro, organizationId: oficina.id }, 'e-mail do teste grátis ou de atraso falhou');
       }
