@@ -71,6 +71,29 @@ def link_do_orcamento(g):
     return re.search(r"http\S+/orcamento/\S+", g.dados["wa"]).group(0)
 
 
+def esconder_simulacao():
+    """Esconde o cartão "Cobrança online": em produção ele nem aparece (a cobrança online está desligada),
+    mas na máquina de gravação ele vem em modo simulação."""
+    async def f(g):
+        await g.p.evaluate("""() => {
+          const tirar = () => document.querySelectorAll('main h2, main h3').forEach((h) => {
+            if ((h.textContent || '').trim() === 'Cobrança online') {
+              const c = h.closest('[class*="rounded-xl"]');
+              if (c) c.style.display = 'none';
+            }
+          });
+          tirar(); new MutationObserver(tirar).observe(document.body, { childList: true, subtree: true });
+        }""")
+    return f
+
+
+def lambda_fechar_dialogo():
+    async def f(g):
+        await g.p.keyboard.press("Escape")
+        await asyncio.sleep(0.4)
+    return f
+
+
 # ------------------------------------------------------------------ os reels
 
 R01 = Reel(
@@ -411,7 +434,54 @@ R15 = Reel(
     chamada_sub="14 dias grátis no plano completo. Sem cartão, sem fidelidade.",
 )
 
-REELS = {r.numero: r for r in [R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15]}
+# Vídeo de vendas (não é reel do Instagram): vai pelo WhatsApp depois do áudio, com a oferta Oficina Pronta.
+R16 = Reel(
+    numero=16, slug="oficina-pronta",
+    gancho_sobre="Dono de oficina",
+    gancho="Sua oficina organizada, *sem* perder a semana cadastrando.",
+    gancho_fala="Veja em um minuto como funciona o OficinaOS.",
+    topo="", inicio="/ordens/18", preparo=[prep_pix],
+    passos=[
+        Passo("No check-in, a quilometragem, o combustível e cada risco ficam guardados na OS, antes de mexer no carro.",
+              [clicar(B("Check-in")), digitar(DL("Quilometragem de entrada"), "44320"),
+               selecionar(DL("Local"), "Para-choque traseiro"), selecionar(DL("Tipo"), "Risco"), clicar(DB("Adicionar avaria")),
+               clicar(DB("Registrar check-in"), 1.2)],
+              legenda="Km, combustível e cada risco, guardados na OS."),
+        Passo("O orçamento vai pelo WhatsApp, com um link.",
+              [ir_a("/ordens/16"), pausa(0.4), clicar(B("Enviar orçamento")), clicar(B("Gerar orçamento"), 1.0),
+               guardar("_", ABRIR_JANELA), clicar(B("Enviar pelo WhatsApp")), guardar("wa", TEXTO_WA)],
+              legenda="O orçamento vai pelo WhatsApp, com um link."),
+        Passo("O cliente abre no celular e aprova com um toque.",
+              [ir_a(link_do_orcamento), pausa(0.4), rolar(lambda p: p.get_by_text("Total", exact=True).first),
+               clicar(B("Aprovar orçamento")), digitar(lambda p: p.get_by_placeholder("Como a oficina te chama"), "Ana Paula"),
+               marcar(lambda p: p.get_by_role("checkbox")), clicar(B("Confirmar aprovação"), 1.2)],
+              legenda="O cliente aprova no celular, com um toque."),
+        Passo("Na sua tela, a OS fica aprovada, com data e hora. Acabou o eu não autorizei.",
+              [ir_a("/ordens/16"), pausa(0.4), focar(H1)],
+              legenda="Aprovado, com data e hora registradas."),
+        Passo("Na entrega, o Pix sai na hora, no valor da OS.",
+              [focar(None), ir_a("/ordens/6"), esconder_simulacao(), pausa(0.3), clicar(B("Dinheiro"), 0.8),
+               clicar(B("Pix na hora"), 1.0), focar(lambda p: p.get_by_role("dialog"))],
+              legenda="Pix na hora, no valor da OS."),
+        Passo("E na primeira tela, o pátio do dia e o caixa do mês.",
+              [focar(None), lambda_fechar_dialogo(), ir_a("/"), pausa(0.5), focar(grupo("Na oficina", "Agendados hoje"))],
+              legenda="O pátio e o caixa do mês, na primeira tela."),
+    ],
+    chamada="Oficina *Pronta*",
+    chamada_sub="A gente deixa o sistema funcionando para você.",
+    chamada_itens=[
+        "Implantação *por nossa conta*, em até 1 hora",
+        "Seus clientes, serviços e peças já cadastrados",
+        "*30 dias* com tudo liberado",
+        "Sem cartão e sem fidelidade",
+    ],
+    chamada_cta="Chama no WhatsApp",
+    chamada_rodape=("(35) 99755-8675", "oficinaosbr.cloud"),
+    chamada_fala=("Com a Oficina Pronta, a gente faz a implantação por você, em até uma hora. "
+                  "Depois são trinta dias com tudo liberado, sem cartão e sem fidelidade. Chama a gente no WhatsApp."),
+)
+
+REELS = {r.numero: r for r in [R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R16]}
 
 
 def recriar_demo():

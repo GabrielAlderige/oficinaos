@@ -46,6 +46,9 @@ class Reel:
     usuario: str = "demo@oficinaos.dev"
     preparo: list[Callable[[Page], Awaitable[None]]] = field(default_factory=list)
     legenda_do_texto: str = "OficinaOS"
+    chamada_cta: str = "Teste grátis · 14 dias"
+    chamada_rodape: tuple[str, str] = ("Link na bio", "oficinaosbr.cloud")
+    chamada_itens: list[str] = field(default_factory=list)
 
 
 def topo(texto: str | None):
@@ -125,7 +128,8 @@ async def gravar(reel: Reel) -> str:
         for passo in reel.passos:
             await g.falar(passo.fala, passo.legenda, passo.acoes, passo.depois)
         await g.js("() => { window.__tut.legenda(null); window.__tut.foco(null); window.__tut.topo(null) }")
-        await g.js("([t,s]) => window.__tut.chamada(t,s)", [reel.chamada, reel.chamada_sub])
+        await g.js("([t,s,c,r,i]) => window.__tut.chamada(t,s,c,r,i)",
+                   [reel.chamada, reel.chamada_sub, reel.chamada_cta, list(reel.chamada_rodape), reel.chamada_itens])
         await asyncio.sleep(0.4)
         await g.falar(reel.chamada_fala, "", [], 1.0)
         fim = g.agora()

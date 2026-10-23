@@ -29,6 +29,11 @@
   .tut-tit em{font-style:normal;color:#F26B1D}
   .tut-sub{font-size:46px;color:#C9C5BF;margin-top:44px;line-height:1.3;position:relative;z-index:1}
   .tut-cta{margin-top:70px;display:inline-flex;align-self:flex-start;background:#F26B1D;color:#0A0A0B;font-weight:800;font-size:50px;padding:28px 46px;border-radius:24px;position:relative;z-index:1}
+  .tut-itens{list-style:none;margin:56px 0 0;padding:0;position:relative;z-index:1;display:flex;flex-direction:column;gap:26px}
+  .tut-itens li{font-size:46px;line-height:1.25;font-weight:600;color:#fff;padding-left:62px;position:relative}
+  .tut-itens li::before{content:"";position:absolute;left:0;top:10px;width:34px;height:34px;border-radius:50%;background:#F26B1D}
+  .tut-itens li::after{content:"";position:absolute;left:10px;top:17px;width:9px;height:16px;border:solid #0A0A0B;border-width:0 6px 6px 0;transform:rotate(45deg)}
+  .tut-itens em{font-style:normal;color:#F26B1D}
   .tut-rod{margin-top:34px;font-size:38px;color:#8E8A84;display:flex;gap:30px;position:relative;z-index:1}
   .tut-rod b{color:#fff;font-weight:700}
   .tut-topo{position:fixed;left:60px;right:60px;top:250px;background:#0A0A0B;color:#fff;font-size:50px;line-height:1.15;font-weight:800;padding:26px 34px;border-radius:26px;opacity:0;transform:translateY(-16px);transition:opacity .3s,transform .3s;box-shadow:0 14px 40px rgba(0,0,0,.35)}
@@ -89,12 +94,13 @@
           ${sobre ? `<div class="tut-eyebrow">${esc(sobre)}</div>` : ''}
           <div class="tut-tit">${marca(titulo)}</div>`);
       },
-      chamada(titulo, sub) {
+      chamada(titulo, sub, cta = 'Teste grátis · 14 dias', rod = ['Link na bio', 'oficinaosbr.cloud'], itens = []) {
         this.card(`<div class="tut-logo"><i></i><span>Oficina<b>OS</b></span></div>
           <div class="tut-tit">${marca(titulo)}</div>
           ${sub ? `<div class="tut-sub">${esc(sub)}</div>` : ''}
-          <div class="tut-cta">Teste grátis · 14 dias</div>
-          <div class="tut-rod"><b>Link na bio</b><span>oficinaosbr.cloud</span></div>`);
+          ${itens.length ? `<ul class="tut-itens">${itens.map((i) => `<li>${marca(i)}</li>`).join('')}</ul>` : ''}
+          <div class="tut-cta">${esc(cta)}</div>
+          <div class="tut-rod"><b>${esc(rod[0])}</b><span>${esc(rod[1])}</span></div>`);
       },
       esconderCard() { this.card(null, false); },
       topo(t) {
