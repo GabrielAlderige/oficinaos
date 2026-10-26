@@ -38,6 +38,8 @@ import type { MessagingService } from '../messaging/messaging.service';
 import * as workOrderRepo from '../work-orders/work-orders.repository';
 import { applyWorkOrderChange } from '../work-orders/totals';
 import * as repo from './quotes.repository';
+import { linkDeBaixar } from '../uploads/uploads.service';
+import { marcarPrazoDosVideos } from '../uploads/videos.service';
 
 const milli = (value: string) => parseQuantity(value) ?? 0;
 
@@ -617,7 +619,11 @@ export class QuotesService {
     });
 
     const status = decision.decision === 'REJECTED' ? 'REJECTED' : decision.decision;
-    await repo.updateQuote(tx, quote.id, { status, decidedAt: new Date() });
+    const decidedAt = new Date();
+    await repo.updateQuote(tx, quote.id, { status, decidedAt });
+
+    // os vídeos deste orçamento: 7 dias a partir de agora e o arquivo sai (E45)
+    await marcarPrazoDosVideos(tx, organizationId, quote.id, decidedAt);
 
     // 4) itens do orçamento → itens da OS
     // item que já saiu da OS não tem mais o que marcar: o orçamento guarda a
@@ -734,6 +740,7 @@ export class QuotesService {
   private async toPublicDto(tx: Tx, found: repo.QuoteHeader): Promise<PublicQuote> {
     const items = await repo.listQuoteItems(tx, found.quote.id);
     const photos = await repo.listQuotePhotos(tx, found.quote.id);
+    const videos = await repo.listQuoteVideos(tx, found.quote.id);
     const approval = await repo.findApproval(tx, found.quote.id);
 
     const photosByItem = new Map<string, { id: string; url: string; caption: string | null }[]>();
@@ -770,6 +777,20 @@ export class QuotesService {
       items: items.map((item) => {
         const { workOrderItemId: _ignored, ...dto } = this.toItemDto(item, photosByItem.get(item.id) ?? []);
         return dto;
+      }),
+      videos: videos.map((video, indice) => {
+        const url = video.status === 'READY' ? this.deps.storage.signDownload(video.storageKey).url : null;
+        return {
+          id: video.id,
+          url,
+          posterUrl: url && video.posterStorageKey ? this.deps.storage.signDownload(video.posterStorageKey).url : null,
+          downloadUrl: url ? linkDeBaixar(url, `video-orcamento-${found.quote.number}-${indice + 1}.mp4`) : null,
+          caption: video.caption,
+          itemDescription: video.itemDescription,
+          durationSeconds: video.durationSeconds,
+          expiresAt: video.expiresAt?.toISOString() ?? null,
+          expired: video.status === 'EXPIRED',
+        };
       }),
       subtotalCents: found.quote.subtotalCents,
       discountCents: found.quote.discountCents,

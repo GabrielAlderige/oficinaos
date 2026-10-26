@@ -505,6 +505,13 @@
       "when": 1792586283756,
       "tag": "0071_fim_da_fundadora",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1792944942670,
+      "tag": "0072_video_na_os",
+      "breakpoints": true
     }
   ]
 }

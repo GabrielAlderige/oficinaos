@@ -502,4 +502,9 @@ Dito na cara, para ninguém descobrir no dia errado:
   oficinas, sobra.
 - **Fotos no disco do servidor**, dentro do backup diário. Migrar para
   Cloudflare R2 ou S3 é trocar o driver de storage, e está previsto.
+- **Vídeos da OS no disco do servidor** (E45), fora do backup: vivem 7 dias
+  depois da resposta do cliente. A conversão usa o ffmpeg da imagem da API
+  (instalado no Dockerfile) e roda um vídeo por vez. Para ver quanto ocupam:
+  `docker compose exec api du -sh /app/storage/videos`. Quando o disco apertar,
+  é a hora da nuvem externa.
 - **Sem pipeline de CI**: o teste roda na sua máquina antes do `git push`.

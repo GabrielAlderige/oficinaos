@@ -8,6 +8,7 @@ import { loadEnv } from '../src/config/load-env';
 import { createDatabase, type DatabaseHandle } from '../src/db/client';
 import { MemoryEmailProvider } from '../src/integrations/email/email';
 import { MemoryStorageProvider } from '../src/integrations/storage/storage';
+import { FakeVideoTranscoder } from '../src/integrations/video/transcoder';
 
 loadEnv();
 
@@ -50,6 +51,8 @@ export interface TestApp {
   app: App;
   email: MemoryEmailProvider;
   storage: MemoryStorageProvider;
+  /** o conversor de vídeo (E45) sem ffmpeg; o teste escolhe duração ou falha */
+  transcoder: FakeVideoTranscoder;
 }
 
 export async function createTestApp(
@@ -59,9 +62,10 @@ export async function createTestApp(
   const env = testEnv(overrides);
   const email = new MemoryEmailProvider();
   const storage = new MemoryStorageProvider(env.JWT_SECRET);
-  const app = await buildApp({ env, db: testDb().db, email, storage, ...extra });
+  const transcoder = new FakeVideoTranscoder();
+  const app = await buildApp({ env, db: testDb().db, email, storage, transcoder, ...extra });
   await app.ready();
-  return { app, email, storage };
+  return { app, email, storage, transcoder };
 }
 
 export const TEST_ORIGIN = 'http://localhost:5173';

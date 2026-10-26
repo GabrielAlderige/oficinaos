@@ -183,6 +183,28 @@ export const publicQuoteSchema = z.object({
     yearLabel: z.string().nullable(),
   }),
   items: z.array(quoteItemSchema.omit({ workOrderItemId: true })),
+  /**
+   * Vídeos que a oficina gravou (E45). Vídeo já apagado continua na lista, sem
+   * URL, para a página dizer até quando ele ficou disponível em vez de sumir
+   * sem explicação.
+   */
+  videos: z
+    .array(
+      z.object({
+        id: z.uuid(),
+        url: z.string().nullable(),
+        posterUrl: z.string().nullable(),
+        downloadUrl: z.string().nullable(),
+        caption: z.string().nullable(),
+        /** o serviço ou peça de que o vídeo fala */
+        itemDescription: z.string().nullable(),
+        durationSeconds: z.number().int().nullable(),
+        /** null = ainda sem resposta; o prazo de 7 dias começa nela */
+        expiresAt: z.string().nullable(),
+        expired: z.boolean(),
+      }),
+    )
+    .default([]),
   subtotalCents: z.number().int(),
   discountCents: z.number().int(),
   surchargeCents: z.number().int(),

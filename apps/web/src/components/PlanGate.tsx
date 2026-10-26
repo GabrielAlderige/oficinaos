@@ -14,7 +14,7 @@ import { useFeature, useSession } from '../lib/session';
 /** O que cada plano resolve, em uma linha, para o convite não ser só um preço. */
 const O_QUE_O_PLANO_ABRE: Record<PlanCode, string> = {
   TURBO: 'Abre a oficina inteira: OS, orçamento por link, Pix, estoque e financeiro.',
-  SUPERCHARGER: 'Abre o que faz você entender a oficina: comissão, relatórios e pacotes de serviço.',
+  SUPERCHARGER: 'Abre o que faz você entender a oficina: comissão, relatórios, pacotes de serviço e vídeo no orçamento.',
   NITRO: 'Abre o sistema trabalhando sozinho: WhatsApp oficial, automações e a pesquisa de peças por carro.',
 };
 

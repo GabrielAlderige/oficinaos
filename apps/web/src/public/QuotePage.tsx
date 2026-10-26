@@ -101,6 +101,8 @@ export function QuotePage({ token }: { token: string }) {
         )}
         {revogado && <Aviso titulo="Este orçamento foi cancelado pela oficina">Fale com a oficina para receber um novo.</Aviso>}
 
+        {quote.videos.length > 0 && <Videos quote={quote} decidido={decidido} />}
+
         {necessarios.length > 0 && (
           <Grupo titulo="Necessários" descricao="O que precisa ser feito para o veículo ficar seguro.">
             {necessarios.map((item) => (
@@ -284,6 +286,76 @@ function Item({ item, selecionavel, selecionado, onToggle }: {
         </div>
       )}
     </li>
+  );
+}
+
+/** Quantos dias o vídeo fica depois da resposta: o mesmo `VIDEO_RETENTION_DAYS` da API. */
+const DIAS_DO_VIDEO = 7;
+
+/**
+ * Os vídeos que a oficina gravou (E45), antes dos itens: é o "olha o que
+ * achamos no seu carro" que dá sentido ao preço logo abaixo.
+ *
+ * 55% da altura: o vídeo em pé do celular cabe inteiro ACIMA da barra fixa de
+ * aprovar (com 70% ela cobria o pé do vídeo e os controles).
+ *
+ * `playsInline` é o que impede o iPhone de abrir o vídeo em tela cheia e
+ * esconder o orçamento; a capa (`poster`) é o que ele mostra antes do play —
+ * sem ela, o Safari exibe um quadro preto.
+ */
+function Videos({ quote, decidido }: { quote: PublicQuote; decidido: boolean }) {
+  return (
+    <section className="mt-6">
+      <h2 className="text-lg font-bold">O que a oficina viu no seu carro</h2>
+      <p className="text-sm text-neutral-600">
+        {decidido
+          ? 'Os vídeos ficam aqui por pouco tempo. Baixe se quiser guardar.'
+          : `Depois que você responder, os vídeos ficam disponíveis por ${DIAS_DO_VIDEO} dias. Baixe se quiser guardar.`}
+      </p>
+      <ul className="mt-3 space-y-4">
+        {quote.videos.map((video) => (
+          <li key={video.id} className="rounded-xl bg-white p-3 shadow-sm">
+            {video.url ? (
+              <video
+                controls
+                playsInline
+                preload="metadata"
+                poster={video.posterUrl ?? undefined}
+                src={video.url}
+                className="max-h-[55vh] w-full rounded-lg bg-black object-contain"
+              />
+            ) : (
+              <p className="rounded-lg bg-neutral-100 px-4 py-6 text-center text-sm text-neutral-600">
+                {video.expired
+                  ? `Este vídeo ficou disponível até ${video.expiresAt ? formatDate(video.expiresAt) : 'o prazo acabar'} e já foi apagado.`
+                  : 'Este vídeo não está mais disponível.'}
+              </p>
+            )}
+            {(video.caption || video.itemDescription) && (
+              <p className="mt-2 text-sm">
+                {video.caption && <span className="font-medium">{video.caption}</span>}
+                {video.caption && video.itemDescription && ' · '}
+                {video.itemDescription && <span className="text-neutral-600">{video.itemDescription}</span>}
+              </p>
+            )}
+            {video.downloadUrl && (
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs text-neutral-500">
+                  {video.expiresAt ? `Disponível até ${formatDate(video.expiresAt)}` : `Disponível até ${DIAS_DO_VIDEO} dias depois da sua resposta`}
+                </span>
+                <a
+                  href={video.downloadUrl}
+                  download
+                  className="rounded-lg border border-neutral-300 px-3 py-2 text-sm font-medium"
+                >
+                  Baixar vídeo
+                </a>
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

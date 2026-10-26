@@ -1,14 +1,18 @@
+import { Readable } from 'node:stream';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import {
   attachmentSchema,
   createUploadSchema,
+  createVideoUploadSchema,
   idParamSchema,
   UPLOAD_MIME_TYPES,
   uploadTicketSchema,
+  VIDEO_UPLOAD_MIME_TYPES,
 } from '@oficinaos/shared';
 import { clientInfo, getAuth } from '../../core/auth-context';
-import type { StorageAction } from '../../integrations/storage/storage';
+import { type ByteRange, ObjectTooLargeError, type StorageAction } from '../../integrations/storage/storage';
+import { VIDEO_PREFIX } from './videos.service';
 
 const objectQuery = z.object({
   /** chave do objeto em base64url */
@@ -16,7 +20,41 @@ const objectQuery = z.object({
   a: z.enum(['put', 'get']),
   e: z.coerce.number().int(),
   s: z.string().min(1).max(256),
+  /** `1` = responder como anexo (o botão "Baixar"); fica fora da assinatura */
+  download: z.enum(['1']).optional(),
+  /** nome sugerido para o arquivo baixado */
+  n: z.string().max(120).optional(),
 });
+
+/**
+ * Lê o cabeçalho Range. O Safari do iPhone NÃO toca vídeo de servidor que
+ * ignora o Range: ele pede `bytes=0-1` primeiro e, sem o 206, desiste.
+ * Só um intervalo por pedido (é o que os navegadores pedem para vídeo).
+ *
+ * `null` = sem Range válido (responde inteiro); `'invalido'` = fora do arquivo (416).
+ */
+export function lerRange(cabecalho: string | undefined, tamanho: number): ByteRange | null | 'invalido' {
+  if (!cabecalho) return null;
+  const partes = /^bytes=(\d*)-(\d*)$/.exec(cabecalho.trim());
+  if (!partes || (partes[1] === '' && partes[2] === '')) return null;
+  let start: number;
+  let end: number;
+  if (partes[1] === '') {
+    // `bytes=-500`: os últimos 500
+    const sufixo = Number(partes[2]);
+    if (sufixo === 0) return 'invalido';
+    start = Math.max(0, tamanho - sufixo);
+    end = tamanho - 1;
+  } else {
+    start = Number(partes[1]);
+    end = partes[2] === '' ? tamanho - 1 : Math.min(Number(partes[2]), tamanho - 1);
+  }
+  if (start >= tamanho || start > end) return 'invalido';
+  return { start, end };
+}
+
+/** Nome de arquivo seguro para o cabeçalho (sem aspas, barras nem quebra de linha). */
+const nomeSeguro = (nome: string | undefined) => (nome ?? 'arquivo').replace(/[^\w.-]+/g, '-').slice(0, 120) || 'arquivo';
 
 export const uploadRoutes: FastifyPluginAsyncZod = async (app) => {
   const service = app.services.uploads;
@@ -30,6 +68,25 @@ export const uploadRoutes: FastifyPluginAsyncZod = async (app) => {
     [...UPLOAD_MIME_TYPES],
     { parseAs: 'buffer', bodyLimit: app.env.UPLOAD_MAX_BYTES },
     (_request, body, done) => done(null, body),
+  );
+
+  /**
+   * Vídeo (E45): o corpo NÃO é lido aqui. O parser entrega o fluxo cru e a
+   * rota grava direto no disco, contando os bytes — um original de 400 MB
+   * nunca passa inteiro pela memória do servidor de 4 GB.
+   */
+  app.addContentTypeParser([...VIDEO_UPLOAD_MIME_TYPES], (_request, payload, done) => done(null, payload));
+
+  app.post(
+    '/videos',
+    {
+      config: { auth: 'work_orders:write', feature: 'work_order_video' },
+      schema: { body: createVideoUploadSchema, response: { 201: uploadTicketSchema } },
+    },
+    async (request, reply) => {
+      reply.code(201);
+      return service.createVideo(getAuth(request), request.body, clientInfo(request));
+    },
   );
 
   app.post(
@@ -78,17 +135,54 @@ export const uploadRoutes: FastifyPluginAsyncZod = async (app) => {
 
       if (action === 'put') {
         const body = request.body;
+        const tipo = request.headers['content-type'] ?? 'application/octet-stream';
+        if (body instanceof Readable) {
+          // fluxo só para a pasta de vídeo: um link de FOTO não vira porta para 500 MB
+          if (!key.startsWith(VIDEO_PREFIX)) return reply.code(415).send({ message: 'Tipo de arquivo não aceito aqui.' });
+          try {
+            const tamanho = await service.writeStream(key, body, tipo);
+            if (!tamanho) {
+              await service.removeObject(key);
+              return reply.code(400).send({ message: 'Arquivo vazio.' });
+            }
+          } catch (erro) {
+            if (erro instanceof ObjectTooLargeError) {
+              return reply.code(413).send({ message: 'Vídeo grande demais.' });
+            }
+            throw erro;
+          }
+          return reply.code(204).send();
+        }
         if (!Buffer.isBuffer(body) || !body.byteLength) return reply.code(400).send({ message: 'Arquivo vazio.' });
-        await service.write(key, body, request.headers['content-type'] ?? 'application/octet-stream');
+        await service.write(key, body, tipo);
         return reply.code(204).send();
       }
 
-      const object = await service.read(key);
-      if (!object) return reply.code(404).send({ message: 'Arquivo não encontrado.' });
-      return reply
-        .header('content-type', object.info.mimeType)
+      const info = await service.head(key);
+      if (!info) return reply.code(404).send({ message: 'Arquivo não encontrado.' });
+
+      reply
+        .header('content-type', info.mimeType)
         .header('cache-control', 'private, max-age=300')
-        .send(object.body);
+        .header('accept-ranges', 'bytes');
+      if (query.download) {
+        reply.header('content-disposition', `attachment; filename="${nomeSeguro(query.n)}"`);
+      }
+
+      const range = lerRange(request.headers.range, info.sizeBytes);
+      if (range === 'invalido') {
+        return reply.code(416).header('content-range', `bytes */${info.sizeBytes}`).send();
+      }
+      const object = await service.stream(key, range ?? undefined);
+      if (!object) return reply.code(404).send({ message: 'Arquivo não encontrado.' });
+      if (range) {
+        return reply
+          .code(206)
+          .header('content-range', `bytes ${range.start}-${range.end}/${info.sizeBytes}`)
+          .header('content-length', range.end - range.start + 1)
+          .send(object.body);
+      }
+      return reply.header('content-length', info.sizeBytes).send(object.body);
     },
   });
 };

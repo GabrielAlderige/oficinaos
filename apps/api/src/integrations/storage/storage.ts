@@ -1,6 +1,9 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createReadStream, createWriteStream } from 'node:fs';
 import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve, sep } from 'node:path';
+import { Readable, Transform } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import type { Env } from '../../config/env';
 
 export interface ObjectInfo {
@@ -14,6 +17,19 @@ export interface SignedUrl {
 }
 
 export type StorageAction = 'put' | 'get';
+
+/** Pedaço do arquivo, com as duas pontas incluídas (como no cabeçalho Range). */
+export interface ByteRange {
+  start: number;
+  end: number;
+}
+
+/** O envio em fluxo passou do teto: nada fica gravado. */
+export class ObjectTooLargeError extends Error {
+  constructor(readonly maxBytes: number) {
+    super(`Arquivo maior que ${maxBytes} bytes`);
+  }
+}
 
 /**
  * Armazenamento de fotos e anexos atrás de uma interface (ARCHITECTURE §11 e §12).
@@ -33,9 +49,31 @@ export interface StorageProvider {
   /** Confere assinatura e validade. A rota do objeto chama isto antes de tudo. */
   verify(input: { key: string; action: StorageAction; expires: number; signature: string }): boolean;
   put(key: string, body: Buffer, mimeType: string): Promise<void>;
+  /**
+   * Grava sem passar o arquivo inteiro pela memória (vídeo, E45). Passou de
+   * `maxBytes`, para no meio, apaga o pedaço e lança `ObjectTooLargeError`.
+   * Devolve o tamanho gravado.
+   */
+  putStream(key: string, body: Readable, mimeType: string, maxBytes: number): Promise<number>;
   get(key: string): Promise<{ body: Buffer; info: ObjectInfo } | null>;
+  /** Leitura em fluxo, inteira ou um pedaço: é o que o Range do vídeo precisa. */
+  stream(key: string, range?: ByteRange): Promise<{ body: Readable; info: ObjectInfo } | null>;
   head(key: string): Promise<ObjectInfo | null>;
   remove(key: string): Promise<void>;
+  /** Caminho no disco, para o ffmpeg; `null` quando o objeto não mora num disco local. */
+  localPath(key: string): string | null;
+}
+
+/** Conta os bytes que passam e corta quando passam do teto. */
+function limitador(maxBytes: number): Transform {
+  let total = 0;
+  return new Transform({
+    transform(chunk: Buffer, _encoding, done) {
+      total += chunk.byteLength;
+      if (total > maxBytes) done(new ObjectTooLargeError(maxBytes));
+      else done(null, chunk);
+    },
+  });
 }
 
 /** 5 minutos para enviar, 1 hora para ler (o painel renova ao recarregar). */
@@ -86,9 +124,12 @@ abstract class SignedStorage implements StorageProvider {
   }
 
   abstract put(key: string, body: Buffer, mimeType: string): Promise<void>;
+  abstract putStream(key: string, body: Readable, mimeType: string, maxBytes: number): Promise<number>;
   abstract get(key: string): Promise<{ body: Buffer; info: ObjectInfo } | null>;
+  abstract stream(key: string, range?: ByteRange): Promise<{ body: Readable; info: ObjectInfo } | null>;
   abstract head(key: string): Promise<ObjectInfo | null>;
   abstract remove(key: string): Promise<void>;
+  abstract localPath(key: string): string | null;
 }
 
 /**
@@ -121,10 +162,34 @@ export class DiskStorageProvider extends SignedStorage {
     await writeFile(`${path}.meta`, JSON.stringify({ mimeType }), 'utf8');
   }
 
+  async putStream(key: string, body: Readable, mimeType: string, maxBytes: number): Promise<number> {
+    const path = this.pathOf(key);
+    await mkdir(dirname(path), { recursive: true });
+    try {
+      await pipeline(body, limitador(maxBytes), createWriteStream(path));
+    } catch (erro) {
+      // envio cortado (teto ou conexão caída): pedaço de arquivo não fica no disco
+      await rm(path, { force: true });
+      throw erro;
+    }
+    await writeFile(`${path}.meta`, JSON.stringify({ mimeType }), 'utf8');
+    return (await stat(path)).size;
+  }
+
   async get(key: string): Promise<{ body: Buffer; info: ObjectInfo } | null> {
     const info = await this.head(key);
     if (!info) return null;
     return { body: await readFile(this.pathOf(key)), info };
+  }
+
+  async stream(key: string, range?: ByteRange): Promise<{ body: Readable; info: ObjectInfo } | null> {
+    const info = await this.head(key);
+    if (!info) return null;
+    return { body: createReadStream(this.pathOf(key), range), info };
+  }
+
+  localPath(key: string): string {
+    return this.pathOf(key);
   }
 
   async head(key: string): Promise<ObjectInfo | null> {
@@ -154,8 +219,32 @@ export class MemoryStorageProvider extends SignedStorage {
     this.objects.set(key, { body, info: { sizeBytes: body.byteLength, mimeType } });
   }
 
+  async putStream(key: string, body: Readable, mimeType: string, maxBytes: number): Promise<number> {
+    const partes: Buffer[] = [];
+    let total = 0;
+    for await (const parte of body) {
+      const chunk = Buffer.isBuffer(parte) ? parte : Buffer.from(parte as Uint8Array);
+      total += chunk.byteLength;
+      if (total > maxBytes) throw new ObjectTooLargeError(maxBytes);
+      partes.push(chunk);
+    }
+    await this.put(key, Buffer.concat(partes), mimeType);
+    return total;
+  }
+
   async get(key: string): Promise<{ body: Buffer; info: ObjectInfo } | null> {
     return this.objects.get(key) ?? null;
+  }
+
+  async stream(key: string, range?: ByteRange): Promise<{ body: Readable; info: ObjectInfo } | null> {
+    const object = this.objects.get(key);
+    if (!object) return null;
+    const pedaco = range ? object.body.subarray(range.start, range.end + 1) : object.body;
+    return { body: Readable.from([pedaco]), info: object.info };
+  }
+
+  localPath(): null {
+    return null;
   }
 
   async head(key: string): Promise<ObjectInfo | null> {

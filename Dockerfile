@@ -52,6 +52,10 @@ RUN mkdir -p apps/api/node_modules
 FROM node:24-slim AS api
 WORKDIR /app/apps/api
 ENV NODE_ENV=production
+# o vídeo da OS (E45) chega no formato do aparelho (HEVC do iPhone, webm do
+# Android) e é convertido para MP4 H.264, o único que toca em qualquer
+# navegador. O ffmpeg do Debian traz o libx264 e o AAC
+RUN apt-get update   && apt-get install -y --no-install-recommends ffmpeg   && rm -rf /var/lib/apt/lists/*
 # o Postgres é o único serviço externo obrigatório; o resto é configuração
 COPY --from=prod-deps /app/node_modules /app/node_modules
 COPY --from=prod-deps /app/apps/api/node_modules /app/apps/api/node_modules

@@ -332,6 +332,11 @@ export const attachments = pgTable(
     /** a página pública do orçamento (E6) só mostra o que está marcado aqui */
     visibleToCustomer: boolean().notNull().default(false),
     status: text({ enum: ATTACHMENT_STATUSES }).notNull().default('PENDING_UPLOAD'),
+    /** vídeo (E45): duração depois do corte em 60 s, e a capa gerada na conversão */
+    durationSeconds: integer(),
+    posterStorageKey: text(),
+    /** vídeo (E45): 7 dias depois da resposta do cliente o arquivo é apagado */
+    expiresAt: timestamptz(),
     uploadedBy: uuid().references(() => users.id),
     deletedAt: timestamptz(),
     ...timestamps,
@@ -359,6 +364,10 @@ export const attachments = pgTable(
       foreignColumns: [vehicles.organizationId, vehicles.id],
     }),
     index('attachments_org_work_order_idx').on(t.organizationId, t.workOrderId),
+    /** a limpeza de hora em hora (E45) procura só vídeo com arquivo no disco */
+    index('attachments_videos_alive_idx')
+      .on(t.organizationId, t.expiresAt)
+      .where(sql`${t.kind} = 'VIDEO' and ${t.status} in ('PENDING_UPLOAD', 'PROCESSING', 'READY')`),
     check('attachments_kind_check', sql`${t.kind} in (${list(ATTACHMENT_KINDS)})`),
     check('attachments_status_check', sql`${t.status} in (${list(ATTACHMENT_STATUSES)})`),
     check('attachments_size_check', sql`${t.sizeBytes} > 0`),

@@ -47,6 +47,7 @@ import { PaymentCard } from '../payments/PaymentCard';
 import { QuoteCard } from '../quotes/QuoteCard';
 import { ItemTimer } from './ItemTimer';
 import { MechanicCard } from './MechanicCard';
+import { VideosCard } from './VideosCard';
 import { ConsultaDoCarroDialog } from '../catalog/ConsultaDoCarro';
 import { CheckInDialog } from './CheckInDialog';
 import { ItemPicker, parseTypedQuantity } from './ItemPicker';
@@ -268,6 +269,10 @@ function WorkOrderDetail({ order }: { order: WorkOrder }) {
             )}
             <TotalsFooter order={order} canDiscount={canDiscount && canWrite && editable} />
           </Card>
+
+          {/* o vídeo do defeito (E45) fica logo abaixo dos itens: é o que vai
+              junto no orçamento que sai deles */}
+          <VideosCard order={order} canWrite={canWrite} editable={editable} />
 
           <DetailsCard order={order} canWrite={canWrite && editable} />
         </div>

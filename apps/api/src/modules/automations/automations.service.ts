@@ -18,6 +18,7 @@ import type { Tx } from '../../db/tenant';
 import { sincronizarFilaDePosVenda } from '../aftersales/follow-ups.sync';
 import * as orgRepo from '../organizations/organizations.repository';
 import * as repo from './automations.repository';
+import { VideosService } from '../uploads/videos.service';
 import { AvisosDeAtraso } from '../billing/avisos-de-atraso';
 import { BillingService } from '../billing/billing.service';
 import { CicloDoTeste } from '../billing/ciclo-do-teste';
@@ -72,6 +73,10 @@ export class AutomationsService {
 
   private get fundadora(): FimDaFundadora {
     return new FimDaFundadora(this.deps);
+  }
+
+  private get videos(): VideosService {
+    return new VideosService(this.deps);
   }
 
   private get cobranca(): BillingService {
@@ -190,6 +195,13 @@ export class AutomationsService {
           { err: erro, organizationId: oficina.id },
           'reajuste do fim da fundadora falhou; tenta de novo na próxima volta',
         );
+      }
+      // vídeo da OS (E45): 7 dias depois da resposta do cliente o arquivo sai
+      // do disco. De hora em hora, para o "disponível até" valer na hora dita
+      try {
+        await this.videos.apagarVencidos(oficina.id);
+      } catch (erro) {
+        this.deps.log.error({ err: erro, organizationId: oficina.id }, 'limpeza de vídeos falhou; tenta de novo na próxima volta');
       }
       // os e-mails do teste grátis (metade, faltam 3 dias, último dia, acabou),
       // os de atraso (vai travar, travou) e o do fim da fundadora: um por volta

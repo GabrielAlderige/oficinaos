@@ -154,6 +154,7 @@ uma refatoração, não uma reescrita.
 | D89 | NFS-e de verdade pela Focus NFe, padrão nacional, ligada por oficina | Driver `focus` em `/v2/nfsen`; cada oficina tem o próprio token na Focus, guardado **cifrado** (SECRETS_KEY) em `organization_fiscal_settings.provider_token_enc` e ligado pelo script `nfse-focus` da plataforma; a nota que volta "processando" é consultada logo depois de emitir e a cada leitura enquanto estiver na fila; quem não está ligada segue no simulador | Um token da conta para todas as oficinas; o `/v2/nfse` municipal; webhook da Focus | A Focus dá um token por empresa, e emitir com o token errado seria nota no CNPJ errado. O certificado continua indo direto para a Focus (D38): o que guardamos é só o token, cifrado como o do WhatsApp (D49). O padrão nacional é obrigatório para todo município desde 2026 (LC 214/2025), então um formato só serve para todas as cidades. Consulta em vez de webhook porque webhook exige rota pública autenticada e a autorização costuma sair em segundos; webhook entra se a fila ficar lenta |
 | D90 | Avisos de que o sistema vai travar por falta de pagamento | E-mails PRÓPRIOS (`avisos-de-atraso.ts`), na volta do trabalhador: venceu, faltam 2 dias para ficar só leitura, ficou só leitura; o tipo gravado leva a data em que a carência começou, para avisar de novo no próximo atraso. O botão de pagar da tela do plano passa a seguir a fatura EM ABERTO que o aviso do gateway traz | Deixar só os e-mails do Asaas | O Asaas fala do boleto, não do sistema: ninguém avisava que a oficina ia parar de abrir OS. O botão de pagar apontava para a primeira fatura, já paga, na renovação |
 | D91 | Quem não paga até o fim da carência | O trabalhador CANCELA a assinatura no gateway (o Asaas apaga as faturas pendentes e vencidas) e grava EXPIRED com motivo INADIMPLENCIA: só consulta. Volta só assinando de novo E pagando; reativar depois do período pago, ou a fatura nova vencer, não abre carência nova. O e-mail do cliente no gateway cai para o do dono quando a oficina não tem e-mail, e o aviso por e-mail é ligado de propósito | Plano grátis; deixar a recorrência viva | A recorrência viva gerava uma fatura por mês para quem já tinha parado. Em produção (15/10/2026) o cliente nasceu no Asaas sem e-mail e com todo aviso desligado: nenhum "vence em 10 dias" chegaria |
+| D93 | Vídeo na OS (25/10/2026) | Supercharger e Nitro; 60 s; arquivo no disco da VPS (nuvem externa quando escalar); convertido no servidor com ffmpeg para MP4 H.264 720p; apagado 7 dias depois da resposta do cliente, com botão de baixar para a oficina e para o cliente até lá; sem resposta, 30 dias | Cloudflare R2 já agora; compressão no aparelho (WebCodecs); tocar o arquivo como veio; vídeo em todos os planos | Decisão dele: VPS agora, nuvem quando escalar. HEVC do iPhone não toca no Android nem no Firefox, e o webm do Android não toca no Safari antigo: só o H.264 toca em tudo. Um minuto de celular tem 60 a 400 MB e o cliente abre no 4G; convertido fica em ~8 MB. O prazo de 7 dias é o que mantém o disco da VPS (38 GB) longe do teto |
 | D92 | O teste grátis e a oferta "Oficina Pronta" (20/10/2026) | 30 dias no Nitro que começam na implantação feita pela equipe ou no 1º orçamento enviado, o que vier antes; sem nenhum dos dois, começam sozinhos 15 dias depois do cadastro (o cadastro grava o fim desse caso, 45 dias, e a partida só ENCURTA). Tela de boas-vindas com dois caminhos (pedir a implantação pelo WhatsApp ou configurar sozinho), primeiros passos no topo do Início que somem no 1º orçamento, e dados de exemplo sem OS (o histórico da OS é só de acréscimo, então OS de exemplo não sairia mais). Fundadoras: 10 vagas, 90 dias de teste e o Nitro mensal a R$ 279 por 12 meses, marcadas pela plataforma; o preço entra na hora de assinar. Garantia do 1º mês pago nos termos, devolvida à mão pelo Asaas | 14 dias a partir do cadastro; teste com cartão; 1º mês a R$ 49; plano grátis (D91) | A oficina abria o sistema vazio e desistia antes do primeiro orçamento: o relógio corria sem ninguém usar. Teste sem cartão converte de 4% a 6%, e o prazo em si (14, 21 ou 30 dias) não muda o resultado; o que muda é o dono usar de verdade. Os 12 meses de preço contam do fim dos 90 dias grátis. No fim deles o preço sobe sozinho (21/10/2026, migration 0071): e-mail ao dono 30 dias antes, e o valor muda no gateway 20 dias antes, porque o Asaas gera a fatura e o "vence em 10 dias" adiantado; só as faturas que vencem na data ou depois sobem (`reajustarAssinatura`), as do período combinado ficam em R$ 279 |
 | D29 | Gráficos do dashboard (E9) | **Componentes próprios** (colunas em HTML/CSS, uma série por vez) | Recharts | As cinco séries do MVP são um total por dia — barra e rótulo, nada que exija biblioteca. O Recharts custaria ~35 kB gzip (ele puxa vários módulos do d3) **no pedaço que carrega logo depois do login**, já que o dashboard é a tela de Início. O gráfico inteiro custou ~1 kB. Vale reavaliar quando chegarem os relatórios do MVP 2, com muitas séries |
 
@@ -609,8 +610,47 @@ dentro da transação da operação.
 5. Leitura: bucket **privado**, URL pré-assinada de GET com validade curta. A página
    pública só recebe URL das fotos com `visible_to_customer = true` daquele orçamento.
 
-Vídeo: aceito a partir do MVP 2, com limite de tamanho por plano. Em dev, o
-`StorageProvider` pode gravar em disco local, sem MinIO.
+Em dev, o `StorageProvider` grava em disco local, sem MinIO.
+
+### 11.1 Vídeo na OS (E45, 25/10/2026, D93)
+
+O mecânico grava o defeito, o vídeo vai junto no orçamento, e o cliente vê o
+que a oficina viu. Só nos planos Supercharger e Nitro (`work_order_video`).
+
+1. `POST /uploads/videos` (barrada pelo plano) cria o anexo `VIDEO` como
+   `PENDING_UPLOAD`, com a chave em `videos/<oficina>/<os>/<id>.original`.
+2. O navegador envia o arquivo **como o aparelho gravou** (HEVC `.mov` do iPhone,
+   `mp4`/`3gpp` do Android, `webm` do computador), por XHR, com barra de
+   progresso. A rota do objeto grava **em fluxo** direto no disco, contando os
+   bytes (teto `VIDEO_UPLOAD_MAX_BYTES`, 500 MB): o original nunca passa inteiro
+   pela memória. Só chaves de `videos/` aceitam fluxo.
+3. `complete` confere e marca `PROCESSING`. Uma fila **dentro do processo da
+   API**, um vídeo por vez, chama o `VideoTranscoder` (`ffmpeg`, prioridade
+   baixa, 2 threads): corta em **60 s**, lado maior em **1280**, 30 quadros,
+   H.264 High + AAC, `+faststart`, e uma capa JPEG. Um minuto fica em ~8 MB. O
+   original sai do disco. Falhou: `FAILED`. A API reiniciou no meio: `retomar()`
+   devolve à fila o que ficou em `PROCESSING`.
+4. Leitura com **Range** (206): o Safari do iPhone não toca vídeo sem isso. Com
+   `download=1`, a mesma URL responde como anexo (o botão "Baixar").
+5. O orçamento leva o vídeo `READY` **ou** `PROCESSING` (ele aparece para o
+   cliente quando fica pronto); a página pública mostra os vídeos antes dos
+   itens, com `playsInline` e a capa.
+6. **Prazo:** quando o cliente aprova, aprova em parte ou recusa (pelo link ou
+   registrado pela oficina), os vídeos daquele orçamento ganham
+   `expires_at = resposta + 7 dias`, na mesma transação da decisão; um vídeo que
+   já tinha prazo não ganha mais tempo. A volta de hora em hora das automações
+   apaga o arquivo e a capa e marca `EXPIRED`: a linha fica, e a página do
+   cliente diz até quando o vídeo ficou. Vídeo sem resposta nenhuma sai em
+   30 dias; envio que nunca terminou, em 1 dia. Apagar pelo painel libera o
+   disco na hora.
+7. A pasta `videos/` fica fora do backup diário.
+
+Por que converter no servidor e não no aparelho: o WebCodecs ainda não grava
+áudio em todo Safari, e um vídeo que toca no iPhone do mecânico e não toca no
+Android do cliente é exatamente o defeito que a etapa existe para evitar. A
+conversão no servidor custa CPU, por isso é um vídeo por vez e 60 s no máximo.
+Quando o disco ou a CPU da VPS apertarem, o storage vira R2/S3 (é trocar o
+driver: o conversor já baixa o original quando ele não está em disco local).
 
 ---
 

@@ -88,6 +88,12 @@ export class InspectionsService {
       status: row.status,
       url: this.deps.storage.signDownload(row.storageKey).url,
       createdAt: row.createdAt.toISOString(),
+      // assinatura e fotos da entrega nunca são vídeo
+      workOrderItemId: null,
+      posterUrl: null,
+      downloadUrl: null,
+      durationSeconds: null,
+      expiresAt: null,
     };
   }
 

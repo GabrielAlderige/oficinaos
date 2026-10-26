@@ -371,6 +371,14 @@ export const attachmentSchema = z.object({
   /** URL temporária de leitura; null enquanto o upload não terminou */
   url: z.string().nullable(),
   createdAt: z.string(),
+  /** de qual serviço ou peça da OS o anexo fala (o vídeo mostra ao lado) */
+  workOrderItemId: z.uuid().nullable().default(null),
+  /** vídeo (E45): a capa, o link que baixa em vez de tocar, e a duração */
+  posterUrl: z.string().nullable().default(null),
+  downloadUrl: z.string().nullable().default(null),
+  durationSeconds: z.number().int().nullable().default(null),
+  /** vídeo (E45): quando o arquivo é apagado; null = o cliente ainda não respondeu */
+  expiresAt: z.string().nullable().default(null),
 });
 
 export const inspectionSchema = inspectionInputSchema.extend({
@@ -430,6 +438,49 @@ export const createUploadSchema = z
     message: 'Informe a OS ou o veículo do arquivo',
   });
 
+/**
+ * Vídeo na OS (E45). Aceita o que os aparelhos gravam de fábrica — o iPhone
+ * grava `.mov` em HEVC, o Android `.mp4` (alguns `3gpp`), o computador `webm`
+ * — porque o servidor converte tudo para MP4 H.264, o único formato que toca
+ * em qualquer navegador.
+ */
+export const VIDEO_UPLOAD_MIME_TYPES = [
+  'video/mp4',
+  'video/quicktime',
+  'video/webm',
+  'video/3gpp',
+  'video/x-m4v',
+  'video/x-matroska',
+] as const;
+export type VideoUploadMimeType = (typeof VIDEO_UPLOAD_MIME_TYPES)[number];
+
+/** O tipo pela extensão, para quando o aparelho manda o arquivo sem tipo. */
+export function videoMimeFromFileName(fileName: string): VideoUploadMimeType | null {
+  const extensao = fileName.toLowerCase().split('.').pop() ?? '';
+  const porExtensao: Record<string, VideoUploadMimeType> = {
+    mp4: 'video/mp4',
+    mov: 'video/quicktime',
+    qt: 'video/quicktime',
+    webm: 'video/webm',
+    '3gp': 'video/3gpp',
+    m4v: 'video/x-m4v',
+    mkv: 'video/x-matroska',
+  };
+  return porExtensao[extensao] ?? null;
+}
+
+export const createVideoUploadSchema = z.object({
+  mimeType: z.enum(VIDEO_UPLOAD_MIME_TYPES, { error: 'Formato de vídeo não reconhecido' }),
+  sizeBytes: z.number().int().positive(),
+  fileName: optionalText(200).default(''),
+  workOrderId: z.uuid(),
+  /** de qual serviço ou peça o vídeo fala; aparece ao lado dele para o cliente */
+  workOrderItemId: z.uuid().nullable().default(null),
+  caption: optionalText(200).default(''),
+  /** vídeo é feito para o cliente ver: marcado por padrão */
+  visibleToCustomer: z.boolean().default(true),
+});
+
 /** O que o painel recebe para enviar o arquivo direto ao storage. */
 export const uploadTicketSchema = z.object({
   attachment: attachmentSchema,
@@ -438,6 +489,7 @@ export const uploadTicketSchema = z.object({
 });
 
 export type CreateUploadInput = z.output<typeof createUploadSchema>;
+export type CreateVideoUploadInput = z.output<typeof createVideoUploadSchema>;
 export type UploadTicket = z.infer<typeof uploadTicketSchema>;
 export type WorkOrderItemInput = z.input<typeof workOrderItemInputSchema>;
 export type WorkOrderItem = z.infer<typeof workOrderItemSchema>;

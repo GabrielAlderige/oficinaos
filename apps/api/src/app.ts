@@ -25,6 +25,7 @@ import { chargeRoutes, paymentWebhookRoutes, workOrderChargeRoutes } from './mod
 import { InvoicesService } from './modules/invoices/invoices.service';
 import { fiscalSettingsRoutes, invoiceRoutes, workOrderInvoiceRoutes } from './modules/invoices/invoices.routes';
 import { createStorageProvider, type StorageProvider } from './integrations/storage/storage';
+import { createVideoTranscoder, type VideoTranscoder } from './integrations/video/transcoder';
 import { AUTH_CACHE_TTL_MS } from './modules/auth/auth.constants';
 import { authRoutes } from './modules/auth/auth.routes';
 import { AuthService } from './modules/auth/auth.service';
@@ -87,6 +88,7 @@ import { vehicleRoutes } from './modules/vehicles/vehicles.routes';
 import { VehiclesService } from './modules/vehicles/vehicles.service';
 import { uploadRoutes, workOrderAttachmentRoutes } from './modules/uploads/uploads.routes';
 import { UploadsService } from './modules/uploads/uploads.service';
+import { VideoProcessor, VideosService } from './modules/uploads/videos.service';
 import { workOrderRoutes } from './modules/work-orders/work-orders.routes';
 import { TrackingService } from './modules/work-orders/tracking.service';
 import { InspectionsService } from './modules/work-orders/inspections.service';
@@ -122,6 +124,9 @@ export interface Services {
   workOrders: WorkOrdersService;
   inspections: InspectionsService;
   uploads: UploadsService;
+  /** vídeo na OS (E45): criar, prazo e limpeza; e a fila da conversão */
+  videos: VideosService;
+  videoProcessor: VideoProcessor;
   quotes: QuotesService;
   notifications: NotificationsService;
   payments: PaymentsService;
@@ -192,6 +197,8 @@ export interface AppDeps {
   gateway?: PaymentGateway;
   /** cobrança da oficina para o cliente; `null` desliga */
   chargesGateway?: PaymentGateway | null;
+  /** conversão do vídeo da OS (E45); os testes injetam um que não roda ffmpeg */
+  transcoder?: VideoTranscoder;
 }
 
 /** Monta a API sem abrir porta: o server.ts escuta; os testes usam `app.inject()`. */
@@ -204,6 +211,7 @@ export async function buildApp({
   emissorDaOficina = (opcoes) => new FocusNfseProvider(opcoes),
   gateway = createPaymentGateway(env),
   chargesGateway = createChargesGateway(env, gateway),
+  transcoder = createVideoTranscoder(env),
 }: AppDeps) {
   const app = Fastify({
     // nos testes o nível padrão é 'silent' (TEST_LOG_LEVEL=error mostra os erros)
@@ -261,6 +269,8 @@ export async function buildApp({
   const vehicleCatalog = new VehicleCatalogService(deps);
   const workOrders = new WorkOrdersService(deps, messaging, packages);
   const payments = new PaymentsService(deps);
+  const videos = new VideosService(deps);
+  const videoProcessor = new VideoProcessor(deps, transcoder, videos);
   const services: Services = {
     auth: new AuthService(deps),
     organizations: new OrganizationsService(deps),
@@ -271,7 +281,9 @@ export async function buildApp({
     parts: new PartsService(deps),
     workOrders,
     inspections: new InspectionsService(deps),
-    uploads: new UploadsService(deps),
+    uploads: new UploadsService(deps, videos, videoProcessor),
+    videos,
+    videoProcessor,
     quotes: new QuotesService(deps, messaging),
     notifications: new NotificationsService(deps),
     payments,

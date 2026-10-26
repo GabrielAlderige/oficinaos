@@ -22,6 +22,7 @@ export const PLAN_FEATURES = [
   'commissions',
   'service_packages',
   'reports',
+  'work_order_video',
   'parts_search',
   'whatsapp_api',
   'automations',
@@ -41,6 +42,7 @@ export const PLAN_FEATURE_LABELS: Record<PlanFeature, string> = {
   commissions: 'Comissão do mecânico',
   service_packages: 'Pacotes de serviço',
   reports: 'Relatórios e exportação',
+  work_order_video: 'Vídeo do serviço no orçamento',
   parts_search: 'Pesquisa de peças por carro',
   whatsapp_api: 'WhatsApp oficial (conta da Meta)',
   automations: 'Automações diárias',
@@ -101,6 +103,9 @@ const SUPERCHARGER_FEATURES: readonly PlanFeature[] = [
   'commissions',
   'service_packages',
   'reports',
+  // E45: o vídeo ocupa disco e CPU do servidor (conversão), por isso não entra
+  // no plano de entrada
+  'work_order_video',
 ];
 
 const NITRO_FEATURES: readonly PlanFeature[] = [

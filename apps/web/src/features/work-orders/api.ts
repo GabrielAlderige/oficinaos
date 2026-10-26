@@ -3,10 +3,12 @@ import type {
   TrackingLinkResult,
   Attachment,
   CreateUploadInput,
+  CreateVideoUploadInput,
   Inspection,
   MyDay,
   Page,
   UploadTicket,
+  VideoUploadMimeType,
   WorkOrder,
   WorkOrderAction,
   WorkOrderBoard,
@@ -143,6 +145,8 @@ export function useAttachments(id: string) {
     queryKey: workOrderKeys.attachments(id),
     queryFn: async () => (await api<{ data: Attachment[] }>(`/work-orders/${id}/attachments`)).data,
     enabled: Boolean(id),
+    // vídeo convertendo no servidor (E45): pergunta de novo até ficar pronto
+    refetchInterval: (query) => (query.state.data?.some((anexo) => anexo.status === 'PROCESSING') ? 4000 : false),
   });
 }
 
@@ -310,6 +314,54 @@ export function useUploadFile(workOrderId: string) {
         headers: { 'content-type': file.type },
       });
       if (!sent.ok) throw new Error('Falha ao enviar o arquivo');
+      return api<Attachment>(`/uploads/${ticket.attachment.id}/complete`, { method: 'POST' });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: workOrderKeys.attachments(workOrderId) }),
+  });
+}
+
+/**
+ * Envia o arquivo pela URL assinada contando o progresso. É XHR, e não
+ * `fetch`, porque o `fetch` não informa o progresso do ENVIO — e um minuto de
+ * vídeo do iPhone no 4G da oficina leva minutos para subir. Sem a barra, a
+ * pessoa acha que travou e fecha a tela.
+ */
+function enviarComProgresso(url: string, arquivo: Blob, tipo: string, aoAvancar: (fracao: number) => void): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', url);
+    xhr.setRequestHeader('content-type', tipo);
+    xhr.upload.onprogress = (evento) => {
+      if (evento.lengthComputable) aoAvancar(evento.loaded / evento.total);
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) resolve();
+      else if (xhr.status === 413) reject(new Error('O vídeo é grande demais para enviar.'));
+      else reject(new Error('Falha ao enviar o vídeo. Confira a internet e tente de novo.'));
+    };
+    xhr.onerror = () => reject(new Error('A internet caiu no meio do envio. Tente de novo.'));
+    xhr.send(arquivo);
+  });
+}
+
+/**
+ * Vídeo na OS (E45): ticket, envio com progresso e conferência. Depois disso
+ * o servidor converte sozinho; a lista de anexos pergunta até ficar pronto.
+ */
+export function useUploadVideo(workOrderId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      file,
+      mimeType,
+      onProgress,
+      ...rest
+    }: { file: File; mimeType: VideoUploadMimeType; onProgress: (fracao: number) => void } & Partial<Omit<CreateVideoUploadInput, 'mimeType'>>) => {
+      const ticket = await api<UploadTicket>('/uploads/videos', {
+        method: 'POST',
+        json: { mimeType, sizeBytes: file.size, fileName: file.name, workOrderId, ...rest },
+      });
+      await enviarComProgresso(ticket.uploadUrl, file, mimeType, onProgress);
       return api<Attachment>(`/uploads/${ticket.attachment.id}/complete`, { method: 'POST' });
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: workOrderKeys.attachments(workOrderId) }),

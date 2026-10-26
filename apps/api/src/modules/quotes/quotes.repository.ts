@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { QuoteStatus } from '@oficinaos/shared';
 import {
@@ -208,7 +208,43 @@ export function listQuotePhotos(tx: Tx, quoteId: string) {
       attachments,
       and(eq(attachments.organizationId, quoteAttachments.organizationId), eq(attachments.id, quoteAttachments.attachmentId)),
     )
-    .where(and(eq(quoteAttachments.quoteId, quoteId), eq(attachments.status, 'READY')))
+    .where(and(eq(quoteAttachments.quoteId, quoteId), eq(attachments.status, 'READY'), ne(attachments.kind, 'VIDEO')))
+    .orderBy(quoteAttachments.position);
+}
+
+/**
+ * Os vídeos do orçamento (E45). Os vencidos vêm junto, sem arquivo, para a
+ * página dizer até quando ficaram; os apagados pela oficina não vêm.
+ */
+export function listQuoteVideos(tx: Tx, quoteId: string) {
+  return tx
+    .select({
+      id: attachments.id,
+      storageKey: attachments.storageKey,
+      posterStorageKey: attachments.posterStorageKey,
+      status: attachments.status,
+      caption: quoteAttachments.caption,
+      durationSeconds: attachments.durationSeconds,
+      expiresAt: attachments.expiresAt,
+      itemDescription: quoteItems.description,
+    })
+    .from(quoteAttachments)
+    .innerJoin(
+      attachments,
+      and(eq(attachments.organizationId, quoteAttachments.organizationId), eq(attachments.id, quoteAttachments.attachmentId)),
+    )
+    .leftJoin(
+      quoteItems,
+      and(eq(quoteItems.organizationId, quoteAttachments.organizationId), eq(quoteItems.id, quoteAttachments.quoteItemId)),
+    )
+    .where(
+      and(
+        eq(quoteAttachments.quoteId, quoteId),
+        eq(attachments.kind, 'VIDEO'),
+        inArray(attachments.status, ['READY', 'EXPIRED']),
+        isNull(attachments.deletedAt),
+      ),
+    )
     .orderBy(quoteAttachments.position);
 }
 
@@ -222,7 +258,10 @@ export function listVisibleWorkOrderAttachments(tx: Tx, organizationId: string, 
         eq(attachments.organizationId, organizationId),
         eq(attachments.workOrderId, workOrderId),
         eq(attachments.visibleToCustomer, true),
-        eq(attachments.status, 'READY'),
+        // o vídeo que ainda está convertendo vai junto: aparece para o cliente
+        // assim que fica pronto, sem a oficina reenviar o orçamento (E45)
+        inArray(attachments.status, ['READY', 'PROCESSING']),
+        isNull(attachments.deletedAt),
       ),
     );
 }

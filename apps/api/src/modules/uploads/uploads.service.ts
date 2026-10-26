@@ -1,12 +1,20 @@
 import { v7 as uuidv7 } from 'uuid';
-import { type Attachment, type CreateUploadInput, ErrorCode, type UploadTicket } from '@oficinaos/shared';
+import type { Readable } from 'node:stream';
+import {
+  type Attachment,
+  type CreateUploadInput,
+  type CreateVideoUploadInput,
+  ErrorCode,
+  type UploadTicket,
+} from '@oficinaos/shared';
 import { recordActivity } from '../../core/audit';
 import type { AuthContext, ClientInfo, ServiceDeps } from '../../core/auth-context';
 import { AppError, notFound, validationFailed } from '../../core/errors';
 import { blankToNull } from '../../core/normalize';
-import type { StorageAction } from '../../integrations/storage/storage';
+import type { ByteRange, StorageAction } from '../../integrations/storage/storage';
 import { withTenant } from '../../db/tenant';
 import * as repo from './uploads.repository';
+import type { VideoProcessor, VideosService } from './videos.service';
 
 const EXTENSIONS: Record<string, string> = {
   'image/jpeg': 'jpg',
@@ -22,7 +30,17 @@ const EXTENSIONS: Record<string, string> = {
  * fica `PENDING_UPLOAD` e não aparece em lugar nenhum.
  */
 export class UploadsService {
-  constructor(private readonly deps: ServiceDeps) {}
+  constructor(
+    private readonly deps: ServiceDeps,
+    private readonly videos: VideosService,
+    private readonly processor: VideoProcessor,
+  ) {}
+
+  /** Vídeo na OS (E45): mesmo ticket da foto, numa chave própria. */
+  async createVideo(auth: AuthContext, input: CreateVideoUploadInput, client: ClientInfo): Promise<UploadTicket> {
+    const { row, uploadUrl, expiresAt } = await this.videos.create(auth, input, client);
+    return { attachment: this.toDto(row), uploadUrl, expiresAt };
+  }
 
   async create(auth: AuthContext, input: CreateUploadInput, client: ClientInfo): Promise<UploadTicket> {
     if (input.sizeBytes > this.deps.env.UPLOAD_MAX_BYTES) {
@@ -64,7 +82,7 @@ export class UploadsService {
 
     const signed = this.deps.storage.signUpload(key);
     return {
-      attachment: this.toDto(row, null),
+      attachment: this.toDto(row),
       uploadUrl: signed.url,
       expiresAt: signed.expiresAt.toISOString(),
     };
@@ -75,6 +93,9 @@ export class UploadsService {
     const row = await withTenant(this.deps.db, auth, async (tx) => {
       const attachment = await repo.findAttachment(tx, auth.organizationId, id);
       if (!attachment) throw notFound('Anexo não encontrado.');
+      // vídeo (E45): conferido, vai para a fila de conversão; a segunda
+      // chamada (clique duplo) só devolve o estado atual
+      if (attachment.kind === 'VIDEO' && attachment.status !== 'PENDING_UPLOAD') return attachment;
 
       const info = await this.deps.storage.head(attachment.storageKey);
       if (!info) {
@@ -93,26 +114,36 @@ export class UploadsService {
           'O tipo do arquivo enviado não é o que foi declarado.',
         );
       }
-      if (info.sizeBytes > this.deps.env.UPLOAD_MAX_BYTES) {
+      const teto = attachment.kind === 'VIDEO' ? this.deps.env.VIDEO_UPLOAD_MAX_BYTES : this.deps.env.UPLOAD_MAX_BYTES;
+      if (info.sizeBytes > teto) {
         throw new AppError(409, ErrorCode.UPLOAD_INCOMPLETE, 'Arquivo grande demais', 'O arquivo passou do tamanho máximo.');
       }
+      if (attachment.kind === 'VIDEO') return repo.markProcessing(tx, id, info.sizeBytes);
       return repo.markReady(tx, id, info.sizeBytes);
     });
-    return this.toDto(row, this.deps.storage.signDownload(row.storageKey).url);
+    if (row.kind === 'VIDEO' && row.status === 'PROCESSING') this.processor.enfileirar(row.organizationId, row.id);
+    return this.toDto(row);
   }
 
   async listForWorkOrder(auth: AuthContext, workOrderId: string): Promise<Attachment[]> {
     const rows = await withTenant(this.deps.db, auth, (tx) =>
       repo.listByWorkOrder(tx, auth.organizationId, workOrderId),
     );
-    return rows.map((row) => this.toDto(row, row.status === 'READY' ? this.deps.storage.signDownload(row.storageKey).url : null));
+    return rows.map((row) => this.toDto(row));
   }
 
   async remove(auth: AuthContext, id: string, client: ClientInfo): Promise<void> {
+    let apagarDepois: repo.AttachmentRow | null = null;
     await withTenant(this.deps.db, auth, async (tx) => {
       const attachment = await repo.findAttachment(tx, auth.organizationId, id);
       if (!attachment) throw notFound('Anexo não encontrado.');
       await repo.softDeleteAttachment(tx, id);
+      // vídeo apagado libera o disco na hora; foto apagada continua guardada
+      // (pode estar na prova de um orçamento já respondido)
+      if (attachment.kind === 'VIDEO') {
+        await repo.setStatus(tx, id, 'EXPIRED');
+        apagarDepois = attachment;
+      }
       await recordActivity(tx, {
         organizationId: auth.organizationId,
         actorUserId: auth.userId,
@@ -123,6 +154,8 @@ export class UploadsService {
         ...client,
       });
     });
+    // o arquivo sai depois do commit: se a transação desfizer, o vídeo continua lá
+    if (apagarDepois) await this.videos.apagarArquivos(apagarDepois);
   }
 
   /**
@@ -137,11 +170,36 @@ export class UploadsService {
     return this.deps.storage.get(key);
   }
 
+  head(key: string) {
+    return this.deps.storage.head(key);
+  }
+
+  removeObject(key: string) {
+    return this.deps.storage.remove(key);
+  }
+
+  stream(key: string, range?: ByteRange) {
+    return this.deps.storage.stream(key, range);
+  }
+
   write(key: string, body: Buffer, mimeType: string) {
     return this.deps.storage.put(key, body, mimeType);
   }
 
-  private toDto(row: repo.AttachmentRow, url: string | null): Attachment {
+  /** Vídeo (E45): direto para o disco, com o teto do original. */
+  writeStream(key: string, body: Readable, mimeType: string) {
+    return this.deps.storage.putStream(key, body, mimeType, this.deps.env.VIDEO_UPLOAD_MAX_BYTES);
+  }
+
+  /**
+   * URL de leitura só para o que está pronto. O vídeo leva também a capa e o
+   * link de baixar (o mesmo arquivo, com `download=1`: a rota responde como
+   * anexo, e o celular salva em vez de abrir o player).
+   */
+  toDto(row: repo.AttachmentRow): Attachment {
+    const pronto = row.status === 'READY';
+    const url = pronto ? this.deps.storage.signDownload(row.storageKey).url : null;
+    const video = row.kind === 'VIDEO';
     return {
       id: row.id,
       kind: row.kind,
@@ -153,6 +211,16 @@ export class UploadsService {
       status: row.status,
       url,
       createdAt: row.createdAt.toISOString(),
+      workOrderItemId: row.workOrderItemId,
+      posterUrl: video && pronto && row.posterStorageKey ? this.deps.storage.signDownload(row.posterStorageKey).url : null,
+      downloadUrl: video && url ? linkDeBaixar(url, `video-oficina-${row.id.slice(-6)}.mp4`) : null,
+      durationSeconds: row.durationSeconds,
+      expiresAt: row.expiresAt?.toISOString() ?? null,
     };
   }
+}
+
+/** O link de baixar é o de ler com `download=1` e o nome do arquivo (fora da assinatura: não muda o que se lê). */
+export function linkDeBaixar(url: string, nome: string): string {
+  return `${url}&download=1&n=${encodeURIComponent(nome)}`;
 }

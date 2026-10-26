@@ -23,9 +23,12 @@ docker compose exec -T db pg_dump -U postgres -d oficinaos -Fc \
   > "$DESTINO/oficinaos_$CARIMBO.dump"
 
 # 2) as fotos do check-in e os anexos (o volume `storage` da API), como root:
-#    a imagem roda como `node`, que não escreve na pasta de backup do host
+#    a imagem roda como `node`, que não escreve na pasta de backup do host.
+#    A pasta videos/ fica de fora (E45): vídeo vive 7 dias depois da resposta do
+#    cliente, e guardar 30 dias de cópia dele no Drive seria guardar o que o
+#    sistema prometeu apagar
 docker compose run --rm --no-deps --user root -v "$DESTINO:/backup" api \
-  tar czf "/backup/storage_$CARIMBO.tar.gz" -C /app/storage .
+  tar czf "/backup/storage_$CARIMBO.tar.gz" --exclude=./videos -C /app/storage .
 
 # 3) o .env NÃO entra aqui: ele tem os segredos, e backup de segredo junto com
 #    dado é como perder os dois de uma vez. Guarde-o no seu gerenciador de senhas.

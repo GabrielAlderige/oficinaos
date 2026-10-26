@@ -135,6 +135,18 @@ const envSchema = z.object({
     .int()
     .positive()
     .default(10 * 1024 * 1024),
+  /**
+   * Vídeo na OS (E45): o arquivo ORIGINAL do aparelho, antes da conversão. Um
+   * minuto de iPhone em 4K passa de 300 MB; ele vai para o disco em fluxo,
+   * nunca para a memória, e é apagado assim que vira o MP4 de ~10 MB.
+   */
+  VIDEO_UPLOAD_MAX_BYTES: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(500 * 1024 * 1024),
+  /** o ffmpeg que converte o vídeo; no Docker vem do apt, aqui pode ser um caminho */
+  FFMPEG_PATH: z.string().default('ffmpeg'),
 });
 
 export type Env = z.infer<typeof envSchema>;

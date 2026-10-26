@@ -17,6 +17,12 @@ const app = await buildApp({ env, db });
 const worker = createWorker({ env, log: app.log, automations: app.services.automations });
 await worker.start();
 
+// vídeo que estava convertendo quando a API caiu volta para a fila (E45)
+app.services.videoProcessor
+  .retomar()
+  .then((total) => total && app.log.info({ total }, 'vídeo: conversões retomadas'))
+  .catch((erro: unknown) => app.log.error({ err: erro }, 'vídeo: não deu para retomar as conversões'));
+
 async function shutdown(signal: string) {
   app.log.info({ signal }, 'encerrando');
   await worker.stop();

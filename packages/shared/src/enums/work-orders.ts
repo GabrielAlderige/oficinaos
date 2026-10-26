@@ -281,5 +281,25 @@ export const DEFAULT_ACCESSORIES = [
 export const ATTACHMENT_KINDS = ['PHOTO', 'VIDEO', 'DOCUMENT'] as const;
 export type AttachmentKind = (typeof ATTACHMENT_KINDS)[number];
 
-export const ATTACHMENT_STATUSES = ['PENDING_UPLOAD', 'READY'] as const;
+/**
+ * `PROCESSING`, `FAILED` e `EXPIRED` só acontecem com vídeo (E45): ele chega
+ * no formato do aparelho, é convertido no servidor e é apagado 7 dias depois
+ * da resposta do cliente. A linha fica (a OS conta que houve vídeo); o arquivo
+ * não.
+ */
+export const ATTACHMENT_STATUSES = ['PENDING_UPLOAD', 'PROCESSING', 'READY', 'FAILED', 'EXPIRED'] as const;
 export type AttachmentStatus = (typeof ATTACHMENT_STATUSES)[number];
+
+/**
+ * Vídeo na OS (E45, decisões de 25/10/2026).
+ *
+ * - 60 segundos: o suficiente para mostrar o defeito, e o que a conversão no
+ *   servidor (1 vCPU) aguenta sem fila. Passou disso, o servidor corta.
+ * - 7 dias depois de o cliente aprovar ou recusar o orçamento, o arquivo é
+ *   apagado. Até lá a oficina e o cliente podem baixar.
+ * - Vídeo que nunca chegou a uma resposta (orçamento não enviado, vencido,
+ *   OS cancelada) não fica para sempre no disco: sai em 30 dias.
+ */
+export const VIDEO_MAX_SECONDS = 60;
+export const VIDEO_RETENTION_DAYS = 7;
+export const VIDEO_UNANSWERED_DAYS = 30;

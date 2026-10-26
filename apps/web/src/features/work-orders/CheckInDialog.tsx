@@ -62,6 +62,8 @@ function CheckInBody({ order, onDone }: { order: WorkOrder; onDone(): void }) {
   const create = useCreateInspection(order.id, order.number);
   const upload = useUploadFile(order.id);
   const attachments = useAttachments(order.id);
+  // o vídeo da OS (E45) tem cartão próprio: aqui ele viraria uma <img> quebrada
+  const fotos = (attachments.data ?? []).filter((anexo) => anexo.kind !== 'VIDEO');
 
   const [states, setStates] = useState<Record<string, ChecklistState>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
@@ -266,9 +268,9 @@ function CheckInBody({ order, onDone }: { order: WorkOrder; onDone(): void }) {
             </label>
             <span className="text-xs text-muted">A foto é reduzida no aparelho antes de subir.</span>
           </div>
-          {attachments.data && attachments.data.length > 0 && (
+          {fotos.length > 0 && (
             <ul className="mt-3 flex flex-wrap gap-2">
-              {attachments.data.map((attachment) => (
+              {fotos.map((attachment) => (
                 <li key={attachment.id} className="w-24">
                   {attachment.url ? (
                     <img src={attachment.url} alt={attachment.caption ?? 'Foto do veículo'} className="h-24 w-24 rounded-lg border border-border object-cover" />
