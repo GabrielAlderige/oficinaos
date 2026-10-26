@@ -32,6 +32,26 @@ export const publicTrackingSchema = z.object({
   /** o que o cliente aprovou; null enquanto não houver orçamento aprovado */
   approvedTotalCents: z.number().int().nullable(),
   balanceCents: z.number().int().nullable(),
+  /**
+   * Os vídeos que a oficina gravou e deixou para o cliente ver (E46). Só os
+   * prontos: o vídeo vencido some daqui (no orçamento ele fica com o aviso).
+   */
+  videos: z
+    .array(
+      z.object({
+        id: z.uuid(),
+        url: z.string(),
+        posterUrl: z.string().nullable(),
+        downloadUrl: z.string(),
+        caption: z.string().nullable(),
+        /** o serviço ou peça de que o vídeo fala */
+        itemDescription: z.string().nullable(),
+        durationSeconds: z.number().int().nullable(),
+        /** null = o cliente ainda não respondeu o orçamento */
+        expiresAt: z.string().nullable(),
+      }),
+    )
+    .default([]),
 });
 
 export const trackingLinkResultSchema = z.object({

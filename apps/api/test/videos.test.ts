@@ -519,4 +519,129 @@ describe('vídeo na OS', () => {
       expect((await ticket(order.id, {}, dono)).statusCode).toBe(201);
     });
   });
+  describe('na página "acompanhar" (E46)', () => {
+    async function acompanhar(workOrderId: string) {
+      const link = await post(`/api/v1/work-orders/${workOrderId}/tracking-link`);
+      expect(link.statusCode, link.body).toBe(201);
+      const url = link.json().publicUrl as string;
+      const pagina = await t.app.inject({
+        method: 'GET',
+        url: `/api/v1/public/tracking/${url.slice(url.lastIndexOf('/') + 1)}`,
+        remoteAddress: nextIp(),
+      });
+      expect(pagina.statusCode, pagina.body).toBe(200);
+      return pagina.json() as { number: number; videos: (TestPublicVideo & { caption: string | null })[] };
+    }
+
+    it('mostra o vídeo pronto que vai para o cliente, com o item e o link de baixar', async () => {
+      const order = await novaOS();
+      const itemId = (await get(`/api/v1/work-orders/${order.number}`)).json().items[0].id as string;
+      const video = await gravar(order.id, { workOrderItemId: itemId, caption: 'Disco riscado' });
+
+      const pagina = await acompanhar(order.id);
+      expect(pagina.videos).toHaveLength(1);
+      expect(pagina.videos[0]).toMatchObject({ id: video.id, caption: 'Disco riscado', itemDescription: 'Troca de pastilhas' });
+      expect(pagina.videos[0]!.url).toContain('/api/v1/uploads/object?');
+      expect(pagina.videos[0]!.posterUrl).toContain('/api/v1/uploads/object?');
+      expect(pagina.videos[0]!.downloadUrl).toMatch(new RegExp(`download=1&n=video-os-${order.number}-1\\.mp4$`));
+      // o link tem de abrir de verdade, sem sessão
+      const arquivo = await t.app.inject({ method: 'GET', url: pagina.videos[0]!.url! });
+      expect(arquivo.statusCode).toBe(200);
+    });
+
+    it('não mostra o que é só da oficina, o que está convertendo nem o apagado', async () => {
+      const order = await novaOS();
+      await gravar(order.id, { visibleToCustomer: false });
+      const apagado = await gravar(order.id);
+      expect((await t.app.inject({ method: 'DELETE', url: `/api/v1/uploads/${apagado.id}`, headers: bearer(owner.accessToken) })).statusCode).toBe(204);
+
+      // convertendo: o conversor falso fica parado até soltar
+      const criado = (await ticket(order.id)).json();
+      expect((await send(criado.uploadUrl)).statusCode).toBe(204);
+      const soltar = t.transcoder.segurar();
+      expect((await post(`/api/v1/uploads/${criado.attachment.id}/complete`)).statusCode).toBe(200);
+
+      expect((await acompanhar(order.id)).videos).toEqual([]);
+      soltar();
+      await t.app.services.videoProcessor.ocioso();
+      expect((await acompanhar(order.id)).videos.map((v) => v.id)).toEqual([criado.attachment.id]);
+    });
+
+    it('o vídeo vencido sai da página', async () => {
+      const order = await novaOS();
+      const video = await gravar(order.id);
+      await sqlNaOficina(sql`update attachments set expires_at = now() - interval '1 hour' where id = ${video.id}`);
+      await t.app.services.videos.apagarVencidos(owner.orgId);
+      expect((await acompanhar(order.id)).videos).toEqual([]);
+    });
+  });
+
+  describe('espaço do plano (E46)', () => {
+    const MB = 1024 * 1024;
+
+    async function oficinaNoPlano(code: 'TURBO' | 'SUPERCHARGER') {
+      const dono = await signup(t.app);
+      await withTenant(testDb().db, { organizationId: dono.orgId }, (tx) =>
+        tx.execute(sql`update subscriptions set plan_id = (select id from plans where code = ${code}) where organization_id = ${dono.orgId}`),
+      );
+      t.app.caches.subscriptions.delete(dono.orgId);
+      return dono;
+    }
+
+    /** Um anexo que ocupa `bytes` sem mandar arquivo nenhum: só a linha. */
+    async function ocupar(dono: TestSession, workOrderId: string, bytes: number, status = 'READY', criadoHa = '0 hours') {
+      const { rows } = await withTenant(testDb().db, { organizationId: dono.orgId }, (tx) =>
+        tx.execute(sql`
+          insert into attachments (id, organization_id, work_order_id, kind, storage_key, mime_type, size_bytes, status, created_at)
+          values (gen_random_uuid(), ${dono.orgId}, ${workOrderId}, 'VIDEO', ${`videos/${dono.orgId}/ocupa-${Math.random()}`}, 'video/mp4', ${bytes}, ${status},
+                  now() - ${criadoHa}::interval)
+          returning id`),
+      );
+      return (rows[0] as { id: string }).id;
+    }
+
+    const foto = (workOrderId: string, sizeBytes: number, s: TestSession) =>
+      post('/api/v1/uploads', { kind: 'PHOTO', mimeType: 'image/jpeg', sizeBytes, workOrderId }, s);
+
+    it('passou do teto do plano: nem vídeo nem foto começam a subir (402)', async () => {
+      const dono = await oficinaNoPlano('SUPERCHARGER'); // 25 GB
+      const order = await novaOS(dono);
+      await ocupar(dono, order.id, 25 * 1024 * MB - 1000);
+
+      // cabe: o que sobrou é maior que o arquivo
+      expect((await ticket(order.id, { sizeBytes: 500 }, dono)).statusCode).toBe(201);
+      // não cabe mais (os 500 de cima já estão reservados)
+      const video = await ticket(order.id, { sizeBytes: 600 }, dono);
+      expect(video.statusCode).toBe(402);
+      expect(video.json()).toMatchObject({ code: 'PLAN_LIMIT_REACHED' });
+      expect(video.json().detail).toContain('25 GB');
+      const imagem = await foto(order.id, 600, dono);
+      expect(imagem.statusCode).toBe(402);
+    });
+
+    it('apagado, vencido, falho e envio abandonado não ocupam espaço', async () => {
+      const dono = await oficinaNoPlano('TURBO'); // 5 GB
+      const order = await novaOS(dono);
+      const cheio = 5 * 1024 * MB;
+      for (const status of ['EXPIRED', 'FAILED']) await ocupar(dono, order.id, cheio, status);
+      await ocupar(dono, order.id, cheio, 'PENDING_UPLOAD', '2 days');
+      const apagado = await ocupar(dono, order.id, cheio);
+      await withTenant(testDb().db, { organizationId: dono.orgId }, (tx) =>
+        tx.execute(sql`update attachments set deleted_at = now() where id = ${apagado}`),
+      );
+      expect((await foto(order.id, 1000, dono)).statusCode).toBe(201);
+
+      // o envio que começou agora conta: é espaço reservado
+      await ocupar(dono, order.id, cheio, 'PENDING_UPLOAD');
+      expect((await foto(order.id, 1000, dono)).statusCode).toBe(402);
+    });
+
+    it('a tela de plano mostra quanto a oficina usa e o teto', async () => {
+      const dono = await oficinaNoPlano('TURBO');
+      await ocupar(dono, (await novaOS(dono)).id, 3 * MB);
+      const plano = await get('/api/v1/billing', dono);
+      expect(plano.statusCode, plano.body).toBe(200);
+      expect(plano.json().usage).toMatchObject({ storageBytes: 3 * MB, storageMb: 5120 });
+    });
+  });
 });

@@ -66,6 +66,10 @@ export const billingOverviewSchema = z.object({
     maxUsers: z.number().int().nullable(),
     workOrdersThisMonth: z.number().int(),
     maxWorkOrdersPerMonth: z.number().int().nullable(),
+    /** fotos, documentos e vídeos no servidor (E46) */
+    storageBytes: z.number().int(),
+    /** o teto do plano; null = sem teto */
+    storageMb: z.number().int().nullable(),
   }),
   plans: z.array(planSchema),
   payments: z.array(subscriptionPaymentSchema),

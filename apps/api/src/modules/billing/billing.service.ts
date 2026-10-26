@@ -24,6 +24,7 @@ import type { Tx } from '../../db/tenant';
 import type { AvisoDeCobranca } from '../../integrations/payments';
 import { countSeats as contarVagas } from '../members/members.repository';
 import * as orgRepo from '../organizations/organizations.repository';
+import { storageUsedBytes } from '../uploads/uploads.repository';
 import * as repo from './billing.repository';
 
 const inicioDoMes = (): Date => {
@@ -69,6 +70,7 @@ export class BillingService {
     const planoAtual = await repo.findPlanById(tx, assinatura.planId);
     const lista = await repo.listPlans(tx);
     const uso = await repo.usage(tx, organizationId, inicioDoMes());
+    const espaco = await storageUsedBytes(tx, organizationId);
     const pagamentos = await repo.listPayments(tx, organizationId);
     const situacao = situacaoDaAssinatura(assinatura);
 
@@ -111,6 +113,8 @@ export class BillingService {
         maxUsers: planoAtual?.limits.maxUsers ?? null,
         workOrdersThisMonth: uso.workOrdersThisMonth,
         maxWorkOrdersPerMonth: planoAtual?.limits.maxWorkOrdersPerMonth ?? null,
+        storageBytes: espaco,
+        storageMb: planoAtual?.limits.storageMb ?? null,
       },
       plans: planos,
       payments: pagamentos.map((pagamento) => ({

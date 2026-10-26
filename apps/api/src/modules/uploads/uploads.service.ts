@@ -13,6 +13,7 @@ import { AppError, notFound, validationFailed } from '../../core/errors';
 import { blankToNull } from '../../core/normalize';
 import type { ByteRange, StorageAction } from '../../integrations/storage/storage';
 import { withTenant } from '../../db/tenant';
+import { assertCabeNoEspaco } from './storage-quota';
 import * as repo from './uploads.repository';
 import type { VideoProcessor, VideosService } from './videos.service';
 
@@ -52,6 +53,7 @@ export class UploadsService {
     const key = `${auth.organizationId}/${input.workOrderId ?? input.vehicleId ?? 'geral'}/${attachmentId}.${EXTENSIONS[input.mimeType] ?? 'bin'}`;
 
     const row = await withTenant(this.deps.db, auth, async (tx) => {
+      await assertCabeNoEspaco(tx, auth.organizationId, input.sizeBytes);
       const created = await repo.insertAttachment(tx, {
         id: attachmentId,
         organizationId: auth.organizationId,

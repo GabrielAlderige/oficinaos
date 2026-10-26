@@ -17,6 +17,8 @@ import { notFound } from '../../core/errors';
 import { workOrders } from '../../db/schema';
 import { withTenant, withTrackingToken } from '../../db/tenant';
 import * as orgRepo from '../organizations/organizations.repository';
+import { linkDeBaixar } from '../uploads/uploads.service';
+import { listCustomerVideosForWorkOrder } from '../uploads/uploads.repository';
 import * as repo from './work-orders.repository';
 
 const novoToken = () => randomBytes(24).toString('base64url');
@@ -124,6 +126,10 @@ export class TrackingService {
         };
       });
 
+      // o vídeo do defeito (E46): quem abre o acompanhamento e não o orçamento
+      // — o marido, a esposa, o dono da frota — também vê o que a oficina viu
+      const videos = await listCustomerVideosForWorkOrder(tx, alvo.organizationId, alvo.id);
+
       const aprovado = order.approvedTotalCents > 0 ? order.approvedTotalCents : null;
       return {
         shopName: oficina?.name ?? 'Oficina',
@@ -138,6 +144,19 @@ export class TrackingService {
         steps,
         approvedTotalCents: aprovado,
         balanceCents: aprovado === null ? null : saldoCents({ ...order, approvedTotalCents: devidoCents(order) }),
+        videos: videos.map((video, indice) => {
+          const url = this.deps.storage.signDownload(video.storageKey).url;
+          return {
+            id: video.id,
+            url,
+            posterUrl: video.posterStorageKey ? this.deps.storage.signDownload(video.posterStorageKey).url : null,
+            downloadUrl: linkDeBaixar(url, `video-os-${order.number}-${indice + 1}.mp4`),
+            caption: video.caption,
+            itemDescription: video.itemDescription,
+            durationSeconds: video.durationSeconds,
+            expiresAt: video.expiresAt?.toISOString() ?? null,
+          };
+        }),
       };
     });
   }

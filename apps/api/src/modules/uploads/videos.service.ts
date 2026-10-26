@@ -7,6 +7,7 @@ import { blankToNull } from '../../core/normalize';
 import { type Tx, withJobRunner, withTenant } from '../../db/tenant';
 import type { VideoTranscoder } from '../../integrations/video/transcoder';
 import { activeOrganizations } from '../automations/automations.repository';
+import { assertCabeNoEspaco } from './storage-quota';
 import * as repo from './uploads.repository';
 
 const DIA_MS = 24 * 60 * 60 * 1000;
@@ -64,6 +65,7 @@ export class VideosService {
       ) {
         throw validationFailed([{ path: 'body.workOrderItemId', message: 'Este item não é desta OS' }]);
       }
+      await assertCabeNoEspaco(tx, auth.organizationId, input.sizeBytes);
       const created = await repo.insertAttachment(tx, {
         id,
         organizationId: auth.organizationId,

@@ -150,6 +150,12 @@ function Conteudo({ dados }: { dados: BillingOverview }) {
             valor={dados.usage.workOrdersThisMonth}
             teto={dados.usage.maxWorkOrdersPerMonth}
           />
+          <Uso
+            rotulo="Fotos e vídeos guardados"
+            valor={dados.usage.storageBytes}
+            teto={dados.usage.storageMb === null ? null : dados.usage.storageMb * MB}
+            formatar={formatarEspaco}
+          />
           {dados.trabalhaAte && !dados.bloqueada && (
             <p className="text-sm text-muted sm:col-span-2">
               {dados.status === 'CANCELED'
@@ -256,6 +262,9 @@ function Conteudo({ dados }: { dados: BillingOverview }) {
                       ? 'OS ilimitadas'
                       : `Até ${plano.limits.maxWorkOrdersPerMonth} OS por mês`}
                   </li>
+                  {plano.limits.storageMb !== null && (
+                    <li className="text-muted">{formatarEspaco(plano.limits.storageMb * MB)} de fotos e vídeos</li>
+                  )}
                   {plano.features.map((recurso) => (
                     <li key={recurso} className="flex items-center gap-1.5">
                       <Check className="size-3.5 text-success" aria-hidden="true" />
@@ -397,15 +406,33 @@ function Conteudo({ dados }: { dados: BillingOverview }) {
   );
 }
 
-function Uso({ rotulo, valor, teto }: { rotulo: string; valor: number; teto: number | null }) {
+const MB = 1024 * 1024;
+
+/** "320 MB", "4,8 GB" (E46) */
+function formatarEspaco(bytes: number): string {
+  if (bytes < 1024 * MB) return `${Math.round(bytes / MB)} MB`;
+  return `${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 }).format(bytes / (1024 * MB))} GB`;
+}
+
+function Uso({
+  rotulo,
+  valor,
+  teto,
+  formatar = String,
+}: {
+  rotulo: string;
+  valor: number;
+  teto: number | null;
+  formatar?: (valor: number) => string;
+}) {
   const proporcao = teto === null ? 0 : Math.min(100, Math.round((valor / teto) * 100));
   return (
     <div>
       <p className="flex justify-between text-sm">
         <span className="text-muted">{rotulo}</span>
         <span className="tabular-nums">
-          {valor}
-          {teto !== null && ` de ${teto}`}
+          {formatar(valor)}
+          {teto !== null && ` de ${formatar(teto)}`}
         </span>
       </p>
       {teto !== null && (

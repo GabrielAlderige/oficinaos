@@ -88,6 +88,8 @@ export function TrackingPage({ token }: { token: string }) {
         ))}
       </ol>
 
+      {dados.videos.length > 0 && <Videos videos={dados.videos} />}
+
       {dados.approvedTotalCents !== null && (
         <dl className="rounded-lg border border-border bg-surface px-4 py-3 text-sm">
           <div className="flex justify-between">
@@ -115,6 +117,53 @@ export function TrackingPage({ token }: { token: string }) {
       )}
       <p className="mt-4 text-center text-xs text-muted">Esta página atualiza sozinha sempre que você abrir.</p>
     </main>
+  );
+}
+
+/** Quantos dias o vídeo fica depois da resposta: o mesmo `VIDEO_RETENTION_DAYS` da API. */
+const DIAS_DO_VIDEO = 7;
+
+/**
+ * Os vídeos do defeito (E46), os mesmos do orçamento. `playsInline` segura o
+ * iPhone na página (sem ele, abre em tela cheia); a capa evita o quadro preto
+ * do Safari antes do play.
+ */
+function Videos({ videos }: { videos: PublicTracking['videos'] }) {
+  return (
+    <section className="mb-6">
+      <h2 className="text-base font-semibold">O que a oficina viu no seu carro</h2>
+      <ul className="mt-3 space-y-4">
+        {videos.map((video) => (
+          <li key={video.id} className="rounded-lg border border-border bg-surface p-3">
+            <video
+              controls
+              playsInline
+              preload="metadata"
+              poster={video.posterUrl ?? undefined}
+              src={video.url}
+              className="max-h-[60vh] w-full rounded-md bg-black object-contain"
+            />
+            {(video.caption || video.itemDescription) && (
+              <p className="mt-2 text-sm">
+                {video.caption && <span className="font-medium">{video.caption}</span>}
+                {video.caption && video.itemDescription && ' · '}
+                {video.itemDescription && <span className="text-muted">{video.itemDescription}</span>}
+              </p>
+            )}
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs text-muted">
+                {video.expiresAt
+                  ? `Disponível até ${formatarData(video.expiresAt)}`
+                  : `Fica disponível por ${DIAS_DO_VIDEO} dias depois que você responder o orçamento`}
+              </span>
+              <a href={video.downloadUrl} download className="rounded-md border border-border px-3 py-2 text-sm font-medium">
+                Baixar vídeo
+              </a>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

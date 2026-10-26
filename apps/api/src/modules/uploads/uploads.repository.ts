@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, lte, or } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 import { VIDEO_UNANSWERED_DAYS } from '@oficinaos/shared';
 import { attachments, quoteAttachments, workOrderItems, workOrders } from '../../db/schema';
 import type { Tx } from '../../db/tenant';
@@ -162,4 +162,62 @@ export async function workOrderExists(tx: Tx, organizationId: string, workOrderI
     .where(and(eq(workOrders.organizationId, organizationId), eq(workOrders.id, workOrderId)))
     .limit(1);
   return Boolean(row);
+}
+
+// ------------------------- espaço do plano (E46) -------------------------
+
+/**
+ * Quanto a oficina ocupa no servidor, em bytes: fotos, documentos e vídeos que
+ * existem. O vídeo convertendo conta pelo original (é o que está no disco). O
+ * envio que começou há menos de um dia conta também — é espaço reservado; o
+ * que ficou parado mais que isso foi abandonado e não pesa para sempre.
+ * Apagado, vencido e o que falhou não contam.
+ */
+export async function storageUsedBytes(tx: Tx, organizationId: string, agora = new Date()) {
+  const envioRecente = new Date(agora.getTime() - DIA_MS);
+  const [row] = await tx
+    .select({ total: sql<string>`coalesce(sum(${attachments.sizeBytes}), 0)` })
+    .from(attachments)
+    .where(
+      and(
+        alive(organizationId),
+        or(
+          inArray(attachments.status, ['READY', 'PROCESSING']),
+          and(eq(attachments.status, 'PENDING_UPLOAD'), gt(attachments.createdAt, envioRecente)),
+        ),
+      ),
+    );
+  return Number(row?.total ?? 0);
+}
+
+/**
+ * Os vídeos que o cliente vê na página "acompanhar" (E46): os prontos que a
+ * oficina deixou marcados para ele, do mais antigo ao mais novo.
+ */
+export function listCustomerVideosForWorkOrder(tx: Tx, organizationId: string, workOrderId: string) {
+  return tx
+    .select({
+      id: attachments.id,
+      storageKey: attachments.storageKey,
+      posterStorageKey: attachments.posterStorageKey,
+      caption: attachments.caption,
+      durationSeconds: attachments.durationSeconds,
+      expiresAt: attachments.expiresAt,
+      itemDescription: workOrderItems.description,
+    })
+    .from(attachments)
+    .leftJoin(
+      workOrderItems,
+      and(eq(workOrderItems.organizationId, attachments.organizationId), eq(workOrderItems.id, attachments.workOrderItemId)),
+    )
+    .where(
+      and(
+        alive(organizationId),
+        eq(attachments.workOrderId, workOrderId),
+        eq(attachments.kind, 'VIDEO'),
+        eq(attachments.status, 'READY'),
+        eq(attachments.visibleToCustomer, true),
+      ),
+    )
+    .orderBy(attachments.createdAt);
 }

@@ -7,7 +7,7 @@ import {
   type VideoUploadMimeType,
   type WorkOrder,
 } from '@oficinaos/shared';
-import { Download, Images, Lock, Trash2, Video } from 'lucide-react';
+import { Download, Images, Lock, Share2, Trash2, Video } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
@@ -55,6 +55,67 @@ function lerDuracao(arquivo: File): Promise<number | null> {
 /** Celular e tablet: a câmera abre direto. Computador: só escolher o arquivo. */
 const temCamera = () => typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
 
+/**
+ * O aparelho manda ARQUIVO de vídeo pela folha de compartilhar (WhatsApp,
+ * Telegram, e-mail)? Celular Android e iPhone sim; boa parte dos navegadores
+ * de computador não — lá fica só o "Baixar".
+ */
+function podeCompartilharVideo(): boolean {
+  try {
+    return (
+      typeof navigator !== 'undefined' &&
+      typeof navigator.canShare === 'function' &&
+      navigator.canShare({ files: [new File([], 'video.mp4', { type: 'video/mp4' })] })
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Manda o vídeo como ARQUIVO pelo WhatsApp (E46): o cliente recebe o vídeo na
+ * conversa e assiste ali, sem abrir link — e ele fica no celular dele depois
+ * que o servidor apaga.
+ *
+ * O arquivo é baixado no toque. O Safari só abre a folha de compartilhar logo
+ * depois de um toque: se o download demorar e ele recusar (`NotAllowedError`),
+ * o arquivo já está em mãos e o botão pede um segundo toque, que abre na hora.
+ */
+function CompartilharVideo({ video, nome }: { video: Attachment; nome: string }) {
+  const [estado, setEstado] = useState<'ocioso' | 'baixando' | 'pronto'>('ocioso');
+  const arquivo = useRef<File | null>(null);
+
+  async function compartilhar() {
+    try {
+      if (!arquivo.current) {
+        setEstado('baixando');
+        const resposta = await fetch(video.url!);
+        if (!resposta.ok) throw new Error(`download ${resposta.status}`);
+        arquivo.current = new File([await resposta.blob()], nome, { type: 'video/mp4' });
+      }
+      setEstado('ocioso');
+      await navigator.share({ files: [arquivo.current], ...(video.caption ? { text: video.caption } : {}) });
+    } catch (erro) {
+      // fechou a folha sem escolher ninguém
+      if (erro instanceof DOMException && erro.name === 'AbortError') return setEstado('ocioso');
+      if (erro instanceof DOMException && erro.name === 'NotAllowedError' && arquivo.current) {
+        setEstado('pronto');
+        toast.info('Vídeo pronto. Toque em "Enviar agora".');
+        return;
+      }
+      setEstado('ocioso');
+      toast.error('Não deu para compartilhar o vídeo. Use "Baixar" e mande pelo WhatsApp.');
+    }
+  }
+
+  return (
+    <Button size="sm" variant="ghost" loading={estado === 'baixando'} onClick={() => void compartilhar()}>
+      <Share2 />
+      {estado === 'pronto' ? 'Enviar agora' : 'WhatsApp'}
+    </Button>
+  );
+}
+
 function prazoDoVideo(video: Attachment): string {
   if (video.status === 'EXPIRED') {
     return video.expiresAt
@@ -81,6 +142,7 @@ export function VideosCard({ order, canWrite, editable }: { order: WorkOrder; ca
 
   const videos = (anexos.data ?? []).filter((anexo) => anexo.kind === 'VIDEO');
   const podeGravar = temNoPlano && canWrite && editable;
+  const [compartilha] = useState(podeCompartilharVideo);
 
   async function escolher(arquivos: FileList | null) {
     const file = arquivos?.[0];
@@ -227,6 +289,9 @@ export function VideosCard({ order, canWrite, editable }: { order: WorkOrder; ca
                     )}
                   </div>
                   <span className="flex gap-1">
+                    {video.status === 'READY' && video.url && compartilha && (
+                      <CompartilharVideo video={video} nome={`video-os-${order.number}.mp4`} />
+                    )}
                     {video.downloadUrl && (
                       <Button asChild size="sm" variant="ghost">
                         <a href={video.downloadUrl} download>
