@@ -137,6 +137,9 @@ export function useInspections(id: string) {
     queryKey: workOrderKeys.inspections(id),
     queryFn: async () => (await api<{ data: Inspection[] }>(`/work-orders/${id}/inspections`)).data,
     enabled: Boolean(id),
+    // o vídeo da entrada (E47) convertendo: pergunta de novo até ficar pronto
+    refetchInterval: (query) =>
+      query.state.data?.some((inspecao) => inspecao.videos.some((video) => video.status === 'PROCESSING')) ? 4000 : false,
   });
 }
 
@@ -278,6 +281,8 @@ export function useCreateInspection(id: string, number: number) {
       api<Inspection>(`/work-orders/${id}/inspections`, { method: 'POST', json: body }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: workOrderKeys.inspections(id) });
+      // as fotos e o vídeo da entrada (E47) deixam o cartão do defeito
+      void queryClient.invalidateQueries({ queryKey: workOrderKeys.attachments(id) });
       void queryClient.invalidateQueries({ queryKey: workOrderKeys.timeline(id) });
       // o check-in atualiza o km da OS e do veículo
       void queryClient.invalidateQueries({ queryKey: workOrderKeys.detail(number) });

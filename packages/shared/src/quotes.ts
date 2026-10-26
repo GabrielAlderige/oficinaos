@@ -88,6 +88,22 @@ export function quoteValidUntil(from: Date, days: number): Date {
 }
 
 /**
+ * A frase que conta que o orçamento tem foto ou vídeo do defeito (E47). Sem
+ * ela o cliente lê o preço na conversa e decide antes de abrir o link — e o
+ * vídeo, que é o que convence, fica sem ser visto.
+ */
+export function fraseDaMidia(midia: { fotos: number; videos: number } | undefined): string | null {
+  if (!midia) return null;
+  const { fotos, videos } = midia;
+  if (videos > 0 && fotos > 0) {
+    return `Gravamos ${videos > 1 ? 'vídeos' : 'um vídeo'} e tiramos fotos do que encontramos no carro. Está tudo no link.`;
+  }
+  if (videos > 0) return `Gravamos ${videos > 1 ? 'vídeos' : 'um vídeo'} mostrando o que encontramos no carro. Assista no link.`;
+  if (fotos > 0) return `Tiramos ${fotos > 1 ? 'fotos' : 'uma foto'} do que encontramos no carro. Veja no link.`;
+  return null;
+}
+
+/**
  * Mensagem pronta do WhatsApp (a oficina revisa antes de enviar). Curta de
  * propósito: mensagem grande no celular esconde o link.
  */
@@ -97,12 +113,16 @@ export function whatsappQuoteMessage(input: {
   vehicle: { make: string; model: string; plate: string | null };
   totalCents: number;
   link: string;
+  /** quantas fotos e vídeos do defeito o orçamento leva (E47) */
+  midia?: { fotos: number; videos: number };
 }): string {
   const firstName = input.customerName.trim().split(/\s+/)[0] ?? input.customerName;
   const plate = input.vehicle.plate ? ` (${formatPlate(input.vehicle.plate)})` : '';
+  const midia = fraseDaMidia(input.midia);
   return [
     `Olá, ${firstName}! Aqui é da ${input.shopName}.`,
     `Preparamos o orçamento do seu ${input.vehicle.make} ${input.vehicle.model}${plate}: ${formatBRL(input.totalCents)}.`,
+    ...(midia ? [midia] : []),
     'Você pode ver os itens e aprovar por aqui:',
     input.link,
   ].join('\n\n');

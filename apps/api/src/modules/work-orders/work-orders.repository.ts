@@ -362,8 +362,10 @@ export function listInspections(tx: Tx, organizationId: string, workOrderId: str
 }
 
 /**
- * Os anexos de uma inspeção (E28): a assinatura e as fotos da entrega. Só o
- * que terminou de subir — anexo pendente é arquivo que ainda não existe.
+ * Os anexos de uma inspeção (E28): a assinatura e as fotos da entrega, e as
+ * fotos e o vídeo da entrada (E47). Só o que terminou de subir — anexo
+ * pendente é arquivo que ainda não existe. O vídeo vem também convertendo
+ * (a tela diz "preparando") e depois de apagado (a tela diz quando).
  */
 export function listInspectionAttachments(tx: Tx, organizationId: string, inspectionIds: string[]) {
   return tx
@@ -373,11 +375,44 @@ export function listInspectionAttachments(tx: Tx, organizationId: string, inspec
       and(
         eq(attachments.organizationId, organizationId),
         inArray(attachments.inspectionId, inspectionIds),
-        eq(attachments.status, 'READY'),
+        or(
+          eq(attachments.status, 'READY'),
+          and(eq(attachments.kind, 'VIDEO'), inArray(attachments.status, ['PROCESSING', 'EXPIRED', 'FAILED'])),
+        ),
         isNull(attachments.deletedAt),
       ),
     )
     .orderBy(asc(attachments.createdAt));
+}
+
+/**
+ * Fotos e vídeo da entrada (E47) presos ao check-in que acabou de nascer.
+ * Mais rígido que o da entrega: só o que subiu NESTA OS, foto ou vídeo, e
+ * que ainda não é de outra inspeção. E deixa de ir para o cliente: é prova
+ * da oficina, não foto do defeito.
+ */
+export async function attachCheckInMedia(
+  tx: Tx,
+  organizationId: string,
+  workOrderId: string,
+  inspectionId: string,
+  attachmentIds: string[],
+) {
+  if (!attachmentIds.length) return [];
+  return tx
+    .update(attachments)
+    .set({ inspectionId, visibleToCustomer: false })
+    .where(
+      and(
+        eq(attachments.organizationId, organizationId),
+        eq(attachments.workOrderId, workOrderId),
+        inArray(attachments.id, attachmentIds),
+        inArray(attachments.kind, ['PHOTO', 'VIDEO']),
+        isNull(attachments.inspectionId),
+        isNull(attachments.deletedAt),
+      ),
+    )
+    .returning({ id: attachments.id });
 }
 
 /** Pendura anexos já enviados na inspeção que acabou de nascer. */

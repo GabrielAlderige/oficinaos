@@ -1,4 +1,6 @@
 import {
+  type Attachment,
+  CHECKIN_VIDEO_RETENTION_DAYS,
   DISCOUNT_MODES,
   formatBRL,
   formatBRLInput,
@@ -26,6 +28,7 @@ import { Alert, Badge, Card, CardHeader, PageHeader, Skeleton } from '../../comp
 import { Field, fieldA11y, Select } from '../../components/ui/field';
 import { AdornedInput, Input, Textarea } from '../../components/ui/input';
 import { ConfirmDialog, Dialog, DialogContent, DialogFooter, DialogHeader } from '../../components/ui/overlays';
+import { Spinner } from '../../components/ui/spinner';
 import { cn } from '../../lib/cn';
 import { errorMessage } from '../../lib/errors';
 import { formatDate, formatDateTime } from '../../lib/format';
@@ -793,6 +796,51 @@ function TimelineCard({ order, canWrite }: { order: WorkOrder; canWrite: boolean
 }
 
 /**
+ * O vídeo da volta no carro na entrada (E47): a prova de como ele chegou.
+ * Vale enquanto o carro está na oficina e até 30 dias depois da entrega.
+ */
+function VideoDaEntrada({ video }: { video: Attachment }) {
+  return (
+    <figure className="mt-3">
+      {video.status === 'READY' && video.url ? (
+        <video
+          controls
+          playsInline
+          preload="metadata"
+          poster={video.posterUrl ?? undefined}
+          src={video.url}
+          aria-label="Vídeo da entrada do carro"
+          className="max-h-72 w-full rounded-lg bg-black object-contain"
+        />
+      ) : (
+        <div className="flex items-center gap-3 rounded-lg border border-border bg-surface-muted px-4 py-4 text-sm text-muted">
+          {video.status === 'PROCESSING' && <Spinner />}
+          {video.status === 'PROCESSING'
+            ? 'Preparando o vídeo da entrada…'
+            : video.status === 'EXPIRED'
+              ? `Vídeo da entrada apagado do servidor${video.expiresAt ? ` em ${formatDate(video.expiresAt)}` : ''}.`
+              : 'Não deu para preparar o vídeo da entrada.'}
+        </div>
+      )}
+      {video.status !== 'EXPIRED' && (
+        <figcaption className="mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
+          <span>
+            {video.expiresAt
+              ? `Guardado até ${formatDate(video.expiresAt)}.`
+              : `Guardado até ${CHECKIN_VIDEO_RETENTION_DAYS} dias depois da entrega do carro.`}
+          </span>
+          {video.downloadUrl && (
+            <a href={video.downloadUrl} download className="font-medium text-accent hover:underline">
+              Baixar
+            </a>
+          )}
+        </figcaption>
+      )}
+    </figure>
+  );
+}
+
+/**
  * Check-in na entrada e comprovante de entrega (E28) na mesma lista: as duas
  * coisas respondem à mesma pergunta — como o carro estava quando trocou de mão.
  */
@@ -846,7 +894,7 @@ function InspectionsCard({ order }: { order: WorkOrder }) {
                       <a href={foto.url ?? undefined} target="_blank" rel="noopener noreferrer">
                         <img
                           src={foto.url ?? undefined}
-                          alt={`Foto ${indice + 1} do veículo na entrega`}
+                          alt={`Foto ${indice + 1} do veículo ${entrega ? 'na entrega' : 'na entrada'}`}
                           className="size-16 rounded-md border border-border object-cover"
                         />
                       </a>
@@ -854,6 +902,10 @@ function InspectionsCard({ order }: { order: WorkOrder }) {
                   ))}
                 </ul>
               )}
+
+              {inspection.videos.map((video) => (
+                <VideoDaEntrada key={video.id} video={video} />
+              ))}
             </li>
           );
         })}

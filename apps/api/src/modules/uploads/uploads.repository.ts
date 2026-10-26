@@ -107,7 +107,14 @@ export function listVideosToPurge(tx: Tx, organizationId: string, agora: Date) {
         eq(attachments.kind, 'VIDEO'),
         or(
           and(eq(attachments.status, 'READY'), lte(attachments.expiresAt, agora)),
-          and(eq(attachments.status, 'READY'), isNull(attachments.expiresAt), lte(attachments.createdAt, semResposta)),
+          // o vídeo da ENTRADA (E47) não segue esta regra: vale enquanto o
+          // carro está na oficina, e o prazo dele nasce na entrega
+          and(
+            eq(attachments.status, 'READY'),
+            isNull(attachments.expiresAt),
+            isNull(attachments.inspectionId),
+            lte(attachments.createdAt, semResposta),
+          ),
           and(eq(attachments.status, 'PENDING_UPLOAD'), lte(attachments.createdAt, envioAbandonado)),
         ),
       ),
@@ -135,6 +142,25 @@ export async function setVideoDeadlineForQuote(tx: Tx, organizationId: string, q
             .from(quoteAttachments)
             .where(and(eq(quoteAttachments.organizationId, organizationId), eq(quoteAttachments.quoteId, quoteId))),
         ),
+      ),
+    );
+}
+
+/**
+ * Entregue ou cancelada: o vídeo da entrada (E47) ganha o prazo dele. Só quem
+ * ainda não tem — uma OS reaberta e entregue de novo não estica o prazo.
+ */
+export async function setCheckinVideoDeadline(tx: Tx, organizationId: string, workOrderId: string, expiresAt: Date) {
+  await tx
+    .update(attachments)
+    .set({ expiresAt })
+    .where(
+      and(
+        alive(organizationId),
+        eq(attachments.workOrderId, workOrderId),
+        eq(attachments.kind, 'VIDEO'),
+        sql`${attachments.inspectionId} is not null`,
+        isNull(attachments.expiresAt),
       ),
     );
 }
@@ -217,6 +243,8 @@ export function listCustomerVideosForWorkOrder(tx: Tx, organizationId: string, w
         eq(attachments.kind, 'VIDEO'),
         eq(attachments.status, 'READY'),
         eq(attachments.visibleToCustomer, true),
+        // o vídeo da entrada é prova da oficina, não do defeito
+        isNull(attachments.inspectionId),
       ),
     )
     .orderBy(attachments.createdAt);

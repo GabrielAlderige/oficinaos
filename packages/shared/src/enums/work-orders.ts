@@ -303,3 +303,9 @@ export type AttachmentStatus = (typeof ATTACHMENT_STATUSES)[number];
 export const VIDEO_MAX_SECONDS = 60;
 export const VIDEO_RETENTION_DAYS = 7;
 export const VIDEO_UNANSWERED_DAYS = 30;
+/**
+ * Vídeo da ENTRADA do carro (check-in): é a prova de como o carro chegou, e
+ * vale enquanto o carro está na oficina e um pouco depois. Fica até 30 dias
+ * depois de a OS ser entregue ou cancelada.
+ */
+export const CHECKIN_VIDEO_RETENTION_DAYS = 30;

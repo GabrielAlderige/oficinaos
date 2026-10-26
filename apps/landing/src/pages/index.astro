@@ -52,7 +52,7 @@ const passos = [
     titulo: 'Você monta o orçamento',
     texto:
       'Serviços e peças do seu catálogo, com o total recalculando ao vivo. Marque o que é necessário e o que é recomendado.',
-    detalhe: 'Anexe a foto da peça gasta: ela vende sozinha.',
+    detalhe: 'Anexe a foto ou o vídeo da peça gasta: ele vende sozinho.',
   },
   {
     numero: '03',
@@ -72,8 +72,8 @@ const passos = [
 
 /** Só o que TEM tela hoje. Fornecedores e compras ficaram para depois. */
 const modulos = [
-  { titulo: 'Ordem de serviço', texto: 'Check-in com fotos, itens com total ao vivo, trilha do próximo passo e impressão.' },
-  { titulo: 'Orçamento por link', texto: 'Aprovação parcial, prova de quem autorizou, orçamento complementar.' },
+  { titulo: 'Ordem de serviço', texto: 'Check-in com fotos e vídeo da volta no carro, itens com total ao vivo, trilha do próximo passo e impressão.' },
+  { titulo: 'Orçamento por link', texto: 'Aprovação parcial, prova de quem autorizou, foto e vídeo do defeito.' },
   { titulo: 'Agenda', texto: 'Dia, semana e mês, uma coluna por mecânico, aviso de conflito e check-in que abre a OS.' },
   { titulo: 'Estoque', texto: 'Custo médio, reserva na aprovação, baixa na finalização e alerta de mínimo.' },
   { titulo: 'Ficha do carro', texto: 'Óleo, torque, fluido e pneu — com a página do manual de onde o valor saiu.' },
@@ -177,6 +177,10 @@ const perguntas = [
     a: 'Não. Relatórios, clientes e financeiro saem em planilha a qualquer momento. E se você atrasar o pagamento, o sistema trava a escrita mas **nunca a leitura**: seus dados continuam visíveis e exportáveis.',
   },
   {
+    q: 'Como funciona o vídeo do defeito?',
+    a: 'O mecânico grava pelo celular (até 60 segundos) ou escolhe um vídeo da galeria. O sistema prepara o vídeo para tocar em qualquer aparelho, iPhone ou Android, e ele aparece no link do orçamento e na página de acompanhar o carro. Também dá para mandar o arquivo direto no WhatsApp do cliente. O vídeo fica guardado até **7 dias depois da resposta do cliente** e então sai do servidor: quem quiser guardar, baixa antes. Está nos planos Supercharger e Nitro. Já a foto com círculo e seta no defeito vale para todos os planos.',
+  },
+  {
     q: 'Como funciona o teste grátis?',
     a: 'São **30 dias no plano Nitro**, o mais completo, sem cartão. Eles só começam a contar quando o sistema está funcionando: no dia da implantação ou no primeiro orçamento que você mandar. Se nada disso acontecer, o teste começa sozinho 15 dias depois do cadastro. No fim, você escolhe o plano — ou não, e não paga nada.',
   },
@@ -234,6 +238,7 @@ const perguntas = [
         </span>
         <nav class="hidden items-center gap-6 text-sm text-muted md:flex" aria-label="Seções">
           <a class="hover:text-foreground" href="#como-funciona">Como funciona</a>
+          <a class="hover:text-foreground" href="#video">Vídeo do defeito</a>
           <a class="hover:text-foreground" href="#recursos">Recursos</a>
           <a class="hover:text-foreground" href="#ficha">Ficha do carro</a>
           <a class="hover:text-foreground" href="#oficina-pronta">Implantação grátis</a>
@@ -372,6 +377,71 @@ const perguntas = [
             ))
           }
         </ol>
+      </section>
+
+      <!-- ============== VÍDEO DO DEFEITO (E45/E46) ==============
+           o vídeo do celular é de EXEMPLO (gerado por computador) e a legenda diz isso:
+           nada de dado fictício apresentado como real -->
+      <section id="video" class="border-y border-border bg-surface scroll-mt-20">
+        <div class="mx-auto grid max-w-6xl items-center gap-12 px-5 py-16 lg:grid-cols-[1.1fr_.9fr]">
+          <div class="reveal">
+            <p class="text-xs font-semibold tracking-widest text-accent uppercase">Vídeo do defeito</p>
+            <h2 class="mt-3 text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
+              O cliente vê o que você viu, antes de ver o preço
+            </h2>
+            <p class="mt-4 text-muted">
+              O mecânico grava 15 segundos da pastilha no fim, do vazamento, da folga na suspensão.
+              O vídeo vai junto no link do orçamento, logo acima dos itens, e o cliente entende o
+              que o carro tem <strong class="text-foreground">sem precisar vir até a oficina</strong>.
+            </p>
+            <ul class="mt-6 grid gap-3 text-sm">
+              <li class="flex items-start gap-2.5 rounded-lg border border-border bg-background p-3">
+                <span class="mt-0.5 text-accent">✓</span> Grava pela câmera do celular ou escolhe da galeria, até 60 segundos
+              </li>
+              <li class="flex items-start gap-2.5 rounded-lg border border-border bg-background p-3">
+                <span class="mt-0.5 text-accent">✓</span> Toca em iPhone e Android, no orçamento e na página de acompanhar o carro
+              </li>
+              <li class="flex items-start gap-2.5 rounded-lg border border-border bg-background p-3">
+                <span class="mt-0.5 text-accent">✓</span> Um toque manda o arquivo direto no WhatsApp do cliente
+              </li>
+              <li class="flex items-start gap-2.5 rounded-lg border border-border bg-background p-3">
+                <span class="mt-0.5 text-accent">✓</span> Na foto, circula ou aponta com seta o defeito e grava a explicação falando por cima
+              </li>
+              <li class="flex items-start gap-2.5 rounded-lg border border-border bg-background p-3">
+                <span class="mt-0.5 text-accent">✓</span> Sai do servidor 7 dias depois da resposta: o cliente pode baixar antes
+              </li>
+            </ul>
+            <p class="mt-4 text-sm text-muted">Nos planos Supercharger e Nitro.</p>
+          </div>
+          <div class="reveal justify-self-center" style="--atraso:.12s">
+            <div class="celular">
+              <div class="celular-tela video-tela">
+                <div class="zap-topo">
+                  <span class="size-6 rounded-full bg-accent"></span>
+                  <span class="text-[11px] font-medium">Orçamento nº 128 · Gol 2015</span>
+                </div>
+                <div class="p-3">
+                  <p class="text-[13px] font-bold text-[#1c1c1a]">O que a oficina viu no seu carro</p>
+                  <video
+                    id="video-exemplo"
+                    class="mt-2 aspect-[9/16] w-full rounded-lg bg-black object-cover"
+                    src="/video-exemplo.mp4"
+                    poster="/video-exemplo.jpg"
+                    muted
+                    loop
+                    playsinline
+                    preload="none"
+                    aria-label="Vídeo de exemplo: disco de freio riscado e pastilha gasta"
+                  ></video>
+                  <p class="mt-2 text-[11px] text-[#1c1c1a]"><b>Disco riscado e pastilha no fim</b> · Troca de pastilhas</p>
+                </div>
+              </div>
+            </div>
+            <p class="mt-3 max-w-xs text-center text-xs text-muted">
+              Vídeo de exemplo, gerado por computador. Na sua oficina, é o carro do seu cliente.
+            </p>
+          </div>
+        </div>
       </section>
 
       <!-- ============== NÚMEROS REAIS ============== -->
@@ -882,6 +952,20 @@ const perguntas = [
             { rootMargin: '0px 0px -10% 0px', threshold: 0.1 },
           );
           alvos.forEach(function (el) { obs.observe(el); });
+        }
+
+        /* o vídeo de exemplo toca só enquanto aparece (e não baixa nada antes).
+           Quem pediu menos movimento ganha os controles e aperta o play se quiser. */
+        var video = document.getElementById('video-exemplo');
+        if (video) {
+          if (semAnimacao || !('IntersectionObserver' in window)) {
+            video.controls = true;
+          } else {
+            new IntersectionObserver(function (entradas) {
+              if (entradas[0].isIntersecting) { video.play().catch(function () { video.controls = true; }); }
+              else { video.pause(); }
+            }, { threshold: 0.4 }).observe(video);
+          }
         }
 
         /* os números contam ao entrar na tela */

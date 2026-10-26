@@ -262,8 +262,35 @@ export function listVisibleWorkOrderAttachments(tx: Tx, organizationId: string, 
         // assim que fica pronto, sem a oficina reenviar o orçamento (E45)
         inArray(attachments.status, ['READY', 'PROCESSING']),
         isNull(attachments.deletedAt),
+        // foto e vídeo do check-in são prova da oficina, não do defeito (E47)
+        isNull(attachments.inspectionId),
       ),
     );
+}
+
+/**
+ * Quantas fotos e vídeos o orçamento leva (E47): é o que a mensagem do
+ * WhatsApp conta ao cliente. O vídeo convertendo conta — ele aparece no link
+ * assim que fica pronto.
+ */
+export async function countQuoteMedia(tx: Tx, quoteId: string) {
+  const rows = await tx
+    .select({ kind: attachments.kind, total: count() })
+    .from(quoteAttachments)
+    .innerJoin(
+      attachments,
+      and(eq(attachments.organizationId, quoteAttachments.organizationId), eq(attachments.id, quoteAttachments.attachmentId)),
+    )
+    .where(
+      and(
+        eq(quoteAttachments.quoteId, quoteId),
+        inArray(attachments.status, ['READY', 'PROCESSING']),
+        isNull(attachments.deletedAt),
+      ),
+    )
+    .groupBy(attachments.kind);
+  const de = (kind: string) => rows.find((row) => row.kind === kind)?.total ?? 0;
+  return { fotos: de('PHOTO'), videos: de('VIDEO') };
 }
 
 // ------------------------------- aprovação -------------------------------

@@ -122,6 +122,9 @@
 }
 .zap-corpo { display: flex; flex-direction: column; gap: .45rem; padding: .8rem; }
 
+/* o celular da seção do vídeo: a página do orçamento, não a conversa */
+.video-tela { background: #fff; min-height: 0; }
+
 /* cada balão entra em sequência, como se a conversa acontecesse */
 .balao, .cartao-orcamento {
   animation: entra .5s ease both;

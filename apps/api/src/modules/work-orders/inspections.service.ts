@@ -1,13 +1,11 @@
-import {
-  type AttachmentStatus,
-  type CreateInspectionInput,
-  type Inspection,
-} from '@oficinaos/shared';
+import { type CreateInspectionInput, type Inspection } from '@oficinaos/shared';
 import { recordActivity } from '../../core/audit';
 import type { AuthContext, ClientInfo, ServiceDeps } from '../../core/auth-context';
+import { validationFailed } from '../../core/errors';
 import { blankToNull, isoOrNull } from '../../core/normalize';
 import { assertOdometerNotDecreasing } from '../../core/odometer';
 import { withTenant } from '../../db/tenant';
+import { anexoDto } from '../uploads/uploads.service';
 import { applyWorkOrderChange } from './totals';
 import { findWorkOrderOrThrow, lockEditableWorkOrder } from './work-orders.guards';
 import * as repo from './work-orders.repository';
@@ -57,44 +55,14 @@ export class InspectionsService {
           performedAt: inspection.performedAt.toISOString(),
           customerAcknowledgedAt: isoOrNull(inspection.customerAcknowledgedAt),
           signerName: inspection.signerName,
-          signature: assinatura ? this.anexoDto(assinatura) : null,
-          photos: meus.filter((anexo) => anexo.id !== inspection.signatureAttachmentId).map((a) => this.anexoDto(a)),
+          signature: assinatura ? anexoDto(this.deps.storage, assinatura) : null,
+          photos: meus
+            .filter((anexo) => anexo.kind === 'PHOTO' && anexo.id !== inspection.signatureAttachmentId)
+            .map((anexo) => anexoDto(this.deps.storage, anexo)),
+          videos: meus.filter((anexo) => anexo.kind === 'VIDEO').map((anexo) => anexoDto(this.deps.storage, anexo)),
         };
       });
     });
-  }
-
-  /** O anexo como a tela precisa: com a URL assinada, que é a credencial (E5). */
-  private anexoDto(row: {
-    id: string;
-    kind: 'PHOTO' | 'VIDEO' | 'DOCUMENT';
-    fileName: string | null;
-    mimeType: string;
-    sizeBytes: number;
-    caption: string | null;
-    visibleToCustomer: boolean;
-    status: AttachmentStatus;
-    storageKey: string;
-    createdAt: Date;
-  }) {
-    return {
-      id: row.id,
-      kind: row.kind,
-      fileName: row.fileName,
-      mimeType: row.mimeType,
-      sizeBytes: row.sizeBytes,
-      caption: row.caption,
-      visibleToCustomer: row.visibleToCustomer,
-      status: row.status,
-      url: this.deps.storage.signDownload(row.storageKey).url,
-      createdAt: row.createdAt.toISOString(),
-      // assinatura e fotos da entrega nunca são vídeo
-      workOrderItemId: null,
-      posterUrl: null,
-      downloadUrl: null,
-      durationSeconds: null,
-      expiresAt: null,
-    };
   }
 
   /** Check-in e check-out: o que o carro era quando entrou, para não sobrar discussão. */
@@ -131,6 +99,15 @@ export class InspectionsService {
         notes: blankToNull(input.notes),
         performedBy: auth.userId,
       });
+
+      // as fotos e o vídeo da entrada (E47) subiram presos na OS; agora são do check-in
+      const pedidos = [...new Set(input.attachmentIds)];
+      const presos = await repo.attachCheckInMedia(tx, auth.organizationId, id, row.id, pedidos);
+      if (presos.length !== pedidos.length) {
+        throw validationFailed([
+          { path: 'body.attachmentIds', message: 'Alguma foto ou vídeo não é desta OS ou já está em outro check-in' },
+        ]);
+      }
       if (input.odometerKm !== null) {
         await applyWorkOrderChange(tx, order, { odometerKm: input.odometerKm });
         await repo.updateVehicleOdometer(tx, order.vehicleId, input.odometerKm);
@@ -179,7 +156,9 @@ export class InspectionsService {
         customerAcknowledgedAt: isoOrNull(row.customerAcknowledgedAt),
         signerName: row.signerName,
         signature: null,
+        // o vídeo ainda está convertendo e a tela busca a lista de novo
         photos: [],
+        videos: [],
       };
     });
   }

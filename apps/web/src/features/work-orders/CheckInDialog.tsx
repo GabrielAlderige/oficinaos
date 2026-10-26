@@ -8,13 +8,15 @@ import {
   DEFAULT_ACCESSORIES,
   DEFAULT_CHECKIN_CHECKLIST,
   FUEL_LEVEL_LABELS,
+  VIDEO_MAX_SECONDS,
   type ChecklistState,
   type DamageKind,
   type DamageZone,
+  type VideoUploadMimeType,
   type WorkOrder,
 } from '@oficinaos/shared';
-import { Camera, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { Camera, Lock, Trash2, Video, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { ApiError } from '../../lib/api-client';
 import { Button } from '../../components/ui/button';
@@ -25,12 +27,24 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader } from '../../compone
 import { cn } from '../../lib/cn';
 import { errorMessage } from '../../lib/errors';
 import { compressImage, formatBytes } from '../../lib/image';
-import { useAttachments, useCreateInspection, useUploadFile } from './api';
+import { useFeature } from '../../lib/session';
+import { useCreateInspection, useDeleteAttachment, useUploadFile, useUploadVideo } from './api';
+import { duracao, lerDuracao, temCamera, tipoDoVideo } from './midia';
 
 interface Damage {
   zone: DamageZone;
   kind: DamageKind;
   note: string;
+}
+
+/** Foto ou vídeo escolhido no check-in, ainda no aparelho: só sobe ao registrar. */
+interface Midia {
+  chave: string;
+  tipo: 'foto' | 'video';
+  arquivo: File;
+  mimeType: VideoUploadMimeType | null;
+  previa: string;
+  segundos: number | null;
 }
 
 const STATE_STYLES: Record<ChecklistState, string> = {
@@ -61,9 +75,15 @@ export function CheckInDialog({ order, open, onOpenChange }: {
 function CheckInBody({ order, onDone }: { order: WorkOrder; onDone(): void }) {
   const create = useCreateInspection(order.id, order.number);
   const upload = useUploadFile(order.id);
-  const attachments = useAttachments(order.id);
-  // o vídeo da OS (E45) tem cartão próprio: aqui ele viraria uma <img> quebrada
-  const fotos = (attachments.data ?? []).filter((anexo) => anexo.kind !== 'VIDEO');
+  const enviarVideo = useUploadVideo(order.id);
+  const remover = useDeleteAttachment(order.id);
+  const temVideo = useFeature('work_order_video');
+  const [midias, setMidias] = useState<Midia[]>([]);
+  const [enviando, setEnviando] = useState<string | null>(null);
+  // o que já subiu numa tentativa anterior (km menor pede confirmação e um
+  // segundo clique): não sobe de novo
+  const enviados = useRef(new Map<string, string>());
+  const celular = temCamera();
 
   const [states, setStates] = useState<Record<string, ChecklistState>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
@@ -77,18 +97,102 @@ function CheckInBody({ order, onDone }: { order: WorkOrder; onDone(): void }) {
 
   const odometerKm = odometer.replace(/\D/g, '') ? Number(odometer.replace(/\D/g, '')) : null;
 
+  // as prévias são URLs do aparelho: liberadas quando a tela fecha
+  const previas = useRef<string[]>([]);
+  previas.current = midias.map((midia) => midia.previa);
+  useEffect(() => () => previas.current.forEach((url) => URL.revokeObjectURL(url)), []);
+
   async function addPhotos(files: FileList | null) {
     if (!files?.length) return;
+    const novas: Midia[] = [];
     for (const file of Array.from(files)) {
-      try {
-        await upload.mutateAsync({ file: await compressImage(file) });
-      } catch (err) {
-        toast.error(errorMessage(err));
-      }
+      // reduzida JÁ: é ela que aparece na prévia e é ela que sobe
+      const arquivo = await compressImage(file);
+      novas.push({
+        chave: crypto.randomUUID(),
+        tipo: 'foto',
+        arquivo,
+        mimeType: null,
+        previa: URL.createObjectURL(arquivo),
+        segundos: null,
+      });
     }
+    setMidias((atuais) => [...atuais, ...novas]);
+  }
+
+  async function addVideo(files: FileList | null) {
+    const arquivo = files?.[0];
+    if (!arquivo) return;
+    const mimeType = tipoDoVideo(arquivo);
+    if (!mimeType) {
+      toast.error('Esse arquivo não é um vídeo que o sistema reconheça (MP4, MOV ou WebM).');
+      return;
+    }
+    const segundos = await lerDuracao(arquivo);
+    if (segundos !== null && segundos > VIDEO_MAX_SECONDS + 0.5) {
+      toast.error(`O vídeo tem ${duracao(Math.round(segundos))}. O limite é ${VIDEO_MAX_SECONDS} segundos: grave um mais curto.`);
+      return;
+    }
+    // um vídeo da volta no carro: o novo troca o anterior
+    setMidias((atuais) => [
+      ...atuais.filter((midia) => midia.tipo !== 'video'),
+      { chave: crypto.randomUUID(), tipo: 'video', arquivo, mimeType, previa: URL.createObjectURL(arquivo), segundos },
+    ]);
+  }
+
+  /**
+   * Sobe as fotos e o vídeo na hora de registrar, como na entrega (E28):
+   * escolher e desistir não deixa arquivo solto na OS.
+   */
+  async function enviarMidias(): Promise<string[]> {
+    const ids: string[] = [];
+    const totalDeFotos = midias.filter((midia) => midia.tipo === 'foto').length;
+    let numero = 0;
+    for (const midia of midias) {
+      const ja = enviados.current.get(midia.chave);
+      if (ja) {
+        ids.push(ja);
+        continue;
+      }
+      let id: string;
+      if (midia.tipo === 'foto') {
+        numero += 1;
+        setEnviando(`Enviando foto ${numero} de ${totalDeFotos}…`);
+        id = (await upload.mutateAsync({ file: midia.arquivo })).id;
+      } else {
+        setEnviando('Enviando o vídeo… 0%');
+        id = (
+          await enviarVideo.mutateAsync({
+            file: midia.arquivo,
+            mimeType: midia.mimeType!,
+            caption: 'Entrada do carro',
+            visibleToCustomer: false,
+            onProgress: (fracao) => setEnviando(`Enviando o vídeo… ${Math.round(fracao * 100)}%. Não feche esta tela.`),
+          })
+        ).id;
+      }
+      enviados.current.set(midia.chave, id);
+      ids.push(id);
+    }
+    return ids;
+  }
+
+  function cancelar() {
+    // subiu numa tentativa que não terminou: não fica solto na OS
+    for (const id of enviados.current.values()) remover.mutate(id);
+    onDone();
   }
 
   async function submit() {
+    let attachmentIds: string[];
+    try {
+      attachmentIds = await enviarMidias();
+    } catch (err) {
+      toast.error(errorMessage(err));
+      return;
+    } finally {
+      setEnviando(null);
+    }
     try {
       await create.mutateAsync({
         type: 'CHECK_IN',
@@ -104,6 +208,7 @@ function CheckInBody({ order, onDone }: { order: WorkOrder; onDone(): void }) {
         accessories,
         notes: generalNotes,
         confirmOdometerDecrease: confirmDecrease,
+        attachmentIds,
       });
       toast.success('Check-in registrado.');
       onDone();
@@ -249,11 +354,11 @@ function CheckInBody({ order, onDone }: { order: WorkOrder; onDone(): void }) {
         </section>
 
         <section>
-          <h3 className="mb-2 text-sm font-semibold">Fotos</h3>
-          <div className="flex flex-wrap items-center gap-3">
+          <h3 className="mb-2 text-sm font-semibold">Fotos e vídeo da entrada</h3>
+          <div className="flex flex-wrap items-center gap-2">
             <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium shadow-xs hover:bg-surface-muted">
               <Camera className="size-4" aria-hidden="true" />
-              {upload.isPending ? 'Enviando…' : 'Adicionar fotos'}
+              Adicionar fotos
               <input
                 type="file"
                 accept="image/*"
@@ -266,20 +371,64 @@ function CheckInBody({ order, onDone }: { order: WorkOrder; onDone(): void }) {
                 }}
               />
             </label>
-            <span className="text-xs text-muted">A foto é reduzida no aparelho antes de subir.</span>
+            {temVideo && (
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium shadow-xs hover:bg-surface-muted">
+                <Video className="size-4" aria-hidden="true" />
+                {celular ? 'Gravar a volta no carro' : 'Vídeo da volta no carro'}
+                <input
+                  type="file"
+                  accept="video/*,.mov,.mp4,.webm,.3gp,.m4v"
+                  {...(celular ? { capture: 'environment' as const } : {})}
+                  className="sr-only"
+                  onChange={(event) => {
+                    void addVideo(event.target.files);
+                    event.target.value = '';
+                  }}
+                />
+              </label>
+            )}
           </div>
-          {fotos.length > 0 && (
+          <p className="mt-1.5 text-xs text-muted">
+            {temVideo
+              ? `Dê uma volta no carro filmando, até ${VIDEO_MAX_SECONDS} segundos: é o que encerra o "esse risco não tinha". O vídeo fica guardado até 30 dias depois da entrega e não vai para o cliente.`
+              : 'A foto é reduzida no aparelho antes de subir.'}
+          </p>
+          {!temVideo && (
+            <p className="mt-1 flex items-center gap-1.5 text-xs text-muted">
+              <Lock className="size-3" aria-hidden="true" />
+              Vídeo da entrada do carro: a partir do plano Supercharger.
+            </p>
+          )}
+          {midias.length > 0 && (
             <ul className="mt-3 flex flex-wrap gap-2">
-              {fotos.map((attachment) => (
-                <li key={attachment.id} className="w-24">
-                  {attachment.url ? (
-                    <img src={attachment.url} alt={attachment.caption ?? 'Foto do veículo'} className="h-24 w-24 rounded-lg border border-border object-cover" />
+              {midias.map((midia) => (
+                <li key={midia.chave} className="relative w-24">
+                  {midia.tipo === 'foto' ? (
+                    <img src={midia.previa} alt="Foto da entrada" className="h-24 w-24 rounded-lg border border-border object-cover" />
                   ) : (
-                    <div className="grid h-24 w-24 place-items-center rounded-lg border border-border bg-surface-muted text-xs text-muted">
-                      enviando
-                    </div>
+                    <video
+                      src={midia.previa}
+                      muted
+                      playsInline
+                      preload="metadata"
+                      aria-label="Vídeo da entrada"
+                      className="h-24 w-24 rounded-lg border border-border bg-black object-cover"
+                    />
                   )}
-                  <span className="mt-1 block text-center text-[11px] text-muted">{formatBytes(attachment.sizeBytes)}</span>
+                  <button
+                    type="button"
+                    aria-label={midia.tipo === 'foto' ? 'Tirar esta foto' : 'Tirar este vídeo'}
+                    disabled={Boolean(enviando) || create.isPending}
+                    onClick={() => setMidias((atuais) => atuais.filter((outra) => outra.chave !== midia.chave))}
+                    className="absolute top-1 right-1 grid size-6 place-items-center rounded-full bg-black/70 text-white hover:bg-black"
+                  >
+                    <X className="size-3.5" aria-hidden="true" />
+                  </button>
+                  <span className="mt-1 block text-center text-[11px] text-muted">
+                    {midia.tipo === 'video'
+                      ? `vídeo${midia.segundos !== null ? ` · ${duracao(Math.round(midia.segundos))}` : ''}`
+                      : formatBytes(midia.arquivo.size)}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -297,10 +446,15 @@ function CheckInBody({ order, onDone }: { order: WorkOrder; onDone(): void }) {
         </Field>
       </div>
       <DialogFooter>
-        <Button variant="secondary" onClick={onDone}>
+        {enviando && (
+          <p className="text-xs text-muted sm:mr-auto sm:self-center" role="status">
+            {enviando}
+          </p>
+        )}
+        <Button variant="secondary" onClick={cancelar} disabled={Boolean(enviando)}>
           Cancelar
         </Button>
-        <Button loading={create.isPending} onClick={() => void submit()}>
+        <Button loading={Boolean(enviando) || create.isPending} onClick={() => void submit()}>
           {confirmDecrease ? 'Confirmar e registrar' : 'Registrar check-in'}
         </Button>
       </DialogFooter>

@@ -183,6 +183,8 @@ export const publicQuoteSchema = z.object({
     yearLabel: z.string().nullable(),
   }),
   items: z.array(quoteItemSchema.omit({ workOrderItemId: true })),
+  /** fotos do defeito que não são de um item só (as de item vão dentro dele) */
+  photos: z.array(z.object({ id: z.uuid(), url: z.string(), caption: z.string().nullable() })).default([]),
   /**
    * Vídeos que a oficina gravou (E45). Vídeo já apagado continua na lista, sem
    * URL, para a página dizer até quando ele ficou disponível em vez de sumir

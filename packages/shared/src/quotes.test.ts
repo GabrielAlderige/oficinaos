@@ -127,4 +127,27 @@ describe('mensagem do WhatsApp', () => {
     expect(message).toContain('Fiat Uno:');
     expect(message).not.toContain('()');
   });
+
+  it('avisa que o orçamento tem vídeo ou foto do defeito, antes do link (E47)', () => {
+    const com = (midia?: { fotos: number; videos: number }) =>
+      whatsappQuoteMessage({
+        customerName: 'Maria',
+        shopName: 'Oficina',
+        vehicle: { make: 'Fiat', model: 'Uno', plate: null },
+        totalCents: 5000,
+        link: 'https://x/y',
+        midia,
+      });
+    expect(com({ fotos: 0, videos: 1 })).toContain('Gravamos um vídeo mostrando o que encontramos no carro.');
+    expect(com({ fotos: 0, videos: 2 })).toContain('Gravamos vídeos mostrando');
+    expect(com({ fotos: 3, videos: 1 })).toContain('Gravamos um vídeo e tiramos fotos');
+    expect(com({ fotos: 1, videos: 0 })).toContain('Tiramos uma foto do que encontramos');
+    // a frase vem antes do link, e o link continua sendo a última linha
+    const mensagem = com({ fotos: 0, videos: 1 });
+    expect(mensagem.indexOf('Gravamos')).toBeLessThan(mensagem.indexOf('https://x/y'));
+    expect(mensagem.endsWith('https://x/y')).toBe(true);
+    // sem foto nem vídeo, a mensagem é a de sempre
+    expect(com({ fotos: 0, videos: 0 })).toBe(com());
+    expect(com()).not.toMatch(/vídeo|foto/);
+  });
 });

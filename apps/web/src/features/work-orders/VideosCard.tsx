@@ -2,13 +2,11 @@ import {
   type Attachment,
   VIDEO_MAX_SECONDS,
   VIDEO_RETENTION_DAYS,
-  VIDEO_UPLOAD_MIME_TYPES,
-  videoMimeFromFileName,
   type VideoUploadMimeType,
   type WorkOrder,
 } from '@oficinaos/shared';
-import { Download, Images, Lock, Share2, Trash2, Video } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { Camera, Download, ImagePlus, Images, Lock, Share2, Trash2, Video } from 'lucide-react';
+import { useCallback, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
 import { Button } from '../../components/ui/button';
@@ -17,43 +15,14 @@ import { Field, fieldA11y, Select } from '../../components/ui/field';
 import { Input } from '../../components/ui/input';
 import { ConfirmDialog, Dialog, DialogContent, DialogFooter, DialogHeader } from '../../components/ui/overlays';
 import { Spinner } from '../../components/ui/spinner';
+import { cn } from '../../lib/cn';
 import { errorMessage } from '../../lib/errors';
 import { formatDate } from '../../lib/format';
 import { formatBytes } from '../../lib/image';
 import { useFeature } from '../../lib/session';
 import { useAttachments, useDeleteAttachment, useUploadVideo } from './api';
-
-/** "0:42", "1:00" */
-const duracao = (segundos: number) => `${Math.floor(segundos / 60)}:${String(segundos % 60).padStart(2, '0')}`;
-
-/**
- * A duração lida no próprio aparelho, antes de subir: é o que evita esperar
- * 3 minutos de envio para descobrir que o vídeo tinha 2 minutos.
- *
- * `null` quando o navegador não sabe ler (HEVC do iPhone num Chrome de
- * computador, `webm` sem duração no cabeçalho). Aí o vídeo sobe assim mesmo:
- * o servidor corta em 60 s de qualquer jeito.
- */
-function lerDuracao(arquivo: File): Promise<number | null> {
-  return new Promise((resolve) => {
-    const url = URL.createObjectURL(arquivo);
-    const video = document.createElement('video');
-    const fim = (valor: number | null) => {
-      clearTimeout(relogio);
-      URL.revokeObjectURL(url);
-      resolve(valor);
-    };
-    const relogio = setTimeout(() => fim(null), 8000);
-    video.preload = 'metadata';
-    video.muted = true;
-    video.onloadedmetadata = () => fim(Number.isFinite(video.duration) ? video.duration : null);
-    video.onerror = () => fim(null);
-    video.src = url;
-  });
-}
-
-/** Celular e tablet: a câmera abre direto. Computador: só escolher o arquivo. */
-const temCamera = () => typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
+import { FotoMarcadaDialog } from './FotoMarcadaDialog';
+import { duracao, lerDuracao, temCamera, tipoDoVideo } from './midia';
 
 /**
  * O aparelho manda ARQUIVO de vídeo pela folha de compartilhar (WhatsApp,
@@ -127,30 +96,39 @@ function prazoDoVideo(video: Attachment): string {
 }
 
 /**
- * Vídeo na OS (E45). O mecânico grava o defeito, o vídeo vai junto no
- * orçamento, e o cliente vê o que a oficina viu — é o que tira o "será que
- * precisa mesmo?" da aprovação.
+ * Fotos e vídeos do defeito (E45 e E47). O mecânico fotografa e marca, ou
+ * grava o defeito; tudo vai junto no orçamento, e o cliente vê o que a
+ * oficina viu — é o que tira o "será que precisa mesmo?" da aprovação.
+ *
+ * Foto marcada vale em todos os planos; vídeo, do Supercharger para cima. O
+ * que é do check-in (a entrada do carro) fica fora daqui: é prova da oficina,
+ * e aparece no cartão do check-in.
  */
 export function VideosCard({ order, canWrite, editable }: { order: WorkOrder; canWrite: boolean; editable: boolean }) {
   const temNoPlano = useFeature('work_order_video');
   const anexos = useAttachments(order.id);
   const remover = useDeleteAttachment(order.id);
   const [escolhido, setEscolhido] = useState<{ file: File; mimeType: VideoUploadMimeType; segundos: number | null } | null>(null);
+  const [fotoEscolhida, setFotoEscolhida] = useState<File | null>(null);
   const [apagando, setApagando] = useState<Attachment | null>(null);
   const camera = useRef<HTMLInputElement>(null);
   const galeria = useRef<HTMLInputElement>(null);
+  const cameraFoto = useRef<HTMLInputElement>(null);
+  const galeriaFoto = useRef<HTMLInputElement>(null);
 
-  const videos = (anexos.data ?? []).filter((anexo) => anexo.kind === 'VIDEO');
-  const podeGravar = temNoPlano && canWrite && editable;
+  const doDefeito = (anexos.data ?? []).filter((anexo) => !anexo.inspectionId);
+  const videos = doDefeito.filter((anexo) => anexo.kind === 'VIDEO');
+  const fotos = doDefeito.filter((anexo) => anexo.kind === 'PHOTO');
+  const podeMexer = canWrite && editable;
+  const podeGravar = temNoPlano && podeMexer;
   const [compartilha] = useState(podeCompartilharVideo);
+  const celular = temCamera();
+  const fecharFoto = useCallback(() => setFotoEscolhida(null), []);
 
   async function escolher(arquivos: FileList | null) {
     const file = arquivos?.[0];
     if (!file) return;
-    // o Windows às vezes manda o .mov sem tipo: a extensão resolve
-    const mimeType = (VIDEO_UPLOAD_MIME_TYPES as readonly string[]).includes(file.type)
-      ? (file.type as VideoUploadMimeType)
-      : videoMimeFromFileName(file.name);
+    const mimeType = tipoDoVideo(file);
     if (!mimeType) {
       toast.error('Esse arquivo não é um vídeo que o sistema reconheça (MP4, MOV ou WebM).');
       return;
@@ -164,45 +142,36 @@ export function VideosCard({ order, canWrite, editable }: { order: WorkOrder; ca
     setEscolhido({ file, mimeType, segundos });
   }
 
-  if (!temNoPlano && videos.length === 0) {
-    return (
-      <Card>
-        <div className="flex items-start gap-3 px-5 py-4">
-          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-accent-subtle text-accent">
-            <Lock className="size-4" aria-hidden="true" />
-          </span>
-          <div className="text-sm">
-            <p className="font-medium">Vídeo do serviço no orçamento</p>
-            <p className="text-muted">
-              Grave o defeito e mande junto com o orçamento. Disponível a partir do plano Supercharger.{' '}
-              <Link to="/configuracoes/plano" className="font-medium text-accent hover:underline">
-                Ver planos
-              </Link>
-            </p>
-          </div>
-        </div>
-      </Card>
-    );
+  function escolherFoto(arquivos: FileList | null) {
+    const file = arquivos?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Esse arquivo não é uma foto.');
+      return;
+    }
+    setFotoEscolhida(file);
   }
+
+  const vazio = videos.length === 0 && fotos.length === 0;
 
   return (
     <Card>
       <CardHeader
-        title="Vídeos"
-        description={`Mostre o defeito para o cliente: o vídeo vai junto no orçamento. Até ${VIDEO_MAX_SECONDS} segundos.`}
+        title="Fotos e vídeos do defeito"
+        description="Mostre ao cliente o que você encontrou: vai tudo junto no orçamento."
         action={
-          podeGravar && (
-            <span className="flex gap-2">
-              {temCamera() && (
-                <Button size="sm" variant="secondary" onClick={() => camera.current?.click()}>
+          podeMexer && (
+            <span className="flex flex-wrap justify-end gap-2">
+              <Button size="sm" variant="secondary" onClick={() => (celular ? cameraFoto : galeriaFoto).current?.click()}>
+                <Camera />
+                Foto
+              </Button>
+              {podeGravar && (
+                <Button size="sm" variant="secondary" onClick={() => (celular ? camera : galeria).current?.click()}>
                   <Video />
-                  Gravar
+                  {celular ? 'Gravar vídeo' : 'Vídeo'}
                 </Button>
               )}
-              <Button size="sm" variant="secondary" onClick={() => galeria.current?.click()}>
-                <Images />
-                {temCamera() ? 'Da galeria' : 'Escolher vídeo'}
-              </Button>
             </span>
           )
         }
@@ -233,13 +202,102 @@ export function VideosCard({ order, canWrite, editable }: { order: WorkOrder; ca
           event.target.value = '';
         }}
       />
+      <input
+        ref={cameraFoto}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden="true"
+        onChange={(event) => {
+          escolherFoto(event.target.files);
+          event.target.value = '';
+        }}
+      />
+      <input
+        ref={galeriaFoto}
+        type="file"
+        accept="image/*"
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden="true"
+        onChange={(event) => {
+          escolherFoto(event.target.files);
+          event.target.value = '';
+        }}
+      />
 
-      {videos.length === 0 ? (
+      {podeMexer && celular && (
+        <div className="flex flex-wrap gap-x-4 gap-y-1 px-5 pt-3 text-xs">
+          <button
+            type="button"
+            className="inline-flex items-center gap-1 font-medium text-accent hover:underline"
+            onClick={() => galeriaFoto.current?.click()}
+          >
+            <ImagePlus className="size-3.5" aria-hidden="true" />
+            Foto da galeria
+          </button>
+          {podeGravar && (
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 font-medium text-accent hover:underline"
+              onClick={() => galeria.current?.click()}
+            >
+              <Images className="size-3.5" aria-hidden="true" />
+              Vídeo da galeria
+            </button>
+          )}
+        </div>
+      )}
+
+      {vazio && (
         <p className="px-5 py-6 text-center text-sm text-muted">
-          {podeGravar ? 'Nenhum vídeo ainda. Um vídeo curto do defeito convence mais que qualquer explicação.' : 'Nenhum vídeo nesta OS.'}
+          {podeMexer
+            ? 'Nada ainda. Uma foto com o defeito circulado convence mais que qualquer explicação.'
+            : 'Nenhuma foto nem vídeo nesta OS.'}
         </p>
-      ) : (
-        <ul className="divide-y divide-border">
+      )}
+
+      {fotos.length > 0 && (
+        <ul className="grid grid-cols-2 gap-3 px-5 py-4 sm:grid-cols-3">
+          {fotos.map((foto) => {
+            const item = order.items.find((linha) => linha.id === foto.workOrderItemId);
+            return (
+              <li key={foto.id} className="min-w-0">
+                <a href={foto.url ?? undefined} target="_blank" rel="noopener noreferrer" className="block">
+                  {foto.url ? (
+                    <img
+                      src={foto.url}
+                      alt={foto.caption ?? (item ? `Foto: ${item.description}` : 'Foto do defeito')}
+                      loading="lazy"
+                      className="aspect-square w-full rounded-lg border border-border object-cover"
+                    />
+                  ) : (
+                    <span className="grid aspect-square w-full place-items-center rounded-lg border border-border bg-surface-muted text-xs text-muted">
+                      enviando
+                    </span>
+                  )}
+                </a>
+                <div className="mt-1 flex items-start justify-between gap-1">
+                  <p className="min-w-0 text-xs">
+                    <span className="block truncate font-medium">{foto.caption ?? item?.description ?? 'Da OS em geral'}</span>
+                    <span className="text-muted">{foto.visibleToCustomer ? 'vai para o cliente' : 'só a oficina vê'}</span>
+                  </p>
+                  {canWrite && (
+                    <Button variant="ghost" size="icon" className="size-7" aria-label="Apagar foto" onClick={() => setApagando(foto)}>
+                      <Trash2 />
+                    </Button>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {videos.length > 0 && (
+        <ul className={cn('divide-y divide-border', fotos.length > 0 && 'border-t border-border')}>
           {videos.map((video) => {
             const item = order.items.find((linha) => linha.id === video.workOrderItemId);
             return (
@@ -313,13 +371,32 @@ export function VideosCard({ order, canWrite, editable }: { order: WorkOrder; ca
         </ul>
       )}
 
+      {!temNoPlano && podeMexer && (
+        <div className="flex items-start gap-2 border-t border-border px-5 py-3 text-xs text-muted">
+          <Lock className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+          <span>
+            Vídeo do defeito e explicação com a sua voz: a partir do plano Supercharger.{' '}
+            <Link to="/configuracoes/plano" className="font-medium text-accent hover:underline">
+              Ver planos
+            </Link>
+          </span>
+        </div>
+      )}
+
       {escolhido && <EnviarVideoDialog order={order} escolhido={escolhido} onClose={() => setEscolhido(null)} />}
+      {fotoEscolhida && (
+        <FotoMarcadaDialog order={order} arquivo={fotoEscolhida} podeGravarVoz={temNoPlano} onClose={fecharFoto} />
+      )}
 
       <ConfirmDialog
         open={apagando !== null}
         onOpenChange={(open) => !open && setApagando(null)}
-        title="Apagar este vídeo?"
-        description="Ele sai do servidor na hora e some do orçamento do cliente. Não dá para desfazer."
+        title={apagando?.kind === 'PHOTO' ? 'Apagar esta foto?' : 'Apagar este vídeo?'}
+        description={
+          apagando?.kind === 'PHOTO'
+            ? 'Ela sai desta OS e não vai nos próximos orçamentos. Um orçamento já enviado continua com ela: é o registro do que o cliente viu.'
+            : 'Ele sai do servidor na hora e some do orçamento do cliente. Não dá para desfazer.'
+        }
         confirmLabel="Apagar"
         destructive
         onConfirm={async () => {

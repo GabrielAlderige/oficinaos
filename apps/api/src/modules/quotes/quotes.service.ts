@@ -275,6 +275,7 @@ export class QuotesService {
         vehicle: { make: found.vehicleMake, model: found.vehicleModel, plate: found.vehiclePlate },
         totalCents: found.quote.totalCents,
         link,
+        midia: await repo.countQuoteMedia(tx, found.quote.id),
       });
       return {
         customerId: found.customerId,
@@ -778,6 +779,8 @@ export class QuotesService {
         const { workOrderItemId: _ignored, ...dto } = this.toItemDto(item, photosByItem.get(item.id) ?? []);
         return dto;
       }),
+      // a foto da OS em geral (E47): antes ficava guardada e não aparecia em lugar nenhum
+      photos: photosByItem.get('sem-item') ?? [],
       videos: videos.map((video, indice) => {
         const url = video.status === 'READY' ? this.deps.storage.signDownload(video.storageKey).url : null;
         return {

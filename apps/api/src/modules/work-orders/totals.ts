@@ -1,13 +1,16 @@
 import {
+  CHECKIN_VIDEO_RETENTION_DAYS,
   computeApprovedTotals,
   computeTotals,
   lineTotalCents,
   parseQuantity,
   type PricingLine,
+  TERMINAL_WORK_ORDER_STATUSES,
 } from '@oficinaos/shared';
 import type { workOrders } from '../../db/schema';
 import type { Tx } from '../../db/tenant';
 import { syncWorkOrderEntries } from '../finance/finance.sync';
+import { setCheckinVideoDeadline } from '../uploads/uploads.repository';
 import * as repo from './work-orders.repository';
 
 type OrderPatch = Partial<typeof workOrders.$inferInsert>;
@@ -91,5 +94,12 @@ export async function applyWorkOrderChange(
     version: order.version + 1,
   });
   await syncWorkOrderEntries(tx, order.organizationId, updated);
+
+  // entregue ou cancelada: o vídeo da entrada (E47) começa a contar os 30 dias
+  const fechou = (TERMINAL_WORK_ORDER_STATUSES as readonly string[]).includes(updated.status);
+  if (fechou && updated.status !== order.status) {
+    const prazo = new Date(Date.now() + CHECKIN_VIDEO_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+    await setCheckinVideoDeadline(tx, order.organizationId, order.id, prazo);
+  }
   return updated;
 }

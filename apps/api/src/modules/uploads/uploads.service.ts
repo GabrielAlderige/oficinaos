@@ -11,7 +11,7 @@ import { recordActivity } from '../../core/audit';
 import type { AuthContext, ClientInfo, ServiceDeps } from '../../core/auth-context';
 import { AppError, notFound, validationFailed } from '../../core/errors';
 import { blankToNull } from '../../core/normalize';
-import type { ByteRange, StorageAction } from '../../integrations/storage/storage';
+import type { ByteRange, StorageAction, StorageProvider } from '../../integrations/storage/storage';
 import { withTenant } from '../../db/tenant';
 import { assertCabeNoEspaco } from './storage-quota';
 import * as repo from './uploads.repository';
@@ -193,33 +193,39 @@ export class UploadsService {
     return this.deps.storage.putStream(key, body, mimeType, this.deps.env.VIDEO_UPLOAD_MAX_BYTES);
   }
 
-  /**
-   * URL de leitura só para o que está pronto. O vídeo leva também a capa e o
-   * link de baixar (o mesmo arquivo, com `download=1`: a rota responde como
-   * anexo, e o celular salva em vez de abrir o player).
-   */
   toDto(row: repo.AttachmentRow): Attachment {
-    const pronto = row.status === 'READY';
-    const url = pronto ? this.deps.storage.signDownload(row.storageKey).url : null;
-    const video = row.kind === 'VIDEO';
-    return {
-      id: row.id,
-      kind: row.kind,
-      fileName: row.fileName,
-      mimeType: row.mimeType,
-      sizeBytes: row.sizeBytes,
-      caption: row.caption,
-      visibleToCustomer: row.visibleToCustomer,
-      status: row.status,
-      url,
-      createdAt: row.createdAt.toISOString(),
-      workOrderItemId: row.workOrderItemId,
-      posterUrl: video && pronto && row.posterStorageKey ? this.deps.storage.signDownload(row.posterStorageKey).url : null,
-      downloadUrl: video && url ? linkDeBaixar(url, `video-oficina-${row.id.slice(-6)}.mp4`) : null,
-      durationSeconds: row.durationSeconds,
-      expiresAt: row.expiresAt?.toISOString() ?? null,
-    };
+    return anexoDto(this.deps.storage, row);
   }
+}
+
+/**
+ * O anexo como a tela recebe. URL de leitura só para o que está pronto. O
+ * vídeo leva também a capa e o link de baixar (o mesmo arquivo, com
+ * `download=1`: a rota responde como anexo, e o celular salva em vez de abrir
+ * o player). Fora da classe porque o check-in (E47) monta o mesmo anexo.
+ */
+export function anexoDto(storage: StorageProvider, row: repo.AttachmentRow): Attachment {
+  const pronto = row.status === 'READY';
+  const url = pronto ? storage.signDownload(row.storageKey).url : null;
+  const video = row.kind === 'VIDEO';
+  return {
+    id: row.id,
+    kind: row.kind,
+    fileName: row.fileName,
+    mimeType: row.mimeType,
+    sizeBytes: row.sizeBytes,
+    caption: row.caption,
+    visibleToCustomer: row.visibleToCustomer,
+    status: row.status,
+    url,
+    createdAt: row.createdAt.toISOString(),
+    workOrderItemId: row.workOrderItemId,
+    posterUrl: video && pronto && row.posterStorageKey ? storage.signDownload(row.posterStorageKey).url : null,
+    downloadUrl: video && url ? linkDeBaixar(url, `video-oficina-${row.id.slice(-6)}.mp4`) : null,
+    durationSeconds: row.durationSeconds,
+    expiresAt: row.expiresAt?.toISOString() ?? null,
+    inspectionId: row.inspectionId,
+  };
 }
 
 /** O link de baixar é o de ler com `download=1` e o nome do arquivo (fora da assinatura: não muda o que se lê). */

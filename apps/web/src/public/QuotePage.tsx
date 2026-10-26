@@ -101,7 +101,7 @@ export function QuotePage({ token }: { token: string }) {
         )}
         {revogado && <Aviso titulo="Este orçamento foi cancelado pela oficina">Fale com a oficina para receber um novo.</Aviso>}
 
-        {quote.videos.length > 0 && <Videos quote={quote} decidido={decidido} />}
+        {(quote.videos.length > 0 || quote.photos.length > 0) && <Videos quote={quote} decidido={decidido} />}
 
         {necessarios.length > 0 && (
           <Grupo titulo="Necessários" descricao="O que precisa ser feito para o veículo ficar seguro.">
@@ -273,14 +273,16 @@ function Item({ item, selecionavel, selecionado, onToggle }: {
         <div className="mt-3">
           <p className="mb-1 text-sm font-medium">Identificamos este problema no seu veículo:</p>
           <div className="flex gap-2 overflow-x-auto">
+            {/* a foto marcada (E47) só se lê grande: o toque abre inteira */}
             {item.photos.map((photo) => (
-              <img
-                key={photo.id}
-                src={photo.url}
-                alt={photo.caption ?? 'Foto do serviço'}
-                loading="lazy"
-                className="h-28 w-28 shrink-0 rounded-lg object-cover"
-              />
+              <a key={photo.id} href={photo.url} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                <img
+                  src={photo.url}
+                  alt={photo.caption ?? 'Foto do serviço'}
+                  loading="lazy"
+                  className="h-28 w-28 rounded-lg object-cover"
+                />
+              </a>
             ))}
           </div>
         </div>
@@ -307,11 +309,31 @@ function Videos({ quote, decidido }: { quote: PublicQuote; decidido: boolean }) 
   return (
     <section className="mt-6">
       <h2 className="text-lg font-bold">O que a oficina viu no seu carro</h2>
-      <p className="text-sm text-neutral-600">
-        {decidido
-          ? 'Os vídeos ficam aqui por pouco tempo. Baixe se quiser guardar.'
-          : `Depois que você responder, os vídeos ficam disponíveis por ${DIAS_DO_VIDEO} dias. Baixe se quiser guardar.`}
-      </p>
+      {quote.videos.length > 0 && (
+        <p className="text-sm text-neutral-600">
+          {decidido
+            ? 'Os vídeos ficam aqui por pouco tempo. Baixe se quiser guardar.'
+            : `Depois que você responder, os vídeos ficam disponíveis por ${DIAS_DO_VIDEO} dias. Baixe se quiser guardar.`}
+        </p>
+      )}
+      {/* as fotos da OS em geral (E47); as de um item vão dentro dele */}
+      {quote.photos.length > 0 && (
+        <ul className="mt-3 grid grid-cols-2 gap-3">
+          {quote.photos.map((photo) => (
+            <li key={photo.id} className="rounded-xl bg-white p-2 shadow-sm">
+              <a href={photo.url} target="_blank" rel="noopener noreferrer" className="block">
+                <img
+                  src={photo.url}
+                  alt={photo.caption ?? 'Foto do que a oficina encontrou'}
+                  loading="lazy"
+                  className="aspect-square w-full rounded-lg object-cover"
+                />
+              </a>
+              {photo.caption && <p className="mt-1.5 px-1 text-sm">{photo.caption}</p>}
+            </li>
+          ))}
+        </ul>
+      )}
       <ul className="mt-3 space-y-4">
         {quote.videos.map((video) => (
           <li key={video.id} className="rounded-xl bg-white p-3 shadow-sm">

@@ -165,6 +165,12 @@ export const inspectionInputSchema = z.object({
  */
 export const createInspectionSchema = inspectionInputSchema.extend({
   confirmOdometerDecrease: z.boolean().default(false),
+  /**
+   * Fotos e vídeo da entrada, enviados ANTES pela rota de upload de sempre (o
+   * mesmo caminho da entrega, E28). Sem isso a foto subia para a OS e nunca
+   * ficava presa ao check-in: sumia da tela quando o diálogo fechava.
+   */
+  attachmentIds: z.array(z.uuid()).max(20).default([]),
 });
 
 // --------------------------------- saída ---------------------------------
@@ -379,6 +385,8 @@ export const attachmentSchema = z.object({
   durationSeconds: z.number().int().nullable().default(null),
   /** vídeo (E45): quando o arquivo é apagado; null = o cliente ainda não respondeu */
   expiresAt: z.string().nullable().default(null),
+  /** foto ou vídeo do check-in/entrega: não é do defeito, não vai para o orçamento */
+  inspectionId: z.uuid().nullable().default(null),
 });
 
 export const inspectionSchema = inspectionInputSchema.extend({
@@ -389,8 +397,10 @@ export const inspectionSchema = inspectionInputSchema.extend({
   customerAcknowledgedAt: z.string().nullable().default(null),
   signerName: z.string().nullable().default(null),
   signature: attachmentSchema.nullable().default(null),
-  /** as fotos do carro no momento da entrega */
+  /** as fotos do carro na entrada (check-in) ou na entrega */
   photos: z.array(attachmentSchema).default([]),
+  /** o vídeo da volta no carro na entrada (E47) */
+  videos: z.array(attachmentSchema).default([]),
 });
 
 /**
