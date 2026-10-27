@@ -28,6 +28,11 @@ export default defineConfig(
     languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },
   {
+    // as camadas dos tutoriais e dos Reels são injetadas na página gravada
+    files: ['ferramentas/**/overlay*.js'],
+    languageOptions: { globals: globals.browser },
+  },
+  {
     files: ['apps/web/public/sw.js'],
     languageOptions: { globals: { ...globals.serviceworker, ...globals.browser } },
   },

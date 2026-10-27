@@ -1,6 +1,8 @@
 // Tudo em SEGUNDOS: os componentes convertem para quadros com o fps do vídeo.
 export type Palavra = { texto: string; t: number; fim: number };
 export type Bloco = { inicio: number; fim: number; palavras: Palavra[] };
+// os parâmetros de cada cena vêm do roteiro em JSON, um formato por tipo de cena
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Cena = { tipo: string; de: number; ate: number; params: Record<string, any> };
 export type Fala = { arquivo: string; de: number; ate: number };
 export type Marca = { de: number; tipo: "whoosh" | "pop" | "impacto" };

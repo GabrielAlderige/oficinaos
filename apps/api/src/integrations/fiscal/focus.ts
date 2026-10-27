@@ -147,7 +147,7 @@ export class FocusNfseProvider implements NfseProvider {
       signal: AbortSignal.timeout(30_000),
     });
     const texto = await resposta.text();
-    let json: Corpo = {};
+    let json: Corpo;
     try {
       json = texto ? (JSON.parse(texto) as Corpo) : {};
     } catch {

@@ -1,3 +1,12 @@
+import {
+  DeleteObjectCommand,
+  GetObjectCommand,
+  HeadObjectCommand,
+  PutObjectCommand,
+  S3Client,
+  S3ServiceException,
+} from '@aws-sdk/client-s3';
+import { Upload } from '@aws-sdk/lib-storage';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
 import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
@@ -65,11 +74,12 @@ export interface StorageProvider {
 }
 
 /** Conta os bytes que passam e corta quando passam do teto. */
-function limitador(maxBytes: number): Transform {
+function limitador(maxBytes: number, aoContar?: (total: number) => void): Transform {
   let total = 0;
   return new Transform({
     transform(chunk: Buffer, _encoding, done) {
       total += chunk.byteLength;
+      aoContar?.(total);
       if (total > maxBytes) done(new ObjectTooLargeError(maxBytes));
       else done(null, chunk);
     },
@@ -256,8 +266,142 @@ export class MemoryStorageProvider extends SignedStorage {
   }
 }
 
+export interface S3Config {
+  endpoint: string;
+  region: string;
+  bucket: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+}
+
+/** "não existe" no S3: 404 no HEAD, NoSuchKey no GET. */
+function naoExiste(erro: unknown): boolean {
+  return (
+    erro instanceof S3ServiceException &&
+    (erro.name === 'NotFound' || erro.name === 'NoSuchKey' || erro.$metadata.httpStatusCode === 404)
+  );
+}
+
+/**
+ * Produção: balde S3 compatível (Cloudflare R2). As URLs continuam sendo as da
+ * API, assinadas por ela: o balde é privado, o navegador nunca fala com ele e
+ * as chaves dele nunca saem do servidor. O tipo do arquivo é o Content-Type do
+ * próprio objeto (no disco era o `.meta`).
+ */
+export class S3StorageProvider extends SignedStorage {
+  readonly driver = 's3';
+  private readonly client: S3Client;
+
+  constructor(
+    secret: string,
+    private readonly config: S3Config,
+  ) {
+    super(secret);
+    this.client = new S3Client({
+      endpoint: config.endpoint,
+      region: config.region,
+      credentials: { accessKeyId: config.accessKeyId, secretAccessKey: config.secretAccessKey },
+      // o endereço do balde vai no caminho, não no subdomínio (R2 e servidores locais)
+      forcePathStyle: true,
+      // conferência de CRC só quando a operação exige: o R2 não aceita todas
+      requestChecksumCalculation: 'WHEN_REQUIRED',
+      responseChecksumValidation: 'WHEN_REQUIRED',
+    });
+  }
+
+  private get bucket(): string {
+    return this.config.bucket;
+  }
+
+  async put(key: string, body: Buffer, mimeType: string): Promise<void> {
+    await this.client.send(new PutObjectCommand({ Bucket: this.bucket, Key: key, Body: body, ContentType: mimeType }));
+  }
+
+  async putStream(key: string, body: Readable, mimeType: string, maxBytes: number): Promise<number> {
+    let total = 0;
+    const contado = body.pipe(limitador(maxBytes, (atual) => (total = atual)));
+    // conexão caída no meio: o erro chega ao envio para ele parar
+    body.on('error', (erro) => contado.destroy(erro));
+    const envio = new Upload({
+      client: this.client,
+      params: { Bucket: this.bucket, Key: key, Body: contado, ContentType: mimeType },
+      queueSize: 2,
+    });
+    try {
+      await envio.done();
+    } catch (erro) {
+      // envio cortado: o Upload desfaz a parte em pedaços; um envio simples pode ter gravado
+      await envio.abort().catch(() => {});
+      await this.remove(key).catch(() => {});
+      throw contado.errored ?? erro;
+    }
+    return total;
+  }
+
+  async get(key: string): Promise<{ body: Buffer; info: ObjectInfo } | null> {
+    const objeto = await this.stream(key);
+    if (!objeto) return null;
+    const partes: Buffer[] = [];
+    for await (const parte of objeto.body) partes.push(Buffer.isBuffer(parte) ? parte : Buffer.from(parte as Uint8Array));
+    return { body: Buffer.concat(partes), info: objeto.info };
+  }
+
+  async stream(key: string, range?: ByteRange): Promise<{ body: Readable; info: ObjectInfo } | null> {
+    try {
+      const resposta = await this.client.send(
+        new GetObjectCommand({
+          Bucket: this.bucket,
+          Key: key,
+          Range: range ? `bytes=${range.start}-${range.end}` : undefined,
+        }),
+      );
+      // com Range, o tamanho TOTAL vem no Content-Range ("bytes 0-99/1234")
+      const total = resposta.ContentRange ? Number(resposta.ContentRange.split('/')[1]) : resposta.ContentLength;
+      return {
+        body: resposta.Body as Readable,
+        info: { sizeBytes: total ?? 0, mimeType: resposta.ContentType ?? 'application/octet-stream' },
+      };
+    } catch (erro) {
+      if (naoExiste(erro)) return null;
+      throw erro;
+    }
+  }
+
+  async head(key: string): Promise<ObjectInfo | null> {
+    try {
+      const resposta = await this.client.send(new HeadObjectCommand({ Bucket: this.bucket, Key: key }));
+      return { sizeBytes: resposta.ContentLength ?? 0, mimeType: resposta.ContentType ?? 'application/octet-stream' };
+    } catch (erro) {
+      if (naoExiste(erro)) return null;
+      throw erro;
+    }
+  }
+
+  async remove(key: string): Promise<void> {
+    await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+  }
+
+  localPath(): null {
+    return null;
+  }
+}
+
+export function s3ConfigFromEnv(env: Env): S3Config {
+  const { S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY } = env;
+  if (!S3_ENDPOINT || !S3_BUCKET || !S3_ACCESS_KEY_ID || !S3_SECRET_ACCESS_KEY) {
+    throw new Error('STORAGE_DRIVER=s3 exige S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY_ID e S3_SECRET_ACCESS_KEY no ambiente');
+  }
+  return {
+    endpoint: S3_ENDPOINT,
+    region: env.S3_REGION,
+    bucket: S3_BUCKET,
+    accessKeyId: S3_ACCESS_KEY_ID,
+    secretAccessKey: S3_SECRET_ACCESS_KEY,
+  };
+}
+
 export function createStorageProvider(env: Env): StorageProvider {
-  return env.STORAGE_DRIVER === 'memory'
-    ? new MemoryStorageProvider(env.JWT_SECRET)
-    : new DiskStorageProvider(env.JWT_SECRET, env.STORAGE_DIR);
+  if (env.STORAGE_DRIVER === 'memory') return new MemoryStorageProvider(env.JWT_SECRET);
+  if (env.STORAGE_DRIVER === 's3') return new S3StorageProvider(env.JWT_SECRET, s3ConfigFromEnv(env));
+  return new DiskStorageProvider(env.JWT_SECRET, env.STORAGE_DIR);
 }

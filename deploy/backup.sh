@@ -27,8 +27,22 @@ docker compose exec -T db pg_dump -U postgres -d oficinaos -Fc \
 #    A pasta videos/ fica de fora (E45): vídeo vive 7 dias depois da resposta do
 #    cliente, e guardar 30 dias de cópia dele no Drive seria guardar o que o
 #    sistema prometeu apagar
-docker compose run --rm --no-deps --user root -v "$DESTINO:/backup" api \
-  tar czf "/backup/storage_$CARIMBO.tar.gz" --exclude=./videos -C /app/storage .
+#    Com as fotos no R2 (STORAGE_DRIVER=s3 no .env), o volume não tem mais as
+#    fotos: o rclone mantém um espelho delas aqui (só baixa o que é novo) e o
+#    pacote sai do espelho. Assim existe uma cópia fora da Cloudflare.
+if grep -q '^STORAGE_DRIVER=s3' .env; then
+  ler() { grep "^$1=" .env | head -n1 | cut -d= -f2-; }
+  ESPELHO="$DESTINO/espelho-r2"
+  RCLONE_CONFIG_R2_TYPE=s3 RCLONE_CONFIG_R2_PROVIDER=Cloudflare \
+  RCLONE_CONFIG_R2_ENDPOINT="$(ler S3_ENDPOINT)" \
+  RCLONE_CONFIG_R2_ACCESS_KEY_ID="$(ler S3_ACCESS_KEY_ID)" \
+  RCLONE_CONFIG_R2_SECRET_ACCESS_KEY="$(ler S3_SECRET_ACCESS_KEY)" \
+    rclone sync "r2:$(ler S3_BUCKET)" "$ESPELHO" --exclude 'videos/**'
+  tar czf "$DESTINO/storage_$CARIMBO.tar.gz" -C "$ESPELHO" .
+else
+  docker compose run --rm --no-deps --user root -v "$DESTINO:/backup" api \
+    tar czf "/backup/storage_$CARIMBO.tar.gz" --exclude=./videos -C /app/storage .
+fi
 
 # 3) o .env NÃO entra aqui: ele tem os segredos, e backup de segredo junto com
 #    dado é como perder os dois de uma vez. Guarde-o no seu gerenciador de senhas.

@@ -455,6 +455,49 @@ emitir e a cada 5 segundos enquanto a OS está aberta com nota em processamento)
 
 ---
 
+### 8.4 Fotos e vídeos no R2 (antes da primeira oficina Nitro)
+
+O disco do servidor tem 48 GB, e os planos prometem até 100 GB por oficina. As
+fotos e os vídeos vão para um balde do **Cloudflare R2** (S3 compatível, sem
+taxa de saída, ~US$ 0,015 por GB por mês, os primeiros 10 GB grátis). O
+navegador continua falando só com a API, pelas mesmas URLs assinadas: o balde
+é privado e as chaves dele nunca saem do servidor.
+
+1. **Conta e balde.** Em dash.cloudflare.com → R2 → ativar (pede cartão, cobra
+   só acima do grátis) → *Create bucket* `oficinaos-arquivos`, localização
+   automática. Deixe **sem** acesso público.
+2. **Chave.** R2 → *Manage R2 API Tokens* → *Create API token*: permissão
+   *Object Read & Write*, só neste balde. Anote o *Access Key ID*, o *Secret
+   Access Key* e o endpoint (`https://<conta>.r2.cloudflarestorage.com`).
+3. **No `.env` do servidor**, ainda SEM trocar o driver:
+
+   ```sh
+   S3_ENDPOINT=https://<conta>.r2.cloudflarestorage.com
+   S3_BUCKET=oficinaos-arquivos
+   S3_ACCESS_KEY_ID=...
+   S3_SECRET_ACCESS_KEY=...
+   ```
+
+4. **Copiar o que já existe** (pode rodar de novo; não apaga nada do disco):
+
+   ```sh
+   docker compose run --rm api node dist/migrar-storage.js
+   ```
+
+   Só siga se terminar com "Tudo no balde".
+5. **Trocar**: `STORAGE_DRIVER=s3` no `.env`, rode a cópia **de novo** (pega o
+   que entrou entre o passo 4 e agora) e `docker compose up -d api`.
+6. **Conferir**: abra uma OS com foto e um orçamento com vídeo (o vídeo tem que
+   tocar no iPhone) e mande uma foto nova.
+
+**Voltar atrás**: `STORAGE_DRIVER=disk` e `docker compose up -d api`. O disco
+continua com tudo até o passo 5 (o que subiu depois disso fica só no balde).
+
+**Backup**: com `STORAGE_DRIVER=s3`, o `deploy/backup.sh` mantém um espelho das
+fotos em `/var/backups/oficinaos/espelho-r2` (o rclone só baixa o que é novo)
+e empacota dele, como antes. Restaurar: desempacote o `storage_*.tar.gz` numa
+pasta e rode a cópia do passo 4 com `-v <pasta>:/app/storage`.
+
 ## 9. Backup (faça hoje, não depois)
 
 ```sh

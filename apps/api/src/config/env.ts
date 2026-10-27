@@ -56,11 +56,24 @@ const envSchema = z.object({
    * Onde ficam as fotos do check-in e os anexos da OS (ARCHITECTURE §11).
    * disk   = pasta local, servida pela própria API com URL assinada (dev)
    * memory = em memória (testes)
-   * S3/R2 entram como driver novo quando houver deploy, sem mexer no domínio.
+   * s3     = balde S3 compatível (Cloudflare R2 em produção): o disco do
+   *          servidor não segura os GB que os planos prometem. O navegador
+   *          continua falando só com a API, pela mesma URL assinada.
    */
-  STORAGE_DRIVER: z.enum(['disk', 'memory']).default('disk'),
+  STORAGE_DRIVER: z.enum(['disk', 'memory', 's3']).default('disk'),
   /** Pasta do driver disk, relativa à raiz do repositório. Fica fora do git. */
   STORAGE_DIR: z.string().default('storage'),
+  /**
+   * Driver s3: no R2 é https://<conta>.r2.cloudflarestorage.com. Texto e não
+   * URL: o compose manda vazio quando o driver é outro.
+   */
+  S3_ENDPOINT: z.string().optional(),
+  /** O R2 aceita qualquer região e recomenda `auto`. */
+  S3_REGION: z.string().default('auto'),
+  S3_BUCKET: z.string().optional(),
+  /** Chaves do balde. NUNCA vão para o front nem para o log. */
+  S3_ACCESS_KEY_ID: z.string().optional(),
+  S3_SECRET_ACCESS_KEY: z.string().optional(),
   /**
    * Emissor de nota fiscal (E18). `simulador` NÃO emite nota: devolve uma
    * resposta marcada como simulação, para a oficina conferir o fluxo antes de

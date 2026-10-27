@@ -14,6 +14,8 @@ export default defineConfig({
     'seed-demo': 'scripts/seed-demo.ts',
     // liga a NFS-e de verdade (Focus NFe) de uma oficina: docs/DEPLOY.md, "Nota fiscal de verdade"
     'nfse-focus': 'scripts/nfse-focus.ts',
+    // leva as fotos e os vídeos do disco do servidor para o R2: docs/DEPLOY.md, "Fotos e vídeos no R2"
+    'migrar-storage': 'scripts/migrar-storage.ts',
   },
   format: ['esm'],
   platform: 'node',

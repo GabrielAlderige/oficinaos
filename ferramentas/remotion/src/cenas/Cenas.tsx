@@ -5,6 +5,8 @@ import { Area, useCentro } from "../componentes/Palco";
 import { Entrada, ip, Respira, Sobre, Titulo, palavras, useQ } from "../componentes/Movimento";
 import { Check, Icone, Marca, VistoDuplo, Xis } from "../componentes/Icones";
 
+// os parâmetros vêm do roteiro em JSON, um formato por tipo de cena
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Props = { p: Record<string, any>; dur: number };
 
 const cartao: React.CSSProperties = {
