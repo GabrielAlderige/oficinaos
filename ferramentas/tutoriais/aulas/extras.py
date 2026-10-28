@@ -66,6 +66,20 @@ def anexar(seletor, arquivo):
     return f
 
 
+def esconder_simulacao():
+    """A gravação roda com a cobrança simulada; a faixa amarela de simulação não existe em produção."""
+    async def f(g):
+        # o bloco que envolve a página também começa com esse texto: esconde o MAIOR que não contém o plano
+        await g.p.evaluate("""() => {
+            const alvos = [...document.querySelectorAll('main div')].filter((el) =>
+                el.textContent.trim().startsWith('Cobrança em simulação') && !el.textContent.includes('Pessoas na equipe'));
+            alvos.sort((a, b) => b.textContent.length - a.textContent.length);
+            if (alvos[0]) alvos[0].style.display = 'none';
+        }""")
+        await asyncio.sleep(0.3)
+    return f
+
+
 def liberar_area_de_transferencia():
     """O 'Copiar lista' usa a área de transferência; no navegador da gravação ela precisa de permissão."""
     async def f(g):
@@ -235,11 +249,11 @@ A30 = Aula(
     abertura_fala="Nesta aula, você vai ver o seu plano, como assinar e como funciona o pagamento.",
     inicio="/configuracoes/plano",
     passos=[
-        Passo("Em Configurações, Plano, você vê o plano atual e até quando vai o teste grátis.",
-              [focar(CARTAO_DO_TEXTO("O teste vai até"))]),
-        Passo("Toda oficina começa com catorze dias no Nitro, o plano completo, sem cartão. Assim você conhece tudo antes de escolher.",
-              [focar(TX("Em teste"))],
-              legenda="14 dias grátis no Nitro, o plano completo, sem cartão."),
+        Passo("Em Configurações, Plano, você vê o plano atual, o que está usando e até quando vai o teste grátis.",
+              [esconder_simulacao(), focar(CARTAO_DO_TEXTO("Fotos e vídeos guardados"))]),
+        Passo("Toda oficina tem trinta dias no Nitro, o plano completo, sem cartão. E os trinta dias só começam a contar quando você manda o primeiro orçamento, ou quando a implantação termina.",
+              [focar(lambda p: p.locator("main").get_by_text(re.compile(r"Em teste|Teste de \d+ dias")).first)],
+              legenda="30 dias grátis no Nitro, sem cartão. Contam a partir do 1º orçamento ou da implantação."),
         Passo("Aqui estão os três planos, e o que cada um inclui.",
               [focar(CARTAO_DO_TEXTO("Trocar de plano vale na hora"))]),
         Passo("No anual, você paga dez meses e usa doze.",

@@ -73,10 +73,10 @@ export const AULAS_DO_CURSO: AulaDoCurso[] = [
   {
     module: 'ORDEM_DE_SERVICO',
     slug: 'check-in',
-    title: 'Check-in com fotos e quilometragem',
+    title: 'Check-in com fotos, vídeo e quilometragem',
     description: 'Registra como o carro chegou. Protege a oficina.',
     file: '07-check-in.mp4',
-    durationSeconds: 85,
+    durationSeconds: 93,
     position: 7,
   },
   {
@@ -283,7 +283,7 @@ export const AULAS_DO_CURSO: AulaDoCurso[] = [
     title: 'Seu plano e o pagamento',
     description: 'O teste grátis, os planos, como pagar e como cancelar.',
     file: '30-plano-e-pagamento.mp4',
-    durationSeconds: 70,
+    durationSeconds: 74,
     position: 30,
   },
   {

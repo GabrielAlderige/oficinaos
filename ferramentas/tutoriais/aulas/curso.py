@@ -4,7 +4,7 @@ Rodar:  python aulas/curso.py 3 5 7     (grava as aulas pedidas)
         python aulas/curso.py todas
 Antes de cada aula a demo é recriada (npm run db:seed:demo -- --reset --seed).
 """
-import os, re, subprocess, sys, time
+import asyncio, os, re, subprocess, sys, time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "motor"))
 from motor import (Aula, Passo, arrastar, mover, assinar, cartao, celular_app, celular_chat, celular_url, clicar, digitar,
@@ -14,6 +14,9 @@ from a08_orcamento_link import AULA as A08
 from extras import EXTRAS
 
 REPO = r"C:\Users\galby\Projetos\oficinaos"
+DADOS = os.path.join(os.path.dirname(__file__), "dados")
+CHECKIN_FOTO = os.path.join(DADOS, "checkin-risco.jpg")  # gerada por computador (Higgsfield)
+CHECKIN_VIDEO = os.path.join(DADOS, "checkin-volta.mp4")  # gerado por computador (Higgsfield)
 PSQL = r"C:\Program Files\PostgreSQL\17\bin\psql.exe"
 CHAVE_PIX = "be7a29c4-5c81-4135-9757-e2910d18739f"  # aleatória, de nenhuma conta: o QR do vídeo não paga ninguém
 
@@ -75,6 +78,39 @@ def linha(texto, botao):
                 .filter(has=p.get_by_role("button", name=botao, exact=True)).last
                 .get_by_role("button", name=botao, exact=True).first)
     return alvo
+
+
+def DTXT(texto):
+    return lambda p: p.get_by_role("dialog").get_by_text(texto, exact=True).first
+
+
+def CARTAO_CHECKIN(p):
+    return p.get_by_role("heading", name="Check-in", exact=True).first.locator(
+        "xpath=ancestor::div[contains(@class,'rounded-xl')][1]")
+
+
+def escolher_no_dialogo(seletor, arquivo):
+    """O botão abre a câmera ou a galeria, que não aparecem no vídeo: o arquivo entra direto no campo."""
+    async def f(g):
+        await g.p.get_by_role("dialog").locator(seletor).first.set_input_files(arquivo)
+        await asyncio.sleep(1.2)
+    return f
+
+
+def dialogo_fechado():
+    """Registrar sobe as fotos e o vídeo antes de fechar o diálogo."""
+    async def f(g):
+        await g.p.get_by_role("dialog").wait_for(state="hidden", timeout=120000)
+        await asyncio.sleep(0.6)
+    return f
+
+
+def video_da_entrada_pronto():
+    """O vídeo é convertido no servidor para tocar em qualquer celular."""
+    async def f(g):
+        await CARTAO_CHECKIN(g.p).locator("video").first.wait_for(state="visible", timeout=120000)
+        await asyncio.sleep(0.6)
+    return f
 
 
 def opcao(texto, nome):
@@ -307,9 +343,9 @@ A06 = Aula(
 
 A07 = Aula(
     slug="check-in", numero=7, modulo="Ordem de serviço",
-    titulo="Check-in com fotos e quilometragem",
+    titulo="Check-in com fotos, vídeo e quilometragem",
     subtitulo="Registra como o carro chegou. Protege a oficina.",
-    abertura_fala="Nesta aula, você vai fazer o check-in do carro: quilometragem, combustível, checklist e avarias.",
+    abertura_fala="Nesta aula, você vai fazer o check-in do carro: quilometragem, combustível, checklist, avarias, fotos e o vídeo da volta no carro.",
     inicio="/ordens/18",
     passos=[
         Passo("Antes de mexer no carro, faça o check-in. Ele registra como o carro chegou, e protege a oficina.",
@@ -321,12 +357,22 @@ A07 = Aula(
         Passo("Achou um risco ou um amassado? Escolha o local e o tipo, e adicione a avaria.",
               [selecionar(DL("Local"), "Para-choque traseiro"), selecionar(DL("Tipo"), "Risco"),
                clicar(DB("Adicionar avaria"))]),
-        Passo("Confira os acessórios que ficaram no carro. Pelo celular, dá para tirar fotos, que ficam guardadas na OS.",
-              [clicar(DB("Estepe")), clicar(DB("Macaco")), clicar(DB("Documento do veículo"))],
-              legenda="Acessórios conferidos. No celular, as fotos ficam guardadas na OS."),
-        Passo("Toque em Registrar check-in. Se o cliente disser que o risco não estava lá, está tudo registrado, com data e hora.",
-              [clicar(DB("Registrar check-in"), 1.6), clicar(B("Histórico"), 1.0)],
-              legenda="Check-in registrado, com data e hora."),
+        Passo("Confira os acessórios que ficaram no carro.",
+              [clicar(DB("Estepe")), clicar(DB("Macaco")), clicar(DB("Documento do veículo"))]),
+        Passo("Agora as fotos. No celular, Adicionar fotos abre a câmera: fotografe o carro e o risco de perto.",
+              [rolar(DTXT("Fotos e vídeo da entrada")), mover(DTXT("Adicionar fotos")),
+               escolher_no_dialogo('input[type=file][accept="image/*"]', CHECKIN_FOTO)],
+              legenda="Adicionar fotos: no celular, abre a câmera."),
+        Passo("Nos planos Supercharger e Nitro, grave também um vídeo dando a volta no carro, de até um minuto. É o fim do “esse risco não tinha”. O vídeo fica guardado na OS e não vai para o cliente.",
+              [mover(DTXT("Vídeo da volta no carro")),
+               escolher_no_dialogo('input[type=file][accept^="video/*"]', CHECKIN_VIDEO)],
+              legenda="Supercharger e Nitro: vídeo da volta no carro. Fica na OS, não vai para o cliente."),
+        Passo("Toque em Registrar check-in. As fotos e o vídeo sobem junto, com data e hora.",
+              [clicar(DB("Registrar check-in"), 0.6), dialogo_fechado(), clicar(B("Histórico"), 1.0)],
+              legenda="Check-in registrado, com fotos, vídeo, data e hora."),
+        Passo("No histórico da OS fica tudo: a quilometragem, as avarias, as fotos e o vídeo da entrada. Se o cliente disser que o risco não estava lá, está registrado.",
+              [video_da_entrada_pronto(), focar(CARTAO_CHECKIN)],
+              legenda="Tudo no histórico da OS: km, avarias, fotos e vídeo."),
     ],
     encerramento_titulo="O carro entrou documentado.",
     encerramento_fala="Pronto! Na próxima aula: mandar o orçamento por link, para o cliente aprovar pelo celular.",
