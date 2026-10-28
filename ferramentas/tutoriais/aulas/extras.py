@@ -259,4 +259,6 @@ A30 = Aula(
     proxima=None,
 )
 
-EXTRAS = [A25, A26, A27, A28, A29, A30]
+from a31_video_defeito import A31  # noqa: E402
+
+EXTRAS = [A25, A26, A27, A28, A29, A30, A31]

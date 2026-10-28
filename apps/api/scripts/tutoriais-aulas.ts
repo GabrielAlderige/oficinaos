@@ -286,4 +286,13 @@ export const AULAS_DO_CURSO: AulaDoCurso[] = [
     durationSeconds: 70,
     position: 30,
   },
+  {
+    module: 'ORCAMENTO',
+    slug: 'foto-e-video-do-defeito',
+    title: 'Foto marcada e vídeo do defeito',
+    description: 'O cliente vê o que você viu, e aprova sem desconfiar.',
+    file: '31-foto-e-video-do-defeito.mp4',
+    durationSeconds: 134,
+    position: 31,
+  },
 ];
