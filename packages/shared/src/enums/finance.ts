@@ -78,13 +78,14 @@ export const SYSTEM_FINANCIAL_CATEGORIES: readonly SystemFinancialCategory[] = [
 ];
 
 /** De onde o lançamento veio. Automático não se apaga à toa: ele espelha a OS ou a compra. */
-export const FINANCIAL_ORIGINS = ['MANUAL', 'WORK_ORDER', 'PURCHASE'] as const;
+export const FINANCIAL_ORIGINS = ['MANUAL', 'WORK_ORDER', 'PURCHASE', 'COUNTER_SALE'] as const;
 export type FinancialOrigin = (typeof FINANCIAL_ORIGINS)[number];
 
 export const FINANCIAL_ORIGIN_LABELS: Record<FinancialOrigin, string> = {
   MANUAL: 'Lançamento manual',
   WORK_ORDER: 'Ordem de serviço',
   PURCHASE: 'Compra',
+  COUNTER_SALE: 'Venda de balcão',
 };
 
 /** Agrupamento do fluxo de caixa. */

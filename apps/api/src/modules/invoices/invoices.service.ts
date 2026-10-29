@@ -91,6 +91,8 @@ export class InvoicesService {
       nationalServiceCode: row?.nationalServiceCode ?? null,
       emissorConectado: this.conectada(row),
       additionalInformation: row?.additionalInformation ?? null,
+      productCfop: row?.productCfop ?? null,
+      productIcmsSituation: row?.productIcmsSituation ?? null,
       updatedAt: row?.updatedAt?.toISOString() ?? null,
     };
   }

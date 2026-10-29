@@ -16,6 +16,8 @@ const publicEntries = (): Plugin => ({
       if (req.url?.startsWith('/orcamento/')) req.url = '/orcamento.html';
       else if (req.url?.startsWith('/cotacao/')) req.url = '/cotacao.html';
       else if (req.url?.startsWith('/acompanhar/')) req.url = '/acompanhar.html';
+      else if (req.url?.startsWith('/pesquisa/')) req.url = '/pesquisa.html';
+      else if (req.url?.startsWith('/cliente/')) req.url = '/cliente.html';
       next();
     });
   },
@@ -26,8 +28,9 @@ export default defineConfig({
   build: {
     rollupOptions: {
       /**
-       * Quatro entradas: o painel, a página do orçamento, a do fornecedor e a
-       * de acompanhamento do veículo.
+       * Seis entradas: o painel, a página do orçamento, a do fornecedor, a de
+       * acompanhamento do veículo, a pesquisa de satisfação (E49) e o app do
+       * cliente (E50).
        * Separadas de propósito — as públicas abrem no celular, muitas vezes em
        * 3G, e não podem carregar o painel junto (ARCHITECTURE §8.2: menos de
        * 100 KB de JS).
@@ -37,6 +40,8 @@ export default defineConfig({
         orcamento: resolve(import.meta.dirname, 'orcamento.html'),
         cotacao: resolve(import.meta.dirname, 'cotacao.html'),
         acompanhar: resolve(import.meta.dirname, 'acompanhar.html'),
+        pesquisa: resolve(import.meta.dirname, 'pesquisa.html'),
+        cliente: resolve(import.meta.dirname, 'cliente.html'),
       },
     },
   },

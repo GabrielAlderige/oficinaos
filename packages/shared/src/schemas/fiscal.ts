@@ -36,6 +36,10 @@ export const fiscalSettingsSchema = z.object({
   emissorConectado: z.boolean(),
   /** o que a oficina quer que apareça no fim da discriminação (ex.: garantia) */
   additionalInformation: z.string().trim().max(1000).nullable(),
+  /** nota de peças (E50): CFOP da venda dentro do estado; vazio é 5102 */
+  productCfop: z.string().trim().regex(/^\d{4}$/, 'O CFOP tem 4 dígitos').nullable(),
+  /** situação do ICMS das peças (CST ou CSOSN); vazio no Simples/MEI é 102 */
+  productIcmsSituation: z.string().trim().regex(/^\d{2,3}$/, 'A situação do ICMS tem 2 ou 3 dígitos').nullable(),
   updatedAt: z.iso.datetime().nullable(),
 });
 export type FiscalSettings = z.infer<typeof fiscalSettingsSchema>;

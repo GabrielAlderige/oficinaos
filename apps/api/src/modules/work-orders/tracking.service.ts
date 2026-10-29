@@ -163,7 +163,7 @@ export class TrackingService {
 }
 
 /** A frase do topo, escrita para o cliente — não é o rótulo do status. */
-function manchete(status: WorkOrderStatus): string {
+export function manchete(status: WorkOrderStatus): string {
   switch (status) {
     case 'OPEN':
     case 'DIAGNOSING':

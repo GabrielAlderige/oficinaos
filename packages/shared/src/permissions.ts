@@ -53,6 +53,13 @@ export const PERMISSIONS = [
   'payments:record',
   'payments:cancel',
   /**
+   * venda de balcão (E49): vender peça sem OS é trabalho de quem fica no
+   * caixa; CANCELAR devolve a peça e o dinheiro, e fica com quem já cancela
+   * pagamento
+   */
+  'counter_sales:sell',
+  'counter_sales:cancel',
+  /**
    * cobrança online (V3, E19): mandar o Pix/boleto é trabalho de balcão, mas
    * ESTORNAR é devolver dinheiro — fica com quem já cancela pagamento
    */
@@ -124,6 +131,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'inventory:read',
     'inventory:adjust',
     'payments:record',
+    'counter_sales:sell',
     'finance:read',
     'commissions:manage',
     'reports:read',
@@ -157,6 +165,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'inventory:read',
     // o atendente costuma ser o caixa: registra o pagamento, mas não vê o financeiro
     'payments:record',
+    // e vende a peça no balcão; cancelar a venda, não
+    'counter_sales:sell',
     // é ele que entrega o carro e ouve "me dá a nota"; cancelar, não
     'invoices:read',
     'invoices:issue',
@@ -190,6 +200,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'inventory:read',
     'payments:record',
     'payments:cancel',
+    'counter_sales:sell',
+    'counter_sales:cancel',
     'finance:read',
     'finance:write',
     'commissions:manage',

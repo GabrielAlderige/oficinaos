@@ -1,6 +1,8 @@
 import type { FastifyBaseLogger, FastifyRequest } from 'fastify';
 import { ErrorCode, type Permission, type PlanFeature, type Role, type SubscriptionStatus } from '@oficinaos/shared';
 import type { Env } from '../config/env';
+import type { EmissorDeNotaDePecas } from '../integrations/fiscal/nota-de-pecas';
+import type { Maquininha } from '../integrations/payments/maquininha';
 import type { Database } from '../db/client';
 import type { EmailProvider } from '../integrations/email/email';
 import type { NfseProvider } from '../integrations/fiscal/nfse';
@@ -102,6 +104,10 @@ export interface ServiceDeps {
    * Os testes trocam por um que não sai para a internet.
    */
   emissorDaOficina: (opcoes: { token: string; environment: 'HOMOLOGATION' | 'PRODUCTION' }) => NfseProvider;
+  /** o mesmo, para a nota de PEÇAS (E50): NFC-e e NF-e na Focus, com o token da oficina */
+  emissorDePecasDaOficina: (opcoes: { token: string; environment: 'HOMOLOGATION' | 'PRODUCTION' }) => EmissorDeNotaDePecas;
+  /** a maquininha Stone da oficina, com a chave DELA (E50); os testes trocam por uma de mentira */
+  maquininhaDaOficina: (opcoes: { secretKey: string }) => Maquininha;
   /** o da plataforma: assinatura do SaaS e leitura dos avisos */
   gateway: PaymentGateway;
   /** o da cobrança da oficina para o cliente; `null` é desligado */

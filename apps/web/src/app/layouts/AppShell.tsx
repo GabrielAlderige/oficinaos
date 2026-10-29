@@ -1,7 +1,7 @@
 import { can, PLAN_FEATURE_MATRIX, type Permission, type PlanFeature } from '@oficinaos/shared';
 import {
-  CalendarDays,
   Building2,
+  CalendarDays,
   Car,
   ClipboardList,
   FileText,
@@ -10,6 +10,7 @@ import {
   Landmark,
   Menu,
   MessageSquare,
+  Network,
   Package,
   PanelLeftClose,
   PanelLeftOpen,
@@ -17,16 +18,18 @@ import {
   ReceiptText,
   Search,
   Settings,
+  ShoppingBag,
   Target,
-  type LucideIcon,
   UserPlus,
   Users,
   Wrench,
+  type LucideIcon,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Link, NavLink, Outlet, useMatches } from 'react-router';
 import { Brand } from '../../components/brand';
 import { NotificationsBell } from '../../features/notifications/NotificationsBell';
+import { AssistantButton } from '../../features/assistant/AssistantButton';
 import { ReportsDialog } from '../../features/reports/ReportsDialog';
 import { Button } from '../../components/ui/button';
 import { Sheet } from '../../components/ui/overlays';
@@ -97,6 +100,8 @@ const NAV: NavGroup[] = [
       { to: '/agenda', label: 'Agenda', icon: CalendarDays, permission: 'appointments:read' },
       { to: '/ordens', label: 'Ordens de serviço', icon: ClipboardList, permission: 'work_orders:read' },
       { to: '/orcamentos', label: 'Orçamentos', icon: FileText, permission: 'work_orders:read' },
+      // a peça vendida sem OS (E49): o atendente vende no balcão o dia inteiro
+      { to: '/balcao', label: 'Venda de balcão', icon: ShoppingBag, permission: 'counter_sales:sell' },
       { to: '/conversas', label: 'Conversas', icon: MessageSquare, permission: 'messages:send' },
     ],
   },
@@ -135,6 +140,8 @@ const NAV: NavGroup[] = [
     items: [
       { to: '/financeiro', label: 'Financeiro', icon: Landmark, permission: 'finance:read' },
       { to: '/notas', label: 'Notas fiscais', icon: ReceiptText, permission: 'invoices:read' },
+      // a rede de oficinas (E50): o resultado de todas as unidades lado a lado
+      { to: '/rede', label: 'Minha rede', icon: Network, permission: 'organization:manage', feature: 'multi_branch' },
     ],
   },
   {
@@ -275,6 +282,7 @@ export function AppShell() {
           <Breadcrumbs />
           <div className="ml-auto flex items-center gap-1.5">
             <CommandMenu />
+            <AssistantButton />
             {/* relatório não é lugar onde se "fica": abre por cima e devolve a pessoa ao que estava fazendo */}
             <ReportsDialog />
             <NotificationsBell />

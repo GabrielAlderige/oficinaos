@@ -42,12 +42,16 @@ export const customers = pgTable(
     notes: text(),
     source: text({ enum: CUSTOMER_SOURCES }),
     marketingOptIn: boolean().notNull().default(false),
+    /** app do cliente (E50): o hash do token do link; o token em texto não é guardado */
+    portalTokenHash: text(),
+    portalTokenIssuedAt: timestamptz(),
     createdBy: uuid().references(() => users.id),
     deletedAt: timestamptz(),
     ...timestamps,
   },
   (t) => [
     unique('customers_org_id_unique').on(t.organizationId, t.id),
+    uniqueIndex('customers_portal_token_unique').on(t.portalTokenHash).where(sql`portal_token_hash is not null`),
     uniqueIndex('customers_org_document_unique')
       .on(t.organizationId, t.document)
       .where(sql`document is not null and deleted_at is null`),

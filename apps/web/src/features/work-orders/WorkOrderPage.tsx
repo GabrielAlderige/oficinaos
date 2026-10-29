@@ -46,6 +46,7 @@ import {
 } from './api';
 import { ChargeCard } from '../charges/ChargeCard';
 import { InvoiceCard } from '../invoices/InvoiceCard';
+import { ProductInvoiceCard } from '../invoices/ProductInvoicePanel';
 import { PaymentCard } from '../payments/PaymentCard';
 import { QuoteCard } from '../quotes/QuoteCard';
 import { ItemTimer } from './ItemTimer';
@@ -295,6 +296,7 @@ function WorkOrderDetail({ order }: { order: WorkOrder }) {
             <PaymentCard order={order} />
             <ChargeCard order={order} />
             <InvoiceCard order={order} />
+            {(order.status === 'COMPLETED' || order.status === 'DELIVERED') && <ProductInvoiceCard workOrderId={order.id} />}
           </div>
           <Card className={cn(aba !== 'servico' && 'hidden')}>
             <CardHeader title="Cliente e veículo" />
@@ -873,6 +875,18 @@ function InspectionsCard({ order }: { order: WorkOrder }) {
                   .filter(Boolean)
                   .join(' · ')}
               </p>
+
+              {/* o que o checklist apontou (E49): o nome do item e o que foi visto, não só a contagem */}
+              {!entrega && issues.length > 0 && (
+                <ul className="mt-1.5 space-y-0.5 text-xs">
+                  {issues.map((entry) => (
+                    <li key={entry.key} className="text-danger">
+                      <span className="font-medium">{entry.label}</span>
+                      {entry.note ? `: ${entry.note}` : ''}
+                    </li>
+                  ))}
+                </ul>
+              )}
 
               {inspection.signature?.url && (
                 <figure className="mt-2">

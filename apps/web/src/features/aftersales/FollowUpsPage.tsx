@@ -15,6 +15,7 @@ import { cn } from '../../lib/cn';
 import { errorMessage } from '../../lib/errors';
 import { useCan } from '../../lib/session';
 import { useCloseFollowUp, useFollowUps } from './api';
+import { AbasDoPosVenda, SatisfactionPanel } from './SatisfactionPanel';
 
 const FILTROS = [
   { valor: 'today', rotulo: 'Hoje' },
@@ -37,6 +38,23 @@ const TOM: Record<FollowUpType, 'success' | 'info' | 'warning'> = {
  * as regras do WhatsApp permitem sem API oficial.
  */
 export function FollowUpsPage() {
+  const [params] = useSearchParams();
+  if (params.get('aba') === 'satisfacao') {
+    return (
+      <>
+        <PageHeader
+          title="Pós-venda"
+          description="O que os clientes acharam do serviço, pela pesquisa de 0 a 10 que vai depois da entrega."
+        />
+        <AbasDoPosVenda />
+        <SatisfactionPanel />
+      </>
+    );
+  }
+  return <FilaDeContatos />;
+}
+
+function FilaDeContatos() {
   const podeMexer = useCan('customers:write');
   const [params, setParams] = useSearchParams();
   const filtro = (FILTROS.find((f) => f.valor === params.get('quando'))?.valor ?? 'today') as (typeof FILTROS)[number]['valor'];
@@ -49,6 +67,7 @@ export function FollowUpsPage() {
         title="Pós-venda"
         description="Quem vale a pena chamar hoje — e o texto pronto para mandar. O que ficou para trás continua na fila."
       />
+      <AbasDoPosVenda />
 
       {dados && (
         <div className="mb-4 grid gap-3 sm:grid-cols-3">

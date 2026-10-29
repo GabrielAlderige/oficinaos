@@ -75,6 +75,7 @@ function toPartDto(
     description: row.description,
     unit: row.unit,
     ean: row.ean,
+    ncm: row.ncm,
     salePriceCents: row.salePriceCents,
     markupBps: showCost ? row.markupBps : null,
     suggestedPriceCents:
@@ -106,6 +107,7 @@ function toValues(input: Partial<CreateInput>) {
     description: blankToNull(input.description),
     unit: input.unit,
     ean: blankToNull(input.ean),
+    ncm: input.ncm === undefined ? undefined : blankToNull(input.ncm.replace(/[.\s]/g, '')),
     salePriceCents: input.salePriceCents,
     markupBps: input.markupBps,
     minQuantity: input.minQuantity === undefined ? undefined : milliToDecimal(toMilli(input.minQuantity)),

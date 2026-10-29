@@ -1,5 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Customer, CustomerInput, CustomerListItem, Page, VehicleListItem } from '@oficinaos/shared';
+import type { Customer, CustomerInput, CustomerListItem, Page, ReviewInviteResult, VehicleListItem } from '@oficinaos/shared';
 import { api } from '../../lib/api-client';
 
 export interface CustomerListParams {
@@ -68,5 +68,12 @@ export function useDeleteCustomer() {
       void queryClient.invalidateQueries({ queryKey: ['customers', 'list'] });
       void queryClient.invalidateQueries({ queryKey: ['vehicles', 'list'] });
     },
+  });
+}
+
+/** O link do app do cliente (E50). Mandar de novo troca o link: o anterior para de abrir. */
+export function usePortalLink(customerId: string) {
+  return useMutation({
+    mutationFn: () => api<ReviewInviteResult>(`/customers/${customerId}/portal-link`, { method: 'POST' }),
   });
 }

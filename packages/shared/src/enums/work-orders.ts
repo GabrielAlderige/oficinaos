@@ -49,6 +49,21 @@ export const ACTIVE_WORK_ORDER_STATUSES = WORK_ORDER_STATUSES.filter(
   (status) => status !== 'DELIVERED' && status !== 'CANCELED',
 );
 
+/**
+ * O pátio em colunas (E49): as oito situações de quem está na oficina viram
+ * as cinco perguntas que a equipe faz olhando para os carros. "Aguardando
+ * peça" fica na execução, marcada: o carro está parado no elevador do mesmo
+ * jeito.
+ */
+export const PATIO_COLUMNS = [
+  { key: 'chegou', label: 'Chegou', statuses: ['OPEN', 'DIAGNOSING'] },
+  { key: 'orcamento', label: 'Orçamento', statuses: ['AWAITING_QUOTE', 'AWAITING_APPROVAL'] },
+  { key: 'fila', label: 'Aprovada, na fila', statuses: ['APPROVED'] },
+  { key: 'execucao', label: 'Em execução', statuses: ['IN_PROGRESS', 'WAITING_PARTS'] },
+  { key: 'pronto', label: 'Pronto para entregar', statuses: ['COMPLETED'] },
+] as const satisfies readonly { key: string; label: string; statuses: readonly WorkOrderStatus[] }[];
+export type PatioColumnKey = (typeof PATIO_COLUMNS)[number]['key'];
+
 /** Fim de linha: não sai mais de lá (o reabrir é exceção e vem de COMPLETED). */
 export const TERMINAL_WORK_ORDER_STATUSES = ['DELIVERED', 'CANCELED'] as const;
 

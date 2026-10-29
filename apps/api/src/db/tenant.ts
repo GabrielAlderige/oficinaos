@@ -16,8 +16,10 @@ type ContextKey =
   | 'app.quote_token'
   | 'app.supplier_token_hash'
   | 'app.review_token_hash'
+  | 'app.portal_token_hash'
   | 'app.tracking_token'
   | 'app.charge_provider_ref'
+  | 'app.pos_order_ref'
   | 'app.subscription_provider_ref'
   | 'app.job_runner'
   | 'app.phone_number_ref'
@@ -102,6 +104,15 @@ export function withReviewToken<T>(db: Database, tokenHash: string, fn: (tx: Tx)
 }
 
 /**
+ * Capacidade do link do app do cliente (E50): quem apresenta o HASH do token
+ * lê só aquele cliente, para a API descobrir a oficina. Mesmo desenho da avaliação.
+ */
+export function withPortalToken<T>(db: Database, tokenHash: string, fn: (tx: Tx) => Promise<T>): Promise<T> {
+  if (!/^[0-9a-f]{64}$/.test(tokenHash)) throw new Error('withPortalToken: esperado o hash sha256 do token');
+  return withDbContext(db, { 'app.portal_token_hash': tokenHash }, fn);
+}
+
+/**
  * Capacidade do link "acompanhe seu veículo" (E17): o token lê só aquela OS,
  * para a API descobrir a oficina. Mesmo desenho do orçamento.
  */
@@ -117,6 +128,14 @@ export function withTrackingToken<T>(db: Database, token: string, fn: (tx: Tx) =
  */
 export function withChargeRef<T>(db: Database, providerChargeId: string, fn: (tx: Tx) => Promise<T>): Promise<T> {
   return withDbContext(db, { 'app.charge_provider_ref': providerChargeId }, fn);
+}
+
+/**
+ * Capacidade do aviso da maquininha (E50): o id do pedido na Pagar.me lê
+ * exatamente aquela cobrança, para a API descobrir a oficina dona dela.
+ */
+export function withPosOrderRef<T>(db: Database, providerOrderId: string, fn: (tx: Tx) => Promise<T>): Promise<T> {
+  return withDbContext(db, { 'app.pos_order_ref': providerOrderId }, fn);
 }
 
 /**

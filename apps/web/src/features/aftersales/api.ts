@@ -6,6 +6,7 @@ import type {
   LeadStage,
   Pipeline,
   ReviewInviteResult,
+  SatisfactionSummary,
   ReviewSummary,
 } from '@oficinaos/shared';
 import { api } from '../../lib/api-client';
@@ -48,6 +49,24 @@ export function useInviteReview(workOrderId: string) {
   return useMutation({
     mutationFn: () => api<ReviewInviteResult>(`/work-orders/${workOrderId}/review-invite`, { method: 'POST' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['reviews'] }),
+  });
+}
+
+/** O link da pesquisa de satisfação (E49): a nota fica com a oficina. */
+export function useSurveyInvite(workOrderId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => api<ReviewInviteResult>(`/work-orders/${workOrderId}/survey-invite`, { method: 'POST' }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['satisfaction'] }),
+  });
+}
+
+/** O NPS e as últimas respostas, para o Pós-venda. */
+export function useSatisfaction(enabled = true) {
+  return useQuery({
+    queryKey: ['satisfaction'],
+    queryFn: () => api<SatisfactionSummary>('/satisfaction'),
+    enabled,
   });
 }
 

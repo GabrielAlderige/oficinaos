@@ -82,6 +82,11 @@ export const router = createBrowserRouter([
         path: '/ordens/:number/imprimir',
         lazy: page(() => import('../features/work-orders/PrintPage'), 'PrintPage'),
       },
+      // a TV da parede da oficina (E49): letra grande, sem menu
+      {
+        path: '/patio/tv',
+        lazy: page(() => import('../features/work-orders/PatioTvPage'), 'PatioTvPage'),
+      },
       {
         path: '/',
         element: <AppShell />,
@@ -140,6 +145,16 @@ export const router = createBrowserRouter([
                 ],
               },
               { path: 'orcamentos', lazy: page(() => import('../features/quotes/QuotesPage'), 'QuotesPage'), handle: { crumb: 'Orçamentos' } },
+              {
+                path: 'rede',
+                lazy: pageDoPlano(() => import('../features/network/NetworkPage'), 'NetworkPage', 'multi_branch'),
+                handle: { crumb: 'Minha rede' },
+              },
+              {
+                path: 'balcao',
+                lazy: page(() => import('../features/counter-sales/CounterSalesPage'), 'CounterSalesPage'),
+                handle: { crumb: 'Venda de balcão' },
+              },
               {
                 path: 'servicos',
                 handle: { crumb: 'Serviços' },
@@ -254,6 +269,11 @@ export const router = createBrowserRouter([
                     handle: { crumb: 'Fluxo de caixa' },
                   },
                   {
+                    path: 'resultado',
+                    lazy: page(() => import('../features/finance/DrePage'), 'DrePage'),
+                    handle: { crumb: 'Resultado (DRE)' },
+                  },
+                  {
                     path: 'comissoes',
                     lazy: page(() => import('../features/finance/CommissionsPage'), 'CommissionsPage'),
                     handle: { crumb: 'Comissões' },
@@ -277,9 +297,19 @@ export const router = createBrowserRouter([
                     handle: { crumb: 'Preços e estoque' },
                   },
                   {
+                    path: 'checklists',
+                    lazy: page(() => import('../features/checklists/ChecklistsSettingsPage'), 'ChecklistsSettingsPage'),
+                    handle: { crumb: 'Checklists' },
+                  },
+                  {
                     path: 'fiscal',
                     lazy: page(() => import('../features/settings/FiscalSettingsPage'), 'FiscalSettingsPage'),
                     handle: { crumb: 'Fiscal', desktop: 'A configuração fiscal' },
+                  },
+                  {
+                    path: 'maquininha',
+                    lazy: page(() => import('../features/pos/PosSettingsPage'), 'PosSettingsPage'),
+                    handle: { crumb: 'Maquininha' },
                   },
                   { path: 'equipe', lazy: page(() => import('../features/settings/TeamPage'), 'TeamPage'), handle: { crumb: 'Equipe' } },
                   {

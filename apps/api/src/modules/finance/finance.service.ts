@@ -8,7 +8,9 @@ import {
   faltaCents,
   formatBRL,
   lucroEstimado,
+  montarDre,
   periodRange,
+  previousPeriodRange,
   situacaoDoLancamento,
   startOfMonth,
   startOfWeek,
@@ -17,6 +19,7 @@ import {
   vencimentosMensais,
   type CashFlow,
   type CashFlowBucket,
+  type Dre,
   type CreateFinancialEntryInput,
   type FinancialCategory,
   type FinancialDirection,
@@ -361,6 +364,14 @@ export class FinanceService {
             'Esta conta espelha a ordem de serviço: mude o valor na OS e ele chega aqui.',
           );
         }
+        if (atual.origin === 'COUNTER_SALE') {
+          throw new AppError(
+            422,
+            ErrorCode.FINANCE_ENTRY_MIRRORED,
+            'Valor vem da venda',
+            'Esta conta é de uma venda de balcão: o valor é o da venda.',
+          );
+        }
         if (input.amountCents < atual.paidCents) {
           throw new AppError(
             422,
@@ -413,6 +424,15 @@ export class FinanceService {
       if (!atual) throw notFound('Lançamento não encontrado.');
       if (atual.status === 'CANCELED') {
         throw new AppError(409, ErrorCode.FINANCE_ENTRY_STATE, 'Já cancelado', 'Este lançamento já estava cancelado.');
+      }
+      // cancelar só a conta deixaria a peça fora do estoque e a venda de pé
+      if (atual.origin === 'COUNTER_SALE') {
+        throw new AppError(
+          422,
+          ErrorCode.FINANCE_ENTRY_MIRRORED,
+          'Conta de venda de balcão',
+          'Esta conta é de uma venda de balcão: cancele a venda, que a peça volta ao estoque e a conta é cancelada junto.',
+        );
       }
       if (atual.paidCents > 0) {
         throw new AppError(
@@ -753,6 +773,35 @@ export class FinanceService {
         to: janela.toDay,
         ...lucroEstimado({ receitaCents, custoPecasCents, despesasCents }),
         despesasPorCategoria: categorias.map((linha) => ({ name: linha.name, amountCents: Number(linha.total) })),
+      };
+    });
+  }
+
+  /**
+   * DRE (E49): as mesmas peças do lucro estimado, em linhas, para o período e
+   * para o anterior do mesmo tamanho. A última linha é o lucro estimado.
+   */
+  async dre(auth: AuthContext, query: FinancialPeriodQuery): Promise<Dre> {
+    return withTenant(this.deps.db, auth, async (tx) => {
+      const tz = await readTimezone(tx, auth.organizationId);
+      const janela = periodRange(query.period, tz, { from: query.from, to: query.to });
+      const anterior = previousPeriodRange(query.period, janela.fromDay, janela.toDay, tz);
+      const linhas = async (faixa: typeof janela) => {
+        const receita = await repo.receitaPorOrigem(tx, auth.organizationId, faixa);
+        const custoPecasCents = await repo.custoDasPecasNoPeriodo(tx, auth.organizationId, faixa);
+        const despesas = await repo.despesasPorCategoria(tx, auth.organizationId, faixa);
+        return montarDre({
+          receitaOsCents: receita.os,
+          receitaBalcaoCents: receita.balcao,
+          custoPecasCents,
+          despesas: despesas.map((linha) => ({ name: linha.name, systemKey: linha.system_key, amountCents: Number(linha.total) })),
+        });
+      };
+      return {
+        from: janela.fromDay,
+        to: janela.toDay,
+        lines: await linhas(janela),
+        previous: { from: anterior.fromDay, to: anterior.toDay, lines: await linhas(anterior) },
       };
     });
   }

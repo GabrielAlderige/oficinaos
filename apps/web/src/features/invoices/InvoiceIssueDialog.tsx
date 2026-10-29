@@ -141,7 +141,7 @@ export function InvoiceIssueDialog({
             {dados.partsAmountCents > 0 && (
               <p className="rounded-md bg-surface-muted px-3 py-2 text-xs text-muted">
                 As peças desta OS ({formatBRL(dados.partsAmountCents)}) <strong>não entram</strong> nesta nota: peça é
-                nota de mercadoria (NF-e), que é outra etapa.
+                nota de mercadoria: emita no cartão “Nota das peças”.
               </p>
             )}
 

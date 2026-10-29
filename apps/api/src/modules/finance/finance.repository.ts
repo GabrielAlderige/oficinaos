@@ -523,16 +523,35 @@ export async function previstoNoPeriodo(
   return { inCents: Number(rows[0]?.in_cents ?? 0), outCents: Number(rows[0]?.out_cents ?? 0) };
 }
 
-/** Receita faturada: a mesma regra do `devidoCents` usada pelo dashboard. */
+/**
+ * Receita faturada: a mesma regra do `devidoCents` usada pelo dashboard, mais
+ * a venda de balcão concluída no período (E49).
+ */
 export async function receitaNoPeriodo(tx: Tx, organizationId: string, janela: Janela): Promise<number> {
-  const { rows } = await tx.execute<{ total: string }>(sql`
-    select coalesce(sum(case when approved_total_cents > 0 then approved_total_cents else total_cents end), 0)::bigint as total
-    from work_orders
-    where organization_id = ${organizationId}
-      and status <> 'CANCELED'
-      and completed_at >= ${janela.from} and completed_at < ${janela.to}
+  const { os, balcao } = await receitaPorOrigem(tx, organizationId, janela);
+  return os + balcao;
+}
+
+/** A receita separada: OS finalizadas e venda de balcão. A DRE mostra as duas linhas. */
+export async function receitaPorOrigem(
+  tx: Tx,
+  organizationId: string,
+  janela: Janela,
+): Promise<{ os: number; balcao: number }> {
+  const { rows } = await tx.execute<{ os: string; balcao: string }>(sql`
+    select
+      (select coalesce(sum(case when approved_total_cents > 0 then approved_total_cents else total_cents end), 0)
+         from work_orders
+        where organization_id = ${organizationId}
+          and status <> 'CANCELED'
+          and completed_at >= ${janela.from} and completed_at < ${janela.to})::bigint as os,
+      (select coalesce(sum(total_cents), 0)
+         from counter_sales
+        where organization_id = ${organizationId}
+          and status = 'COMPLETED'
+          and sold_at >= ${janela.from} and sold_at < ${janela.to})::bigint as balcao
   `);
-  return Number(rows[0]?.total ?? 0);
+  return { os: Number(rows[0]?.os ?? 0), balcao: Number(rows[0]?.balcao ?? 0) };
 }
 
 /**
@@ -540,13 +559,16 @@ export async function receitaNoPeriodo(tx: Tx, organizationId: string, janela: J
  * baixa. `quantity` é a quantidade de verdade (numeric 12,3), não milésimos:
  * dividir por mil aqui fazia o custo das peças virar centavos — o gráfico do
  * lucro mostrou isso na primeira olhada.
+ *
+ * A venda de balcão (E49) entra igual: a saída soma, e a devolução de uma
+ * venda cancelada (quantidade positiva) desconta pelo mesmo custo.
  */
 export async function custoDasPecasNoPeriodo(tx: Tx, organizationId: string, janela: Janela): Promise<number> {
   const { rows } = await tx.execute<{ total: string }>(sql`
     select coalesce(round(sum((-quantity) * coalesce(unit_cost_cents, 0))), 0)::bigint as total
     from inventory_movements
     where organization_id = ${organizationId}
-      and type = 'WORK_ORDER_OUT'
+      and type in ('WORK_ORDER_OUT', 'COUNTER_SALE_OUT', 'COUNTER_SALE_RETURN')
       and created_at >= ${janela.from} and created_at < ${janela.to}
   `);
   return Number(rows[0]?.total ?? 0);
@@ -558,24 +580,39 @@ export interface DespesaPorCategoria extends Record<string, unknown> {
   total: string;
 }
 
-/** O que foi pago no período, por categoria. "Peças" vem marcada para o lucro estimado. */
+/**
+ * O que foi pago no período, por categoria. "Peças" vem marcada para o lucro
+ * estimado, e "Impostos" para a DRE (E49).
+ *
+ * A comissão paga ao mecânico (E26) entra como uma linha a mais: ela não é
+ * lançamento do financeiro (tem tabela própria), mas é dinheiro que saiu — sem
+ * ela o lucro da oficina com comissão saía maior do que é.
+ */
 export async function despesasPorCategoria(
   tx: Tx,
   organizationId: string,
   janela: Janela,
 ): Promise<DespesaPorCategoria[]> {
   const { rows } = await tx.execute<DespesaPorCategoria>(sql`
-    select coalesce(c.name, 'Sem categoria') as name,
-           c.system_key,
-           sum(s.amount_cents)::bigint as total
-    from financial_settlements s
-    join financial_entries e on e.organization_id = s.organization_id and e.id = s.entry_id
-    left join financial_categories c on c.organization_id = e.organization_id and c.id = e.category_id
-    where s.organization_id = ${organizationId} and s.status = 'CONFIRMED'
-      and e.direction = 'PAYABLE'
-      and s.paid_at >= ${janela.from} and s.paid_at < ${janela.to}
-    group by 1, 2
-    order by 3 desc
+    select name, system_key, total from (
+      select coalesce(c.name, 'Sem categoria') as name,
+             c.system_key,
+             sum(s.amount_cents)::bigint as total
+      from financial_settlements s
+      join financial_entries e on e.organization_id = s.organization_id and e.id = s.entry_id
+      left join financial_categories c on c.organization_id = e.organization_id and c.id = e.category_id
+      where s.organization_id = ${organizationId} and s.status = 'CONFIRMED'
+        and e.direction = 'PAYABLE'
+        and s.paid_at >= ${janela.from} and s.paid_at < ${janela.to}
+      group by 1, 2
+      union all
+      select 'Comissões dos mecânicos' as name, 'COMMISSIONS' as system_key, sum(amount_cents)::bigint as total
+      from commission_payouts
+      where organization_id = ${organizationId}
+        and paid_at >= ${janela.from} and paid_at < ${janela.to}
+      having sum(amount_cents) > 0
+    ) despesas
+    order by total desc
   `);
   return rows;
 }

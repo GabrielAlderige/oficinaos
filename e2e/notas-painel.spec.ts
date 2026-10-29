@@ -49,12 +49,12 @@ test('a oficina completa os dados fiscais, emite a nota do serviço e cancela a 
     await page.goto(`/ordens/${ordem.number}`);
     await expect(page.getByRole('heading', { name: new RegExp(`^OS ${ordem.number}`) })).toBeVisible();
     await abrirAbaDaOS(page, 'Dinheiro');
-    await page.getByRole('button', { name: 'Emitir nota' }).click();
+    await page.getByRole('button', { name: 'Emitir nota', exact: true }).click();
 
     const dialogo = page.getByRole('dialog');
     await expect(dialogo.getByText('Falta preencher para conseguir emitir:')).toBeVisible();
     await expect(dialogo.getByText(/inscrição municipal/i)).toBeVisible();
-    await expect(dialogo.getByRole('button', { name: 'Emitir nota' })).toBeDisabled();
+    await expect(dialogo.getByRole('button', { name: 'Emitir nota', exact: true })).toBeDisabled();
     await captura(page, 'nota-01-pendencias');
     await page.keyboard.press('Escape');
   });
@@ -88,7 +88,7 @@ test('a oficina completa os dados fiscais, emite a nota do serviço e cancela a 
   await test.step('a nota sai com o ISS por dentro e a peça de fora', async () => {
     await page.goto(`/ordens/${ordem.number}`);
     await abrirAbaDaOS(page, 'Dinheiro');
-    await page.getByRole('button', { name: 'Emitir nota' }).click();
+    await page.getByRole('button', { name: 'Emitir nota', exact: true }).click();
     const dialogo = page.getByRole('dialog');
     await expect(dialogo.getByText('Falta preencher para conseguir emitir:')).toBeHidden();
 
@@ -99,7 +99,7 @@ test('a oficina completa os dados fiscais, emite a nota do serviço e cancela a 
     expect(conferencia, 'simulação declarada').toContain('Modo simulação');
     await captura(page, 'nota-03-conferencia');
 
-    await dialogo.getByRole('button', { name: 'Emitir nota' }).click();
+    await dialogo.getByRole('button', { name: 'Emitir nota', exact: true }).click();
     // o número no meio distingue o aviso do evento "Nota fiscal emitida" da timeline
     await expect(page.getByText(/Nota \d+ emitida/)).toBeVisible();
 

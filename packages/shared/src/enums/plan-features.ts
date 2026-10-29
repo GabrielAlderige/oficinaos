@@ -26,6 +26,8 @@ export const PLAN_FEATURES = [
   'parts_search',
   'whatsapp_api',
   'automations',
+  'assistant',
+  'multi_branch',
 ] as const;
 export type PlanFeature = (typeof PLAN_FEATURES)[number];
 
@@ -46,6 +48,8 @@ export const PLAN_FEATURE_LABELS: Record<PlanFeature, string> = {
   parts_search: 'Pesquisa de peças por carro',
   whatsapp_api: 'WhatsApp oficial (conta da Meta)',
   automations: 'Automações diárias',
+  assistant: 'Assistente com IA',
+  multi_branch: 'Várias unidades (rede de oficinas)',
 };
 
 /**
@@ -60,7 +64,6 @@ export const PLAN_FEATURE_LABELS: Record<PlanFeature, string> = {
 export const ROADMAP_FEATURES = [
   'suppliers',
   'purchasing',
-  'multi_branch',
   'custom_roles',
   'public_api',
 ] as const;
@@ -69,7 +72,6 @@ export type RoadmapFeature = (typeof ROADMAP_FEATURES)[number];
 export const ROADMAP_FEATURE_LABELS: Record<RoadmapFeature, string> = {
   suppliers: 'Fornecedores e cotação por link',
   purchasing: 'Compras e recebimento',
-  multi_branch: 'Mais de uma unidade',
   custom_roles: 'Papéis customizados',
   public_api: 'API pública',
 };
@@ -113,6 +115,11 @@ const NITRO_FEATURES: readonly PlanFeature[] = [
   'parts_search',
   'whatsapp_api',
   'automations',
+  // E49: cada pergunta é uma chamada paga ao modelo de IA
+  'assistant',
+  // E50: o painel da rede e a transferência de peça entre unidades; cada
+  // unidade continua com a própria assinatura
+  'multi_branch',
 ];
 
 export const PLAN_FEATURE_MATRIX = {

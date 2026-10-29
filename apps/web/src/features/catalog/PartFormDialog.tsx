@@ -37,6 +37,7 @@ function toFormValues(part?: Part): PartForm {
     description: part?.description ?? '',
     unit: part?.unit ?? 'UN',
     ean: part?.ean ?? '',
+    ncm: part?.ncm ?? '',
     salePrice: part?.salePriceCents != null ? formatBRLInput(part.salePriceCents) : '',
     markup: part?.markupBps != null ? formatPercentInput(part.markupBps) : '',
     minQuantity: quantityInput(part?.minQuantity ?? null),
@@ -230,13 +231,16 @@ function PartFormBody({ part, onDone }: { part?: Part; onDone(saved?: Part): voi
           )}
         </Section>
 
-        <details className="rounded-lg border border-border" open={Boolean(part?.ean || part?.description)}>
+        <details className="rounded-lg border border-border" open={Boolean(part?.ean || part?.ncm || part?.description)}>
           <summary className="cursor-pointer list-none px-3 py-2.5 text-sm font-medium select-none marker:hidden">
             Mais detalhes <span className="font-normal text-muted">(opcional)</span>
           </summary>
           <div className="grid gap-4 border-t border-border p-3">
             <Field label="Código de barras (EAN)" htmlFor="p-ean" error={e.ean?.message}>
               <Input {...fieldA11y('p-ean', e.ean?.message)} inputMode="numeric" {...register('ean')} />
+            </Field>
+            <Field label="NCM" htmlFor="p-ncm" error={e.ncm?.message} hint="8 dígitos. Obrigatório para a peça sair em nota fiscal (está na nota do fornecedor).">
+              <Input {...fieldA11y('p-ncm', e.ncm?.message)} inputMode="numeric" placeholder="8421.23.00" {...register('ncm')} />
             </Field>
             <Field label="Descrição" htmlFor="p-description" error={e.description?.message}>
               <Textarea id="p-description" rows={2} {...register('description')} />

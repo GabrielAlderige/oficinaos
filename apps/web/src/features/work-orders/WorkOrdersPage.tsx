@@ -1,5 +1,5 @@
 import { formatBRL, WORK_ORDER_STATUS_LABELS, WORK_ORDER_STATUSES, type WorkOrderStatus } from '@oficinaos/shared';
-import { ClipboardList, Plus } from 'lucide-react';
+import { ClipboardList, Columns3, List, Plus, Tv } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { PlateBadge } from '../../components/plate-badge';
@@ -14,6 +14,7 @@ import { withParam } from '../../lib/search-params';
 import { useCan } from '../../lib/session';
 import { useDebouncedValue } from '../../lib/use-debounced-value';
 import { useWorkOrderBoard, useWorkOrders, type WorkOrderListParams } from './api';
+import { PatioBoard } from './PatioBoard';
 import { PaymentBadge, StatusBadge } from './status';
 
 const GRID = 'md:grid-cols-[4.5rem_minmax(0,1.6fr)_minmax(0,1.4fr)_minmax(0,1fr)_8rem]';
@@ -29,7 +30,80 @@ function isStatus(value: string | null): value is WorkOrderStatus | 'active' | '
   return value === 'active' || value === 'all' || (WORK_ORDER_STATUSES as readonly string[]).includes(value ?? '');
 }
 
+/** Lista ou pátio (E49): a escolha fica no endereço, para voltar nela. */
+function Vistas({ patio, onChange }: { patio: boolean; onChange(patio: boolean): void }) {
+  return (
+    <div role="group" aria-label="Como ver" className="inline-flex rounded-lg border border-border p-0.5">
+      {[
+        { valor: false, rotulo: 'Lista', icone: List },
+        { valor: true, rotulo: 'Pátio', icone: Columns3 },
+      ].map(({ valor, rotulo, icone: Icone }) => (
+        <button
+          key={rotulo}
+          type="button"
+          aria-pressed={patio === valor}
+          onClick={() => onChange(valor)}
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors',
+            patio === valor ? 'bg-accent-soft font-medium text-accent dark:text-accent-bright' : 'text-muted hover:text-foreground',
+          )}
+        >
+          <Icone className="size-4" aria-hidden="true" />
+          {rotulo}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function WorkOrdersPage() {
+  const [params, setParams] = useSearchParams();
+  const patio = params.get('vista') === 'patio';
+  const mudarVista = (valor: boolean) => setParams(withParam(new URLSearchParams(), 'vista', valor ? 'patio' : null));
+
+  if (patio) {
+    return (
+      <>
+        <CabecalhoDasOrdens patio onVista={mudarVista} />
+        <PatioBoard />
+      </>
+    );
+  }
+  return <ListaDeOrdens onVista={mudarVista} />;
+}
+
+function CabecalhoDasOrdens({ patio, onVista }: { patio: boolean; onVista(patio: boolean): void }) {
+  const canWrite = useCan('work_orders:write');
+  return (
+    <PageHeader
+      title="Ordens de serviço"
+      description={patio ? 'O pátio: cada carro na etapa em que está. Toque no cartão para abrir a OS.' : 'Os carros que estão na oficina, e o que falta em cada um.'}
+      actions={
+        <span className="flex flex-wrap items-center gap-2">
+          <Vistas patio={patio} onChange={onVista} />
+          {patio && (
+            <Button asChild variant="secondary">
+              <Link to="/patio/tv">
+                <Tv />
+                Modo TV
+              </Link>
+            </Button>
+          )}
+          {canWrite && (
+            <Button asChild>
+              <Link to="/ordens/nova">
+                <Plus />
+                Nova OS
+              </Link>
+            </Button>
+          )}
+        </span>
+      }
+    />
+  );
+}
+
+function ListaDeOrdens({ onVista }: { onVista(patio: boolean): void }) {
   const canWrite = useCan('work_orders:write');
   const [params, setParams] = useSearchParams();
   const page = Math.max(1, Number(params.get('page')) || 1);
@@ -51,20 +125,7 @@ export function WorkOrdersPage() {
 
   return (
     <>
-      <PageHeader
-        title="Ordens de serviço"
-        description="Os carros que estão na oficina, e o que falta em cada um."
-        actions={
-          canWrite && (
-            <Button asChild>
-              <Link to="/ordens/nova">
-                <Plus />
-                Nova OS
-              </Link>
-            </Button>
-          )
-        }
-      />
+      <CabecalhoDasOrdens patio={false} onVista={onVista} />
 
       <div className="mb-4 flex flex-wrap gap-2">
         {QUICK.map((value) => {

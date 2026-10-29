@@ -10,8 +10,11 @@ import {
   leadSchema,
   moveLeadSchema,
   pipelineSchema,
+  publicSurveySchema,
   publicTrackingSchema,
   reviewInviteResultSchema,
+  satisfactionSummarySchema,
+  surveyAnswerSchema,
   updateLeadSchema,
 } from '@oficinaos/shared';
 import { clientInfo, getAuth } from '../../core/auth-context';
@@ -74,6 +77,49 @@ export const workOrderReviewRoutes: FastifyPluginAsyncZod = async (app) => {
       reply.code(201);
       return app.services.reviews.invite(getAuth(request), request.params.id, clientInfo(request));
     },
+  );
+
+  // a pesquisa de satisfação (E49): a nota fica com a oficina
+  app.post(
+    '/:id/survey-invite',
+    {
+      config: { auth: 'quotes:send' },
+      schema: { params: idParamSchema, response: { 201: reviewInviteResultSchema } },
+    },
+    async (request, reply) => {
+      reply.code(201);
+      return app.services.reviews.surveyInvite(getAuth(request), request.params.id, clientInfo(request));
+    },
+  );
+};
+
+/** O NPS da oficina (E49): fica no Pós-venda, com quem liga para o cliente. */
+export const satisfactionRoutes: FastifyPluginAsyncZod = async (app) => {
+  app.get(
+    '/',
+    { config: { auth: 'customers:view_contact' }, schema: { response: { 200: satisfactionSummarySchema } } },
+    async (request) => app.services.reviews.satisfaction(getAuth(request)),
+  );
+};
+
+/** A página da pesquisa, sem login: o token de 32 bytes é a credencial. */
+export const publicSurveyRoutes: FastifyPluginAsyncZod = async (app) => {
+  const tokenParam = z.object({ token: z.string().min(16).max(128) });
+  app.get(
+    '/surveys/:token',
+    {
+      config: { auth: 'public', rateLimit: { max: 60, timeWindow: '1 minute' } },
+      schema: { params: tokenParam, response: { 200: publicSurveySchema } },
+    },
+    async (request) => app.services.reviews.publicSurvey(request.params.token),
+  );
+  app.post(
+    '/surveys/:token',
+    {
+      config: { auth: 'public', rateLimit: { max: 10, timeWindow: '1 minute' } },
+      schema: { params: tokenParam, body: surveyAnswerSchema, response: { 200: publicSurveySchema } },
+    },
+    async (request) => app.services.reviews.answerSurvey(request.params.token, request.body, clientInfo(request)),
   );
 };
 

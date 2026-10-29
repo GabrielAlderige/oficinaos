@@ -81,6 +81,23 @@ export function useWorkOrderHistory(by: { vehicleId: string } | { customerId: st
   });
 }
 
+/**
+ * O pátio (E49): todo carro que está na oficina, numa página só. Cem cabem
+ * com folga no pátio de uma oficina; passou disso, a tela avisa. A TV da
+ * parede pergunta de novo de 30 em 30 segundos — inclusive com a aba em
+ * segundo plano, porque ninguém fica clicando na TV.
+ */
+export const PATIO_MAX = 100;
+
+export function usePatio({ tv = false }: { tv?: boolean } = {}) {
+  return useQuery({
+    queryKey: [...workOrderKeys.all, 'patio'] as const,
+    queryFn: () => api<Page<WorkOrderListItem>>(`/work-orders?${toQueryString({ status: 'active', page: 1, pageSize: PATIO_MAX })}`),
+    refetchInterval: tv ? 30_000 : 60_000,
+    refetchIntervalInBackground: tv,
+  });
+}
+
 export function useWorkOrderBoard(enabled = true) {
   return useQuery({ queryKey: workOrderKeys.board, queryFn: () => api<WorkOrderBoard>('/work-orders/board'), enabled });
 }

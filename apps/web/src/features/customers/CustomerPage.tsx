@@ -1,5 +1,5 @@
 import { CUSTOMER_SOURCE_LABELS, type Customer } from '@oficinaos/shared';
-import { Car, MessageCircle, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Car, MessageCircle, Pencil, Plus, Smartphone, Trash2 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { toast } from 'sonner';
@@ -15,7 +15,7 @@ import { formatDate } from '../../lib/format';
 import { useCan } from '../../lib/session';
 import { VehicleFormDialog } from '../vehicles/VehicleFormDialog';
 import { ServiceHistory } from '../work-orders/ServiceHistory';
-import { useCustomer, useCustomerVehicles, useDeleteCustomer } from './api';
+import { useCustomer, useCustomerVehicles, useDeleteCustomer, usePortalLink } from './api';
 import { CustomerFormDialog } from './CustomerFormDialog';
 
 export function CustomerPage() {
@@ -59,7 +59,24 @@ function CustomerDetail({ customer }: { customer: Customer }) {
   const canDelete = useCan('customers:delete');
   const canAddVehicle = useCan('vehicles:write');
   const canMessage = useCan('messages:send');
+  const canSeeContact = useCan('customers:view_contact');
+  const portal = usePortalLink(customer.id);
   const vehicles = useCustomerVehicles(customer.id);
+
+  /** O app do cliente (E50): o link vai pelo WhatsApp; sem WhatsApp, é copiado. */
+  async function mandarApp() {
+    try {
+      const { message, whatsappUrl: link } = await portal.mutateAsync();
+      if (link) {
+        window.open(link, '_blank', 'noopener,noreferrer');
+        return;
+      }
+      await navigator.clipboard.writeText(message);
+      toast.success('O cliente não tem WhatsApp cadastrado. O link foi copiado.');
+    } catch (err) {
+      toast.error(errorMessage(err));
+    }
+  }
   const remove = useDeleteCustomer();
   const [editing, setEditing] = useState(false);
   const [addingVehicle, setAddingVehicle] = useState(false);
@@ -105,6 +122,12 @@ function CustomerDetail({ customer }: { customer: Customer }) {
                 </a>
               </Button>
             ))}
+          {canSeeContact && (
+            <Button variant="secondary" loading={portal.isPending} onClick={() => void mandarApp()}>
+              <Smartphone />
+              Enviar app do cliente
+            </Button>
+          )}
           {canWrite && (
             <Button variant="secondary" onClick={() => setEditing(true)}>
               <Pencil />

@@ -12,6 +12,8 @@ export const ErrorCode = {
   FORBIDDEN: 'FORBIDDEN',
   CONFLICT: 'CONFLICT',
   RATE_LIMITED: 'RATE_LIMITED',
+  /** assistente com IA (E49) sem a chave configurada no servidor */
+  ASSISTANT_DISABLED: 'ASSISTANT_DISABLED',
   INTERNAL: 'INTERNAL',
   // auth
   INVALID_CREDENTIALS: 'INVALID_CREDENTIALS',

@@ -14,8 +14,10 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
-import { FISCAL_ENVIRONMENTS, INVOICE_KINDS, INVOICE_STATUSES, TAX_REGIMES } from '@oficinaos/shared';
+import { FISCAL_ENVIRONMENTS, INVOICE_KINDS, INVOICE_STATUSES, PRODUCT_INVOICE_MODELS, TAX_REGIMES } from '@oficinaos/shared';
 import { id, timestamps, timestamptz } from './_columns';
+import { parts } from './catalog';
+import { counterSales } from './counter-sales';
 import { customers, vehicles } from './customers';
 import { organizations, users } from './tenancy';
 import { workOrderItems, workOrders } from './work-orders';
@@ -64,6 +66,10 @@ export const organizationFiscalSettings = pgTable(
      */
     providerTokenEnc: text(),
     additionalInformation: text(),
+    /** nota de peças (E50): CFOP padrão dos itens (5102, venda de mercadoria de terceiros) */
+    productCfop: text(),
+    /** situação do ICMS das peças; vazio no Simples vira o CSOSN 102 */
+    productIcmsSituation: text(),
     ...timestamps,
   },
   (t) => [
@@ -202,5 +208,121 @@ export const invoiceItems = pgTable(
     index('invoice_items_invoice_idx').on(t.organizationId, t.invoiceId, t.position),
     check('invoice_items_quantity_check', sql`${t.quantity} > 0`),
     check('invoice_items_money_check', sql`${t.unitPriceCents} >= 0 and ${t.totalCents} >= 0`),
+  ],
+);
+
+/**
+ * Nota fiscal de PEÇAS (E50): NFC-e (consumidor) ou NF-e (empresa), de uma
+ * venda de balcão OU das peças de uma OS. Separada da NFS-e de propósito: a
+ * nota de serviço é municipal, com ISS; esta é estadual, com NCM, CFOP e
+ * ICMS — misturar as duas na mesma tabela era meia tabela vazia em cada nota.
+ *
+ * Só uma nota viva por documento de origem: depois de cancelada ou recusada,
+ * pode emitir de novo.
+ */
+export const productInvoices = pgTable(
+  'product_invoices',
+  {
+    id: id(),
+    organizationId: uuid()
+      .notNull()
+      .references(() => organizations.id),
+    model: text({ enum: PRODUCT_INVOICE_MODELS }).notNull(),
+    status: text({ enum: INVOICE_STATUSES }).notNull().default('QUEUED'),
+    environment: text({ enum: FISCAL_ENVIRONMENTS }).notNull(),
+    provider: text(),
+    counterSaleId: uuid(),
+    workOrderId: uuid(),
+    customerId: uuid(),
+    clientRequestId: uuid().notNull(),
+    number: text(),
+    series: text(),
+    /** chave de acesso de 44 dígitos */
+    accessKey: text(),
+    providerRef: text(),
+    danfeUrl: text(),
+    xmlUrl: text(),
+    qrcodeUrl: text(),
+    totalCents: money().notNull(),
+    providerResponse: jsonb().$type<Record<string, unknown>>(),
+    rejectionReason: text(),
+    issuedAt: timestamptz(),
+    canceledAt: timestamptz(),
+    cancelReason: text(),
+    canceledBy: uuid().references(() => users.id),
+    createdBy: uuid()
+      .notNull()
+      .references(() => users.id),
+    ...timestamps,
+  },
+  (t) => [
+    unique('product_invoices_org_id_unique').on(t.organizationId, t.id),
+    uniqueIndex('product_invoices_client_request_unique').on(t.organizationId, t.clientRequestId),
+    uniqueIndex('product_invoices_sale_alive_unique')
+      .on(t.organizationId, t.counterSaleId)
+      .where(sql`counter_sale_id is not null and status in ('QUEUED', 'AUTHORIZED')`),
+    uniqueIndex('product_invoices_work_order_alive_unique')
+      .on(t.organizationId, t.workOrderId)
+      .where(sql`work_order_id is not null and status in ('QUEUED', 'AUTHORIZED')`),
+    foreignKey({
+      name: 'product_invoices_counter_sale_fk',
+      columns: [t.organizationId, t.counterSaleId],
+      foreignColumns: [counterSales.organizationId, counterSales.id],
+    }),
+    foreignKey({
+      name: 'product_invoices_work_order_fk',
+      columns: [t.organizationId, t.workOrderId],
+      foreignColumns: [workOrders.organizationId, workOrders.id],
+    }),
+    foreignKey({
+      name: 'product_invoices_customer_fk',
+      columns: [t.organizationId, t.customerId],
+      foreignColumns: [customers.organizationId, customers.id],
+    }),
+    index('product_invoices_created_idx').on(t.organizationId, t.createdAt.desc()),
+    check('product_invoices_model_check', sql`${t.model} in (${list(PRODUCT_INVOICE_MODELS)})`),
+    check('product_invoices_status_check', sql`${t.status} in (${list(INVOICE_STATUSES)})`),
+    check('product_invoices_environment_check', sql`${t.environment} in (${list(FISCAL_ENVIRONMENTS)})`),
+    check('product_invoices_origin_check', sql`(${t.counterSaleId} is null) <> (${t.workOrderId} is null)`),
+    check('product_invoices_money_check', sql`${t.totalCents} >= 0`),
+    check('product_invoices_authorized_check', sql`${t.status} <> 'AUTHORIZED' or ${t.issuedAt} is not null`),
+  ],
+);
+
+/** O que foi na nota, congelado: mudar a peça depois não muda a nota emitida. */
+export const productInvoiceItems = pgTable(
+  'product_invoice_items',
+  {
+    id: id(),
+    organizationId: uuid()
+      .notNull()
+      .references(() => organizations.id),
+    invoiceId: uuid().notNull(),
+    partId: uuid(),
+    description: text().notNull(),
+    ncm: text().notNull(),
+    cfop: text().notNull(),
+    unit: text().notNull(),
+    quantity: quantity().notNull(),
+    unitPriceCents: money().notNull(),
+    discountCents: money().notNull().default(0),
+    totalCents: money().notNull(),
+    position: integer().notNull(),
+    createdAt: timestamptz().notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      name: 'product_invoice_items_invoice_fk',
+      columns: [t.organizationId, t.invoiceId],
+      foreignColumns: [productInvoices.organizationId, productInvoices.id],
+    }),
+    foreignKey({
+      name: 'product_invoice_items_part_fk',
+      columns: [t.organizationId, t.partId],
+      foreignColumns: [parts.organizationId, parts.id],
+    }),
+    index('product_invoice_items_invoice_idx').on(t.organizationId, t.invoiceId, t.position),
+    check('product_invoice_items_quantity_check', sql`${t.quantity} > 0`),
+    check('product_invoice_items_money_check', sql`${t.unitPriceCents} >= 0 and ${t.totalCents} >= 0 and ${t.discountCents} >= 0`),
   ],
 );

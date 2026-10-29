@@ -5,7 +5,9 @@ import { cn } from '../../lib/cn';
 const TABS = [
   { to: 'oficina', label: 'Oficina' },
   { to: 'precos', label: 'Preços e estoque' },
+  { to: 'checklists', label: 'Checklists' },
   { to: 'fiscal', label: 'Fiscal' },
+  { to: 'maquininha', label: 'Maquininha' },
   { to: 'equipe', label: 'Equipe' },
   { to: 'plano', label: 'Plano' },
   { to: 'whatsapp', label: 'WhatsApp' },

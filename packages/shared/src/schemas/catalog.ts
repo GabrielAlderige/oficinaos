@@ -198,6 +198,8 @@ const partFields = {
   description: optionalText(1000),
   unit: z.enum(PART_UNITS),
   ean: z.string().trim().refine((v) => v === '' || /^(\d{8}|\d{12,14})$/.test(v), 'O EAN/GTIN tem 8, 12, 13 ou 14 dígitos'),
+  /** classificação fiscal da mercadoria (8 dígitos): sem ela a peça não sai em nota (E50) */
+  ncm: z.string().trim().refine((v) => v === '' || /^\d{8}$/.test(v.replace(/[.\s]/g, '')), 'O NCM tem 8 dígitos'),
   salePriceCents: cents.nullable(),
   /** margem própria; null = margem padrão da oficina */
   markupBps: z.number().int().min(0).max(100_000).nullable(),
@@ -218,6 +220,7 @@ export const createPartSchema = z.object({
   description: partFields.description.default(''),
   unit: partFields.unit.default('UN'),
   ean: partFields.ean.default(''),
+  ncm: partFields.ncm.default(''),
   salePriceCents: partFields.salePriceCents.default(null),
   markupBps: partFields.markupBps.default(null),
   minQuantity: partFields.minQuantity.default(0),
@@ -243,6 +246,7 @@ export const partFormSchema = z
     description: partFields.description,
     unit: partFields.unit,
     ean: partFields.ean,
+    ncm: partFields.ncm.default(''),
     salePrice: moneyText,
     markup: percentText,
     minQuantity: quantityText,
@@ -272,6 +276,7 @@ export const partSchema = z.object({
   description: z.string().nullable(),
   unit: z.enum(PART_UNITS),
   ean: z.string().nullable(),
+  ncm: z.string().nullable(),
   salePriceCents: z.number().int().nullable(),
   markupBps: z.number().int().nullable(),
   /** custo × (1 + margem da peça ou da oficina); null sem custo ou para quem não vê custo */

@@ -14,6 +14,8 @@ import { registerSecurity } from './core/plugins/security';
 import type { Database } from './db/client';
 import { createEmailProvider, type EmailProvider } from './integrations/email/email';
 import { createNfseProvider, type NfseProvider } from './integrations/fiscal/nfse';
+import { FocusNotaDePecas } from './integrations/fiscal/nota-de-pecas';
+import { StoneConnect } from './integrations/payments/maquininha';
 import { FocusNfseProvider } from './integrations/fiscal/focus';
 import { createChargesGateway, createPaymentGateway, type PaymentGateway } from './integrations/payments';
 import { AutomationsService } from './modules/automations/automations.service';
@@ -24,6 +26,10 @@ import { ChargesService } from './modules/charges/charges.service';
 import { chargeRoutes, paymentWebhookRoutes, workOrderChargeRoutes } from './modules/charges/charges.routes';
 import { InvoicesService } from './modules/invoices/invoices.service';
 import { fiscalSettingsRoutes, invoiceRoutes, workOrderInvoiceRoutes } from './modules/invoices/invoices.routes';
+import { ProductInvoicesService } from './modules/invoices/product-invoices.service';
+import { productInvoiceRoutes } from './modules/invoices/product-invoices.routes';
+import { PosService } from './modules/pos/pos.service';
+import { posRoutes, stoneWebhookRoutes } from './modules/pos/pos.routes';
 import { createStorageProvider, type StorageProvider } from './integrations/storage/storage';
 import { createVideoTranscoder, type VideoTranscoder } from './integrations/video/transcoder';
 import { AUTH_CACHE_TTL_MS } from './modules/auth/auth.constants';
@@ -62,6 +68,8 @@ import {
   leadRoutes,
   publicTrackingRoutes,
   workOrderReviewRoutes,
+  satisfactionRoutes,
+  publicSurveyRoutes,
 } from './modules/aftersales/aftersales.routes';
 import { FollowUpsService } from './modules/aftersales/follow-ups.service';
 import { LeadsService } from './modules/aftersales/leads.service';
@@ -98,6 +106,16 @@ import { MembersService } from './modules/members/members.service';
 import { organizationRoutes } from './modules/organizations/organizations.routes';
 import { commissionRoutes } from './modules/commissions/commissions.routes';
 import { packageRoutes } from './modules/packages/packages.routes';
+import { counterSaleRoutes } from './modules/counter-sales/counter-sales.routes';
+import { CounterSalesService } from './modules/counter-sales/counter-sales.service';
+import { checklistRoutes } from './modules/checklists/checklists.routes';
+import { assistantRoutes } from './modules/assistant/assistant.routes';
+import { customerPortalRoutes, publicPortalRoutes } from './modules/portal/portal.routes';
+import { PortalService } from './modules/portal/portal.service';
+import { networkRoutes } from './modules/network/network.routes';
+import { NetworkService } from './modules/network/network.service';
+import { AssistantService, createAssistantModel, type AssistantModel } from './modules/assistant/assistant.service';
+import { ChecklistsService } from './modules/checklists/checklists.service';
 import { tutorialsRoutes } from './modules/tutorials/tutorials.routes';
 import { TutorialsService } from './modules/tutorials/tutorials.service';
 import { vehicleCatalogRoutes } from './modules/vehicle-catalog/vehicle-catalog.routes';
@@ -145,6 +163,8 @@ export interface Services {
   imports: ImportsService;
   tracking: TrackingService;
   invoices: InvoicesService;
+  productInvoices: ProductInvoicesService;
+  pos: PosService;
   charges: ChargesService;
   billing: BillingService;
   /** os e-mails do teste grátis (boas-vindas, metade, faltam 3 dias, último dia, acabou) */
@@ -157,6 +177,11 @@ export interface Services {
   messaging: MessagingService;
   commissions: CommissionsService;
   packages: PackagesService;
+  counterSales: CounterSalesService;
+  checklists: ChecklistsService;
+  assistant: AssistantService;
+  portal: PortalService;
+  network: NetworkService;
   platform: PlatformService;
   prospects: ProspectsService;
   sampleData: SampleDataService;
@@ -193,12 +218,17 @@ export interface AppDeps {
   nfse?: NfseProvider;
   /** emissor de verdade por oficina (Focus NFe); os testes injetam um falso */
   emissorDaOficina?: ServiceDeps['emissorDaOficina'];
+  /** emissor de nota de peças por oficina (E50); os testes injetam um falso */
+  emissorDePecasDaOficina?: ServiceDeps['emissorDePecasDaOficina'];
+  maquininhaDaOficina?: ServiceDeps['maquininhaDaOficina'];
   /** gateway de cobrança; o padrão é o simulador (E19) */
   gateway?: PaymentGateway;
   /** cobrança da oficina para o cliente; `null` desliga */
   chargesGateway?: PaymentGateway | null;
   /** conversão do vídeo da OS (E45); os testes injetam um que não roda ffmpeg */
   transcoder?: VideoTranscoder;
+  /** o modelo do assistente (E49); `null` desliga. Os testes injetam um falso */
+  assistantModel?: AssistantModel | null;
 }
 
 /** Monta a API sem abrir porta: o server.ts escuta; os testes usam `app.inject()`. */
@@ -209,9 +239,13 @@ export async function buildApp({
   storage = createStorageProvider(env),
   nfse = createNfseProvider(env),
   emissorDaOficina = (opcoes) => new FocusNfseProvider(opcoes),
+  emissorDePecasDaOficina = (opcoes) => new FocusNotaDePecas(opcoes),
+  maquininhaDaOficina = (opcoes) =>
+    new StoneConnect({ secretKey: opcoes.secretKey, serviceRefererName: env.STONE_SERVICE_REFERER_NAME ?? '', baseUrl: env.STONE_BASE_URL }),
   gateway = createPaymentGateway(env),
   chargesGateway = createChargesGateway(env, gateway),
   transcoder = createVideoTranscoder(env),
+  assistantModel = createAssistantModel(env),
 }: AppDeps) {
   const app = Fastify({
     // nos testes o nível padrão é 'silent' (TEST_LOG_LEVEL=error mostra os erros)
@@ -254,6 +288,8 @@ export async function buildApp({
     storage,
     nfse,
     emissorDaOficina,
+    emissorDePecasDaOficina,
+    maquininhaDaOficina,
     gateway,
     chargesGateway,
     tokens,
@@ -269,16 +305,21 @@ export async function buildApp({
   const vehicleCatalog = new VehicleCatalogService(deps);
   const workOrders = new WorkOrdersService(deps, messaging, packages);
   const payments = new PaymentsService(deps);
+  const finance = new FinanceService(deps, payments);
   const videos = new VideosService(deps);
   const videoProcessor = new VideoProcessor(deps, transcoder, videos);
+  const customers = new CustomersService(deps);
+  const parts = new PartsService(deps);
+  const appointments = new AppointmentsService(deps, workOrders);
+  const dashboard = new DashboardService(deps);
   const services: Services = {
     auth: new AuthService(deps),
     organizations: new OrganizationsService(deps),
     members: new MembersService(deps),
-    customers: new CustomersService(deps),
+    customers,
     vehicles: new VehiclesService(deps),
     catalogServices: new ServicesService(deps),
-    parts: new PartsService(deps),
+    parts,
     workOrders,
     inspections: new InspectionsService(deps),
     uploads: new UploadsService(deps, videos, videoProcessor),
@@ -287,14 +328,15 @@ export async function buildApp({
     quotes: new QuotesService(deps, messaging),
     notifications: new NotificationsService(deps),
     payments,
-    appointments: new AppointmentsService(deps, workOrders),
-    dashboard: new DashboardService(deps),
+    appointments,
+    dashboard,
     suppliers: new SuppliersService(deps),
     supplierQuotes: new SupplierQuotesService(deps),
     purchases: new PurchasesService(deps),
     purchaseInsights: new PurchaseInsightsService(deps),
     // o financeiro baixa conta de OS registrando o pagamento no caixa (E7)
-    finance: new FinanceService(deps, payments),
+    finance,
+    pos: new PosService(deps, payments, finance),
     // a oferta escolhida vira item da OS pelo service da OS, não por aqui
     partsSearch: new PartsSearchService(deps, workOrders),
     reports: new ReportsService(deps),
@@ -304,6 +346,7 @@ export async function buildApp({
     imports: new ImportsService(deps),
     tracking: new TrackingService(deps),
     invoices: new InvoicesService(deps),
+    productInvoices: new ProductInvoicesService(deps),
     charges: new ChargesService(deps),
     billing: new BillingService(deps),
     cicloDoTeste: new CicloDoTeste(deps),
@@ -313,6 +356,12 @@ export async function buildApp({
     messaging,
     commissions: new CommissionsService(deps),
     packages,
+    counterSales: new CounterSalesService(deps),
+    checklists: new ChecklistsService(deps),
+    // consulta pelos services de sempre: as mesmas regras e permissões da tela
+    portal: new PortalService(deps),
+    network: new NetworkService(deps, dashboard, parts),
+    assistant: new AssistantService(deps, assistantModel, { workOrders, customers, parts, appointments }),
     platform,
     prospects,
     sampleData: new SampleDataService(deps),
@@ -374,17 +423,25 @@ export async function buildApp({
   await app.register(reportRoutes, { prefix: '/api/v1/reports' });
   await app.register(followUpRoutes, { prefix: '/api/v1/follow-ups' });
   await app.register(workOrderReviewRoutes, { prefix: '/api/v1/work-orders' });
+  await app.register(satisfactionRoutes, { prefix: '/api/v1/satisfaction' });
   await app.register(leadRoutes, { prefix: '/api/v1/leads' });
   await app.register(importRoutes, { prefix: '/api/v1/imports' });
   await app.register(invoiceRoutes, { prefix: '/api/v1/invoices' });
   await app.register(workOrderInvoiceRoutes, { prefix: '/api/v1/work-orders' });
   await app.register(fiscalSettingsRoutes, { prefix: '/api/v1/fiscal-settings' });
+  await app.register(productInvoiceRoutes, { prefix: '/api/v1/product-invoices' });
+  await app.register(posRoutes, { prefix: '/api/v1/pos' });
   await app.register(chargeRoutes, { prefix: '/api/v1/charges' });
   await app.register(billingRoutes, { prefix: '/api/v1/billing' });
   await app.register(automationRoutes, { prefix: '/api/v1/automations' });
   await app.register(messagingRoutes, { prefix: '/api/v1/messaging' });
   await app.register(commissionRoutes, { prefix: '/api/v1/commissions' });
   await app.register(packageRoutes, { prefix: '/api/v1/service-packages' });
+  await app.register(counterSaleRoutes, { prefix: '/api/v1/counter-sales' });
+  await app.register(checklistRoutes, { prefix: '/api/v1/checklist-templates' });
+  await app.register(assistantRoutes, { prefix: '/api/v1/assistant' });
+  await app.register(customerPortalRoutes, { prefix: '/api/v1/customers' });
+  await app.register(networkRoutes, { prefix: '/api/v1/network' });
   await app.register(vehicleCatalogRoutes, { prefix: '/api/v1/vehicle-catalog' });
   await app.register(platformRoutes, { prefix: '/api/v1/platform' });
   await app.register(sampleDataRoutes, { prefix: '/api/v1/sample-data' });
@@ -393,6 +450,8 @@ export async function buildApp({
   await app.register(workOrderChargeRoutes, { prefix: '/api/v1/work-orders' });
   // sem login: quem prova a origem é o token que o gateway repete no aviso
   await app.register(paymentWebhookRoutes, { prefix: '/api/v1/webhooks' });
+  // sem login: o aviso só aponta o pedido; a situação é perguntada à Stone com a chave da oficina
+  await app.register(stoneWebhookRoutes, { prefix: '/api/v1/webhooks' });
   // sem login: quem prova a origem é a assinatura do corpo cru com o segredo do app da oficina
   await app.register(whatsappWebhookRoutes, { prefix: '/api/v1/webhooks' });
   await app.register(supplierPriceListRoutes, { prefix: '/api/v1/suppliers' });
@@ -400,6 +459,8 @@ export async function buildApp({
   await app.register(publicQuoteRoutes, { prefix: '/api/v1/public' });
   await app.register(publicSupplierQuoteRoutes, { prefix: '/api/v1/public' });
   await app.register(publicTrackingRoutes, { prefix: '/api/v1/public' });
+  await app.register(publicSurveyRoutes, { prefix: '/api/v1/public' });
+  await app.register(publicPortalRoutes, { prefix: '/api/v1/public' });
 
   return app;
 }

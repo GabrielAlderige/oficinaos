@@ -15,6 +15,7 @@ import {
   financialPeriodQuerySchema,
   idParamSchema,
   profitSchema,
+  dreSchema,
   settleFinancialEntrySchema,
   splitFinancialEntrySchema,
   updateFinancialEntrySchema,
@@ -145,6 +146,15 @@ export const financeRoutes: FastifyPluginAsyncZod = async (app) => {
       schema: { querystring: financialPeriodQuerySchema, response: { 200: profitSchema } },
     },
     async (request) => service.profit(getAuth(request), request.query),
+  );
+
+  app.get(
+    '/dre',
+    {
+      config: { auth: 'finance:read' },
+      schema: { querystring: financialPeriodQuerySchema, response: { 200: dreSchema } },
+    },
+    async (request) => service.dre(getAuth(request), request.query),
   );
 
   app.get(

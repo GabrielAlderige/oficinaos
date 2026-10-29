@@ -84,6 +84,31 @@ export async function recebidoNoPeriodo(tx: Tx, organizationId: string, janela: 
   return Number(rows[0]?.total ?? 0);
 }
 
+/**
+ * A venda de balcão no período (E49): o que foi vendido sem OS também é
+ * faturamento, e o que entrou por ela também é dinheiro no caixa. A venda
+ * cancelada sai das duas contas (a baixa dela é cancelada junto).
+ */
+export async function balcaoNoPeriodo(
+  tx: Tx,
+  organizationId: string,
+  janela: Janela,
+): Promise<{ billed: number; received: number }> {
+  const { rows } = await tx.execute<{ billed: string; received: string }>(sql`
+    select
+      (select coalesce(sum(total_cents), 0)
+         from counter_sales
+        where organization_id = ${organizationId} and status = 'COMPLETED'
+          and sold_at >= ${janela.from} and sold_at < ${janela.to})::bigint as billed,
+      (select coalesce(sum(s.amount_cents), 0)
+         from financial_settlements s
+         join financial_entries e on e.organization_id = s.organization_id and e.id = s.entry_id
+        where s.organization_id = ${organizationId} and s.status = 'CONFIRMED' and e.origin = 'COUNTER_SALE'
+          and s.paid_at >= ${janela.from} and s.paid_at < ${janela.to})::bigint as received
+  `);
+  return { billed: Number(rows[0]?.billed ?? 0), received: Number(rows[0]?.received ?? 0) };
+}
+
 /** Situação do pátio AGORA: independe do período escolhido na tela. */
 export async function patio(tx: Tx, organizationId: string) {
   const { rows } = await tx.execute<{ status: string; count: number }>(sql`

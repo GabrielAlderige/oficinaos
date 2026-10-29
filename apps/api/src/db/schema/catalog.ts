@@ -190,6 +190,10 @@ export const inventoryMovements = pgTable(
     workOrderId: uuid(),
     workOrderItemId: uuid(),
     purchaseOrderId: uuid(),
+    /** venda de balcão (E49); a FK entra na migration, como a da compra */
+    counterSaleId: uuid(),
+    /** transferência entre unidades (E50): a saída numa oficina e a entrada na outra têm o mesmo id */
+    transferId: uuid(),
     reason: text(),
     createdBy: uuid().references(() => users.id),
     createdAt: timestamptz().notNull().defaultNow(),
@@ -203,5 +207,10 @@ export const inventoryMovements = pgTable(
     index('inventory_movements_part_idx').on(t.organizationId, t.partId, t.createdAt.desc()),
     check('inventory_movements_type_check', sql`${t.type} in (${list(MOVEMENT_TYPES)})`),
     check('inventory_movements_quantity_check', sql`${t.quantity} <> 0`),
+    check(
+      'inventory_movements_transfer_check',
+      sql`${t.type} not in ('TRANSFER_OUT', 'TRANSFER_IN') or ${t.transferId} is not null`,
+    ),
+    index('inventory_movements_transfer_idx').on(t.transferId).where(sql`transfer_id is not null`),
   ],
 );

@@ -57,13 +57,14 @@ export interface TestApp {
 
 export async function createTestApp(
   overrides: Partial<NodeJS.ProcessEnv> = {},
-  extra: Pick<AppDeps, 'emissorDaOficina' | 'gateway'> = {},
+  extra: Pick<AppDeps, 'emissorDaOficina' | 'emissorDePecasDaOficina' | 'maquininhaDaOficina' | 'gateway' | 'assistantModel'> = {},
 ): Promise<TestApp> {
   const env = testEnv(overrides);
   const email = new MemoryEmailProvider();
   const storage = new MemoryStorageProvider(env.JWT_SECRET);
   const transcoder = new FakeVideoTranscoder();
-  const app = await buildApp({ env, db: testDb().db, email, storage, transcoder, ...extra });
+  // o assistente nunca chama a IA de verdade nos testes: desligado, a não ser que o teste injete um falso
+  const app = await buildApp({ env, db: testDb().db, email, storage, transcoder, assistantModel: null, ...extra });
   await app.ready();
   return { app, email, storage, transcoder };
 }

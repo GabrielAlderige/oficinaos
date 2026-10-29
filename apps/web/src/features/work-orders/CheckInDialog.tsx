@@ -6,8 +6,8 @@ import {
   DAMAGE_ZONE_LABELS,
   DAMAGE_ZONES,
   DEFAULT_ACCESSORIES,
-  DEFAULT_CHECKIN_CHECKLIST,
   FUEL_LEVEL_LABELS,
+  SYSTEM_CHECKLIST,
   VIDEO_MAX_SECONDS,
   type ChecklistState,
   type DamageKind,
@@ -28,6 +28,7 @@ import { cn } from '../../lib/cn';
 import { errorMessage } from '../../lib/errors';
 import { compressImage, formatBytes } from '../../lib/image';
 import { useFeature } from '../../lib/session';
+import { useChecklistTemplates } from '../checklists/api';
 import { useCreateInspection, useDeleteAttachment, useUploadFile, useUploadVideo } from './api';
 import { duracao, lerDuracao, temCamera, tipoDoVideo } from './midia';
 
@@ -84,6 +85,13 @@ function CheckInBody({ order, onDone }: { order: WorkOrder; onDone(): void }) {
   // segundo clique): não sobe de novo
   const enviados = useRef(new Map<string, string>());
   const celular = temCamera();
+
+  // o checklist que a oficina montou (E49); sem nenhum, o padrão do sistema
+  const modelos = useChecklistTemplates();
+  const opcoes = modelos.data?.length ? modelos.data : [SYSTEM_CHECKLIST];
+  const [modeloId, setModeloId] = useState<string | null>(null);
+  const modelo = opcoes.find((opcao) => opcao.id === modeloId) ?? opcoes[0]!;
+  const itens = modelo.items;
 
   const [states, setStates] = useState<Record<string, ChecklistState>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
@@ -198,7 +206,7 @@ function CheckInBody({ order, onDone }: { order: WorkOrder; onDone(): void }) {
         type: 'CHECK_IN',
         odometerKm,
         fuelLevel: Number(fuelLevel),
-        checklist: DEFAULT_CHECKIN_CHECKLIST.filter((entry) => states[entry.key]).map((entry) => ({
+        checklist: itens.filter((entry) => states[entry.key]).map((entry) => ({
           key: entry.key,
           label: entry.label,
           state: states[entry.key]!,
@@ -262,9 +270,25 @@ function CheckInBody({ order, onDone }: { order: WorkOrder; onDone(): void }) {
         )}
 
         <section>
-          <h3 className="mb-2 text-sm font-semibold">Checklist</h3>
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold">Checklist</h3>
+            {opcoes.length > 1 && (
+              <Select
+                aria-label="Qual checklist"
+                className="w-auto min-w-48"
+                value={modelo.id ?? ''}
+                onChange={(event) => setModeloId(event.target.value)}
+              >
+                {opcoes.map((opcao) => (
+                  <option key={opcao.id ?? 'sistema'} value={opcao.id ?? ''}>
+                    {opcao.name}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </div>
           <ul className="divide-y divide-border rounded-lg border border-border">
-            {DEFAULT_CHECKIN_CHECKLIST.map((entry) => (
+            {itens.map((entry) => (
               <li key={entry.key} className="flex flex-wrap items-center gap-3 px-3 py-2">
                 <span className="min-w-40 flex-1 text-sm">{entry.label}</span>
                 <div role="radiogroup" aria-label={entry.label} className="flex gap-1">

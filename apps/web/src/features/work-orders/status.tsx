@@ -15,7 +15,7 @@ import {
   type WorkOrderAction,
   type WorkOrderStatus,
 } from '@oficinaos/shared';
-import { Link2, MessageCircle, Star } from 'lucide-react';
+import { Link2, MessageCircle, Smile, Star } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '../../components/ui/button';
@@ -26,7 +26,7 @@ import { ConfirmDialog, Dialog, DialogContent, DialogFooter, DialogHeader } from
 import { cn } from '../../lib/cn';
 import { errorMessage } from '../../lib/errors';
 import { useMe } from '../../lib/session';
-import { useInviteReview } from '../aftersales/api';
+import { useInviteReview, useSurveyInvite } from '../aftersales/api';
 import { useOrganizationSettings } from '../settings/api';
 import { assinaturaComoArquivo, SignaturePad } from './SignaturePad';
 import { useEntregar, useRunAction, useTrackingLink, useVehicleReady } from './api';
@@ -52,6 +52,7 @@ export function StatusActions({ order }: { order: WorkOrder }) {
   const run = useRunAction(order.id);
   const vehicleReady = useVehicleReady(order.id);
   const pedirAvaliacao = useInviteReview(order.id);
+  const pesquisa = useSurveyInvite(order.id);
   const linkDeAcompanhamento = useTrackingLink(order.id);
   const [cancelling, setCancelling] = useState(false);
   const [delivering, setDelivering] = useState(false);
@@ -85,6 +86,22 @@ export function StatusActions({ order }: { order: WorkOrder }) {
       await navigator.clipboard.writeText(`${message}
 ${publicUrl}`);
       toast.success('O cliente não tem WhatsApp cadastrado. O convite foi copiado.');
+    } catch (err) {
+      toast.error(errorMessage(err));
+    }
+  }
+
+  /** A pesquisa de satisfação (E49): de 0 a 10, a resposta vai para o Pós-venda. */
+  async function mandarPesquisa() {
+    try {
+      const { message, whatsappUrl } = await pesquisa.mutateAsync();
+      if (whatsappUrl) {
+        window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+        toast.success('Pesquisa pronta para enviar. A resposta aparece no Pós-venda.');
+        return;
+      }
+      await navigator.clipboard.writeText(message);
+      toast.success('O cliente não tem WhatsApp cadastrado. A pesquisa foi copiada.');
     } catch (err) {
       toast.error(errorMessage(err));
     }
@@ -174,6 +191,12 @@ ${publicUrl}`);
           <Button size="sm" variant="secondary" loading={pedirAvaliacao.isPending} onClick={() => void convidarParaAvaliar()}>
             <Star />
             Pedir avaliação
+          </Button>
+        )}
+        {order.status === 'DELIVERED' && (
+          <Button size="sm" variant="secondary" loading={pesquisa.isPending} onClick={() => void mandarPesquisa()}>
+            <Smile />
+            Pesquisa de satisfação
           </Button>
         )}
       </div>

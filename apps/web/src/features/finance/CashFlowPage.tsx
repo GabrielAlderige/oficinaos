@@ -1,6 +1,7 @@
 import { formatBRL, type CashFlowStep } from '@oficinaos/shared';
 import { ArrowDownRight, ArrowUpRight, Plus } from 'lucide-react';
 import { useState } from 'react';
+import { Link } from 'react-router';
 import { PeriodPicker, usePeriodoNaUrl } from '../../components/PeriodPicker';
 import { Button } from '../../components/ui/button';
 import { Alert, Card, CardHeader, PageHeader, Skeleton } from '../../components/ui/display';
@@ -191,6 +192,11 @@ export function CashFlowPage() {
         <CardHeader
           title="Lucro estimado"
           description="Faturado no período, menos o custo das peças usadas e as despesas pagas."
+          action={
+            <Button asChild variant="ghost" size="sm">
+              <Link to={`/financeiro/resultado${window.location.search}`}>Ver linha por linha (DRE)</Link>
+            </Button>
+          }
         />
         <div className="px-5 py-4">
           {lucro.isPending ? (

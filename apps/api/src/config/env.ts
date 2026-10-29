@@ -126,6 +126,13 @@ const envSchema = z.object({
    * guardado, e cada oficina precisa conectar de novo.
    */
   SECRETS_KEY: z.string().optional(),
+  /**
+   * Maquininha Stone (E50): o identificador de parceiro da plataforma no
+   * programa Connect Stone (vai no cabeçalho ServiceRefererName de toda
+   * chamada). Vazio: a maquininha fica só no simulador, mesmo com chave.
+   */
+  STONE_SERVICE_REFERER_NAME: z.string().optional(),
+  STONE_BASE_URL: z.url().default('https://api.pagar.me'),
   /** pausa entre as consultas da NFS-e logo depois de emitir (os testes usam 0) */
   NFSE_ESPERA_MS: z.coerce.number().int().min(0).default(1500),
   /**
@@ -160,6 +167,15 @@ const envSchema = z.object({
     .default(500 * 1024 * 1024),
   /** o ffmpeg que converte o vídeo; no Docker vem do apt, aqui pode ser um caminho */
   FFMPEG_PATH: z.string().default('ffmpeg'),
+  /**
+   * Assistente com IA (E49). Sem a chave da Anthropic ele fica DESLIGADO: o
+   * painel esconde o botão e a rota responde que não está disponível. A chave
+   * só existe no servidor; o navegador fala com a nossa API.
+   */
+  ANTHROPIC_API_KEY: z.string().optional(),
+  ASSISTANT_MODEL: z.string().default('claude-opus-5-5'),
+  /** perguntas por oficina por dia: cada pergunta custa uma chamada ao modelo */
+  ASSISTANT_DAILY_LIMIT: z.coerce.number().int().positive().default(200),
 });
 
 export type Env = z.infer<typeof envSchema>;

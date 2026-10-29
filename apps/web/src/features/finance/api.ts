@@ -15,6 +15,7 @@ import type {
   FinancialListFilter,
   PaymentMethod,
   ProfitReport,
+  Dre,
 } from '@oficinaos/shared';
 import { api } from '../../lib/api-client';
 import { toQueryString } from '../customers/api';
@@ -46,6 +47,7 @@ export const financeKeys = {
   categories: ['finance', 'categories'] as const,
   cashFlow: (params: FinancePeriodParams) => ['finance', 'cash-flow', params] as const,
   profit: (params: FinancePeriodParams) => ['finance', 'profit', params] as const,
+  dre: (params: FinancePeriodParams) => ['finance', 'dre', params] as const,
 };
 
 export function useFinancialEntries(params: FinanceListParams) {
@@ -101,6 +103,15 @@ export function useProfit(params: FinancePeriodParams) {
     queryKey: financeKeys.profit(params),
     queryFn: () =>
       api<ProfitReport>(`/finance/profit?${toQueryString({ period: params.period, from: params.from, to: params.to })}`),
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** A DRE do período e do anterior (E49). */
+export function useDre(params: FinancePeriodParams) {
+  return useQuery({
+    queryKey: financeKeys.dre(params),
+    queryFn: () => api<Dre>(`/finance/dre?${toQueryString({ period: params.period, from: params.from, to: params.to })}`),
     placeholderData: keepPreviousData,
   });
 }

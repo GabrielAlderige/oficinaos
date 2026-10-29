@@ -512,6 +512,104 @@
       "when": 1792944942670,
       "tag": "0072_video_na_os",
       "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1793211200877,
+      "tag": "0073_venda_de_balcao",
+      "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1793211210476,
+      "tag": "0074_venda_de_balcao_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1793211938012,
+      "tag": "0075_checklists",
+      "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1793211942327,
+      "tag": "0076_checklists_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1793212725178,
+      "tag": "0077_pesquisa_de_satisfacao",
+      "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1793213277422,
+      "tag": "0078_assistente",
+      "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1793215862602,
+      "tag": "0079_app_do_cliente",
+      "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1793215866852,
+      "tag": "0080_app_do_cliente_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1793216162021,
+      "tag": "0081_varias_unidades",
+      "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1793216174639,
+      "tag": "0082_transferencia_entre_unidades",
+      "breakpoints": true
+    },
+    {
+      "idx": 83,
+      "version": "7",
+      "when": 1793216589818,
+      "tag": "0083_nota_de_pecas",
+      "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1793216592562,
+      "tag": "0084_nota_de_pecas_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 85,
+      "version": "7",
+      "when": 1793217622676,
+      "tag": "0085_maquininha",
+      "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1793217624813,
+      "tag": "0086_maquininha_rls",
+      "breakpoints": true
     }
   ]
 }

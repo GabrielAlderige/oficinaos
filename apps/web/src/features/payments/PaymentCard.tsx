@@ -9,7 +9,7 @@ import {
   type PaymentMethod,
   type WorkOrder,
 } from '@oficinaos/shared';
-import { Banknote, QrCode } from 'lucide-react';
+import { Banknote, CreditCard, QrCode } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '../../components/ui/button';
@@ -22,6 +22,7 @@ import { errorMessage } from '../../lib/errors';
 import { formatDateTime } from '../../lib/format';
 import { useCan } from '../../lib/session';
 import { useCancelPayment, usePayments, useRecordPayment } from './api';
+import { PosChargeDialog } from '../pos/PosCharge';
 import { PixNaHoraDialog } from './PixNaHoraDialog';
 
 const TOM = { PAID: 'success', PARTIAL: 'warning', UNPAID: 'neutral' } as const;
@@ -37,6 +38,7 @@ export function PaymentCard({ order }: { order: WorkOrder }) {
   const payments = usePayments(order.id);
   const [recording, setRecording] = useState(false);
   const [pix, setPix] = useState(false);
+  const [maquininha, setMaquininha] = useState(false);
   /**
    * A forma que o diálogo abre. O "Recebi, dar baixa" do Pix promete que já
    * vem no Pix — e o diálogo fica montado entre as aberturas, então sem isto
@@ -86,12 +88,17 @@ export function PaymentCard({ order }: { order: WorkOrder }) {
                   <QrCode />
                   Pix na hora
                 </Button>
+                <Button variant="secondary" onClick={() => setMaquininha(true)}>
+                  <CreditCard />
+                  Cobrar na maquininha
+                </Button>
                 <Button variant="secondary" onClick={() => setRecording(true)}>
                   <Banknote />
                   Registrar pagamento
                 </Button>
               </div>
             )}
+            <PosChargeDialog open={maquininha} onOpenChange={setMaquininha} origem={{ workOrderId: order.id }} valorCents={falta} />
 
             {lista?.data.length ? (
               <ul className="divide-y divide-border border-t border-border">

@@ -86,6 +86,8 @@ export const NOTIFICATION_TYPES = [
   'APPOINTMENT_TOMORROW',
   'QUOTE_NO_ANSWER',
   'FOLLOW_UP_DUE',
+  /** pesquisa de satisfação (E49): nota de 0 a 6, para ligar antes de perder o cliente */
+  'SATISFACTION_LOW',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
@@ -99,6 +101,7 @@ export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
   APPOINTMENT_TOMORROW: 'Agendamento de amanhã',
   QUOTE_NO_ANSWER: 'Orçamento sem resposta',
   FOLLOW_UP_DUE: 'Contatos de hoje',
+  SATISFACTION_LOW: 'Cliente insatisfeito',
 };
 
 export const MESSAGE_CHANNELS = ['WHATSAPP_LINK', 'WHATSAPP_API', 'EMAIL', 'PUBLIC_PAGE'] as const;

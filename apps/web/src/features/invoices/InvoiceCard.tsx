@@ -43,7 +43,7 @@ export function InvoiceCard({ order }: { order: WorkOrder }) {
             {viva?.environment === 'SIMULATOR' && <Badge tone="warning">Simulação</Badge>}
           </span>
         }
-        description="Nota de serviço (NFS-e). As peças desta OS não entram nela."
+        description="Nota de serviço (NFS-e). As peças saem na nota das peças, logo abaixo."
       />
 
       <div className="space-y-3 px-5 py-4 text-sm">

@@ -55,6 +55,8 @@ function FiscalForm({ settings }: { settings: FiscalSettings }) {
     issRetainedDefault: settings.issRetainedDefault,
     rpsSeries: settings.rpsSeries,
     additionalInformation: settings.additionalInformation ?? '',
+    productCfop: settings.productCfop ?? '',
+    productIcmsSituation: settings.productIcmsSituation ?? '',
   });
 
   const campo = <K extends keyof typeof form>(chave: K, valor: (typeof form)[K]) =>
@@ -81,6 +83,8 @@ function FiscalForm({ settings }: { settings: FiscalSettings }) {
         issRetainedDefault: form.issRetainedDefault,
         rpsSeries: form.rpsSeries.trim() || '1',
         additionalInformation: vazioVira(form.additionalInformation),
+        productCfop: vazioVira(form.productCfop),
+        productIcmsSituation: vazioVira(form.productIcmsSituation),
       });
       toast.success('Dados fiscais salvos.');
     } catch (erro) {
@@ -117,7 +121,7 @@ function FiscalForm({ settings }: { settings: FiscalSettings }) {
               disabled={!pode}
             />
           </Field>
-          <Field label="Inscrição estadual" htmlFor="ie" hint="Só necessária para nota de peça (etapa futura).">
+          <Field label="Inscrição estadual" htmlFor="ie" hint="Necessária para a nota de peças (NFC-e e NF-e).">
             <Input
               {...fieldA11y('ie')}
               value={form.stateRegistration}
@@ -215,6 +219,34 @@ function FiscalForm({ settings }: { settings: FiscalSettings }) {
               {...fieldA11y('obs-nota')}
               value={form.additionalInformation}
               onChange={(event) => campo('additionalInformation', event.target.value)}
+              disabled={!pode}
+            />
+          </Field>
+
+          <div className="border-t border-border pt-4 sm:col-span-2">
+            <h3 className="text-sm font-semibold">Nota de peças (NFC-e e NF-e)</h3>
+            <p className="text-xs text-muted">
+              No Simples Nacional e no MEI pode deixar em branco: sai CFOP 5102 e CSOSN 102. Fora do Simples, confirme
+              os dois com o seu contador. Cada peça precisa do NCM cadastrado na ficha dela.
+            </p>
+          </div>
+          <Field label="CFOP da venda de peças" htmlFor="cfop" hint="Venda dentro do estado. Em branco: 5102.">
+            <Input
+              {...fieldA11y('cfop')}
+              inputMode="numeric"
+              value={form.productCfop}
+              onChange={(event) => campo('productCfop', event.target.value)}
+              placeholder="5102"
+              disabled={!pode}
+            />
+          </Field>
+          <Field label="Situação do ICMS das peças" htmlFor="icms" hint="CST ou CSOSN. Em branco no Simples: 102.">
+            <Input
+              {...fieldA11y('icms')}
+              inputMode="numeric"
+              value={form.productIcmsSituation}
+              onChange={(event) => campo('productIcmsSituation', event.target.value)}
+              placeholder="102"
               disabled={!pode}
             />
           </Field>

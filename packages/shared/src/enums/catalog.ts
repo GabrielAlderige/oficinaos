@@ -68,6 +68,12 @@ export const MOVEMENT_TYPES = [
   'CUSTOMER_RETURN',
   'PURCHASE_IN',
   'SUPPLIER_RETURN',
+  /** venda de balcão (E49): a peça sai sem OS, e volta se a venda for cancelada */
+  'COUNTER_SALE_OUT',
+  'COUNTER_SALE_RETURN',
+  /** transferência entre unidades da rede (E50): sai de uma e entra na outra, pelo mesmo custo */
+  'TRANSFER_OUT',
+  'TRANSFER_IN',
 ] as const;
 export type MovementType = (typeof MOVEMENT_TYPES)[number];
 export const MOVEMENT_TYPE_LABELS: Record<MovementType, string> = {
@@ -78,4 +84,8 @@ export const MOVEMENT_TYPE_LABELS: Record<MovementType, string> = {
   CUSTOMER_RETURN: 'Devolução de cliente',
   PURCHASE_IN: 'Recebimento de compra',
   SUPPLIER_RETURN: 'Devolução ao fornecedor',
+  COUNTER_SALE_OUT: 'Venda de balcão',
+  COUNTER_SALE_RETURN: 'Venda de balcão cancelada',
+  TRANSFER_OUT: 'Transferência para outra unidade',
+  TRANSFER_IN: 'Transferência de outra unidade',
 };

@@ -126,7 +126,8 @@ export const reviews = pgTable(
       foreignColumns: [customers.organizationId, customers.id],
     }),
     index('reviews_submitted_idx').on(t.organizationId, t.submittedAt.desc()),
-    check('reviews_rating_check', sql`${t.rating} is null or ${t.rating} between 1 and 5`),
+    // de 0 a 10, a escala do NPS (E49); a nota de 1 a 5 da E16 nunca chegou a ter resposta
+    check('reviews_rating_check', sql`${t.rating} is null or ${t.rating} between 0 and 10`),
     check('reviews_submitted_check', sql`(${t.rating} is null) = (${t.submittedAt} is null)`),
   ],
 );

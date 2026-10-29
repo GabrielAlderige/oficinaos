@@ -10,6 +10,7 @@ export function FinanceTabs() {
   const abas = [
     { to: '/financeiro/receber', label: 'A receber' },
     { to: '/financeiro/caixa', label: 'Fluxo de caixa' },
+    { to: '/financeiro/resultado', label: 'Resultado (DRE)' },
     { to: '/financeiro/comissoes', label: 'Comissões' },
   ];
 

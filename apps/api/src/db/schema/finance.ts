@@ -20,6 +20,7 @@ import {
   PAYMENT_METHODS,
 } from '@oficinaos/shared';
 import { id, timestamps, timestamptz } from './_columns';
+import { counterSales } from './counter-sales';
 import { customers } from './customers';
 import { payments } from './payments';
 import { purchaseOrders } from './purchases';
@@ -89,6 +90,8 @@ export const financialEntries = pgTable(
     supplierId: uuid(),
     workOrderId: uuid(),
     purchaseOrderId: uuid(),
+    /** a venda de balcão que gerou a conta (E49) */
+    counterSaleId: uuid(),
     /** parcelas do mesmo acordo compartilham o grupo: "2 de 3" */
     groupId: uuid(),
     installmentNumber: integer().notNull().default(1),
@@ -130,10 +133,16 @@ export const financialEntries = pgTable(
       columns: [t.organizationId, t.purchaseOrderId],
       foreignColumns: [purchaseOrders.organizationId, purchaseOrders.id],
     }),
+    foreignKey({
+      name: 'financial_entries_counter_sale_fk',
+      columns: [t.organizationId, t.counterSaleId],
+      foreignColumns: [counterSales.organizationId, counterSales.id],
+    }),
     // a lista é sempre "desta direção, nesta situação, pelo vencimento"
     index('financial_entries_due_idx').on(t.organizationId, t.direction, t.status, t.dueDate),
     index('financial_entries_work_order_idx').on(t.organizationId, t.workOrderId),
     index('financial_entries_purchase_order_idx').on(t.organizationId, t.purchaseOrderId),
+    index('financial_entries_counter_sale_idx').on(t.organizationId, t.counterSaleId),
     index('financial_entries_customer_idx').on(t.organizationId, t.customerId, t.dueDate),
     index('financial_entries_supplier_idx').on(t.organizationId, t.supplierId, t.dueDate),
     check('financial_entries_direction_check', sql`${t.direction} in (${list(FINANCIAL_DIRECTIONS)})`),
@@ -149,7 +158,7 @@ export const financialEntries = pgTable(
     // lançamento automático sempre aponta para o documento que o gerou
     check(
       'financial_entries_origin_document_check',
-      sql`(${t.origin} <> 'WORK_ORDER' or ${t.workOrderId} is not null) and (${t.origin} <> 'PURCHASE' or ${t.purchaseOrderId} is not null)`,
+      sql`(${t.origin} <> 'WORK_ORDER' or ${t.workOrderId} is not null) and (${t.origin} <> 'PURCHASE' or ${t.purchaseOrderId} is not null) and (${t.origin} <> 'COUNTER_SALE' or ${t.counterSaleId} is not null)`,
     ),
     check(
       'financial_entries_canceled_check',

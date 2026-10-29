@@ -90,23 +90,28 @@ export class DashboardService {
       const anterior = previousPeriodRange(query.period, info.from, info.to, timezone);
       const finalizadasAntes = await repo.finalizadasNoPeriodo(tx, organizationId, anterior);
       const recebidoAntes = await repo.recebidoNoPeriodo(tx, organizationId, anterior);
+      const balcao = await repo.balcaoNoPeriodo(tx, organizationId, janela);
+      const balcaoAntes = await repo.balcaoNoPeriodo(tx, organizationId, anterior);
 
-      const faturado = Number(finalizadas.billed);
+      // o ticket médio continua sendo o da OS: venda de balcão é outra conversa
+      const faturadoOs = Number(finalizadas.billed);
+      const faturado = faturadoOs + balcao.billed;
+      const recebidoTotal = recebido + balcao.received;
       const dinheiro = veDinheiro(auth);
       const comDinheiro = (valor: number) => (dinheiro ? valor : null);
 
       return {
         period: info,
         billedCents: comDinheiro(faturado),
-        receivedCents: comDinheiro(recebido),
+        receivedCents: comDinheiro(recebidoTotal),
         previous: {
           from: anterior.fromDay,
           to: anterior.toDay,
-          billedCents: comDinheiro(Number(finalizadasAntes.billed)),
-          receivedCents: comDinheiro(recebidoAntes),
+          billedCents: comDinheiro(Number(finalizadasAntes.billed) + balcaoAntes.billed),
+          receivedCents: comDinheiro(recebidoAntes + balcaoAntes.received),
         },
         // ticket médio de zero OS é zero, não divisão por zero
-        avgTicketCents: comDinheiro(finalizadas.orders ? Math.round(faturado / finalizadas.orders) : 0),
+        avgTicketCents: comDinheiro(finalizadas.orders ? Math.round(faturadoOs / finalizadas.orders) : 0),
         openByStatus: patio.porStatus.map((linha) => ({
           status: linha.status as DashboardSummary['openByStatus'][number]['status'],
           count: linha.count,

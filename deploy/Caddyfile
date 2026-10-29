@@ -42,6 +42,10 @@
 		rewrite @cotacao /cotacao.html
 		@acompanhar path_regexp acompanhar ^/acompanhar/.+
 		rewrite @acompanhar /acompanhar.html
+		@pesquisa path_regexp pesquisa ^/pesquisa/.+
+		rewrite @pesquisa /pesquisa.html
+		@cliente path_regexp cliente ^/cliente/.+
+		rewrite @cliente /cliente.html
 
 		# o resto é o painel (SPA): qualquer rota desconhecida cai no index
 		try_files {path} /index.html
