@@ -5,6 +5,7 @@ import {
   createCustomer,
   createTestApp,
   createVehicle,
+  createWorkOrder,
   signup,
   type TestApp,
   type TestSession,
@@ -132,6 +133,49 @@ describe('veículos', () => {
     expect(res.customers.map((x: { name: string }) => x.name)).toEqual(['Cláudio Busca']);
     const byName = (await get('/api/v1/search?q=claudio', org)).json();
     expect(byName.customers[0]).toMatchObject({ name: 'Cláudio Busca', vehicleCount: 1 });
+  });
+
+  it('acha pelo FINAL da placa e pela placa antiga em todas as buscas, e a busca global traz a OS do carro', async () => {
+    const org = await signup(t.app);
+    const c = await createCustomer(t.app, org, { name: 'Final Cinco' });
+    const gol = await createVehicle(t.app, org, c.id, { plate: 'FNL1A05', make: 'Volkswagen', model: 'Gol' });
+    await createVehicle(t.app, org, c.id, { plate: 'XYZ9B87', make: 'Fiat', model: 'Uno' });
+    const os = await createWorkOrder(t.app, org, { customerId: c.id, vehicleId: gol.id });
+
+    const veiculos = async (q: string) =>
+      (await get(`/api/v1/vehicles?q=${encodeURIComponent(q)}`, org)).json().data.map((v: { model: string }) => v.model);
+    // "o Gol final 05": o final, com e sem a letra, e o final no formato antigo
+    expect(await veiculos('05')).toEqual(['Gol']);
+    expect(await veiculos('A05')).toEqual(['Gol']);
+    expect(await veiculos('1a05')).toEqual(['Gol']);
+    expect(await veiculos('1005')).toEqual(['Gol']);
+    expect(await veiculos('FNL-1005')).toEqual(['Gol']);
+    expect(await veiculos('87')).toEqual(['Uno']);
+
+    // cliente pelo final da placa de um carro dele
+    expect((await get('/api/v1/customers?q=1005', org)).json().data.map((x: { name: string }) => x.name)).toEqual(['Final Cinco']);
+
+    // lista de OS: antes a placa antiga não achava a OS do carro convertido
+    const ordens = async (q: string) =>
+      (await get(`/api/v1/work-orders?status=all&q=${encodeURIComponent(q)}`, org)).json().data.map((o: { number: number }) => o.number);
+    expect(await ordens('FNL-1005')).toEqual([os.number]);
+    expect(await ordens('1005')).toEqual([os.number]);
+
+    // busca global: a OS aparece junto do carro
+    const global = (await get('/api/v1/search?q=1005', org)).json();
+    expect(global.vehicles.map((v: { model: string }) => v.model)).toEqual(['Gol']);
+    expect(global.workOrders).toEqual([
+      expect.objectContaining({ number: os.number, vehiclePlate: 'FNL1A05', customerName: 'Final Cinco' }),
+    ]);
+    expect((await get('/api/v1/search?q=final%20cinco', org)).json().workOrders.map((o: { number: number }) => o.number)).toEqual([os.number]);
+
+    // a OS que está na oficina vem antes da cancelada, mesmo sendo mais antiga
+    const nova = await createWorkOrder(t.app, org, { customerId: c.id, vehicleId: gol.id });
+    expect((await post(`/api/v1/work-orders/${nova.id}/cancel`, { reason: 'Teste da ordem da busca' }, org)).statusCode).toBe(200);
+    expect((await get('/api/v1/search?q=1005', org)).json().workOrders.map((o: { number: number }) => o.number)).toEqual([
+      os.number,
+      nova.number,
+    ]);
   });
 
   describe('permissões e isolamento', () => {

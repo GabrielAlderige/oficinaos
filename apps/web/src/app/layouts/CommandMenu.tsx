@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { canonicalPlatePrefix, type SearchResult } from '@oficinaos/shared';
-import { Car, Search, User } from 'lucide-react';
+import { canonicalPlatePrefix, canonicalPlateSuffix, WORK_ORDER_STATUS_LABELS, type SearchResult } from '@oficinaos/shared';
+import { Car, ClipboardList, Search, User } from 'lucide-react';
 import { Dialog as D } from 'radix-ui';
 import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router';
@@ -13,7 +13,7 @@ import { useDebouncedValue } from '../../lib/use-debounced-value';
 interface Item {
   key: string;
   to: string;
-  group: 'Veículos' | 'Clientes';
+  group: 'Ordens de serviço' | 'Veículos' | 'Clientes';
   title: string;
   subtitle: string;
   plate?: string | null;
@@ -65,8 +65,17 @@ export function CommandMenu() {
       title: c.name,
       subtitle: `${c.vehicleCount} ${c.vehicleCount === 1 ? 'veículo' : 'veículos'}`,
     }));
-    // parece placa? carros primeiro; senão, pessoas primeiro
-    return canonicalPlatePrefix(query) ? [...vehicles, ...customers] : [...customers, ...vehicles];
+    const ordens: Item[] = (results.data.workOrders ?? []).map((os) => ({
+      key: `o-${os.id}`,
+      to: `/ordens/${os.number}`,
+      group: 'Ordens de serviço',
+      title: `OS #${os.number} · ${WORK_ORDER_STATUS_LABELS[os.status]}`,
+      subtitle: [os.customerName, os.vehicleName].filter(Boolean).join(' · '),
+      plate: os.vehiclePlate,
+    }));
+    // parece placa (começo ou final)? a OS e o carro primeiro — é o que se procura no balcão
+    const pareceaPlaca = canonicalPlatePrefix(query) || canonicalPlateSuffix(query);
+    return pareceaPlaca ? [...ordens, ...vehicles, ...customers] : [...customers, ...vehicles, ...ordens];
   }, [results.data, query]);
 
   useEffect(() => setActive(0), [query]);
@@ -125,7 +134,7 @@ export function CommandMenu() {
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 onKeyDown={onKeyDown}
-                placeholder="Placa, nome, telefone ou documento"
+                placeholder="Placa, final da placa, nome, telefone ou nº da OS"
                 className="h-12 min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-muted"
                 role="combobox"
                 aria-expanded={items.length > 0}
@@ -135,13 +144,13 @@ export function CommandMenu() {
             </div>
             <div id="command-results" role="listbox" className="max-h-[60vh] overflow-y-auto p-2">
               {query.length < 2 ? (
-                <p className="px-3 py-6 text-center text-sm text-muted">Digite pelo menos 2 letras ou números. A placa pode ser antiga ou Mercosul.</p>
+                <p className="px-3 py-6 text-center text-sm text-muted">Digite pelo menos 2 letras ou números. A placa pode ser antiga ou Mercosul, o começo ou o final (“final 05”).</p>
               ) : !items.length ? (
                 <p className="px-3 py-6 text-center text-sm text-muted">{results.isFetching ? 'Buscando…' : `Nada encontrado para “${query}”.`}</p>
               ) : (
                 items.map((item, index) => {
                   const firstOfGroup = index === 0 || items[index - 1]!.group !== item.group;
-                  const Icon = item.group === 'Veículos' ? Car : User;
+                  const Icon = item.group === 'Veículos' ? Car : item.group === 'Ordens de serviço' ? ClipboardList : User;
                   return (
                     <div key={item.key}>
                       {firstOfGroup && <p className="px-3 pt-2 pb-1 text-xs font-medium text-muted">{item.group}</p>}

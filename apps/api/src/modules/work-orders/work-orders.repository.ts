@@ -2,6 +2,7 @@ import { and, asc, count, desc, eq, gte, inArray, isNull, lt, lte, or, sql, type
 import { alias } from 'drizzle-orm/pg-core';
 import { ACTIVE_WORK_ORDER_STATUSES, type WorkOrderDateField, type WorkOrderStatus } from '@oficinaos/shared';
 import { likeContains } from '../../core/normalize';
+import { plateMatches } from '../../core/plate-search';
 import {
   attachments,
   customers,
@@ -152,6 +153,8 @@ export async function listWorkOrders(
           sql`work_orders.number::text = ${options.q.replace(/\D/g, '') || '-1'}`,
           sql`immutable_unaccent(customers.name) ilike immutable_unaccent(${likeContains(options.q)})`,
           sql`vehicles.plate_canonical like ${likeContains(options.q.toUpperCase().replace(/[^A-Z0-9]/g, ''))}`,
+          // placa antiga de carro convertido e final de placa ("DEM-1005", "1005")
+          plateMatches(sql`vehicles.plate_canonical`, options.q),
         )
       : undefined,
   );

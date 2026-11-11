@@ -1,5 +1,6 @@
 import { and, asc, count, eq, isNull, or, sql, type SQL } from 'drizzle-orm';
-import { canonicalPlatePrefix, normalizeCnpj } from '@oficinaos/shared';
+import { normalizeCnpj } from '@oficinaos/shared';
+import { plateMatches } from '../../core/plate-search';
 import { likeContains } from '../../core/normalize';
 import { customers, vehicles } from '../../db/schema';
 import type { Tx } from '../../db/tenant';
@@ -33,12 +34,12 @@ export function customerMatches(q: string): SQL {
   }
   const document = normalizeCnpj(q);
   if (document.length >= 3 && /\d/.test(document)) conditions.push(sql`${customers.document} like ${`${document}%`}`);
-  const plate = canonicalPlatePrefix(q);
-  if (plate) {
+  const placa = plateMatches(sql`v.plate_canonical`, q);
+  if (placa) {
     conditions.push(sql`exists (
       select 1 from vehicles v
       where v.organization_id = customers.organization_id and v.customer_id = customers.id
-        and v.deleted_at is null and v.plate_canonical like ${`${plate}%`}
+        and v.deleted_at is null and ${placa}
     )`);
   }
   return or(...conditions)!;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canonicalPlate, canonicalPlatePrefix, formatPlate, isMercosulPlate, isValidPlate, normalizePlate } from './plate';
+import { canonicalPlate, canonicalPlatePrefix, canonicalPlateSuffix, formatPlate, isMercosulPlate, isValidPlate, normalizePlate } from './plate';
 
 describe('placas', () => {
   it('normaliza o que a pessoa digita', () => {
@@ -38,6 +38,22 @@ describe('placas', () => {
     expect(canonicalPlatePrefix('JOAO')).toBeNull();
     expect(canonicalPlatePrefix('a')).toBeNull();
     expect(canonicalPlatePrefix('ABC12345')).toBeNull();
+  });
+
+  it('final da placa, como se fala no balcão ("final 05")', () => {
+    expect(canonicalPlateSuffix('05')).toBe('05');
+    expect(canonicalPlateSuffix('a05')).toBe('A05');
+    expect(canonicalPlateSuffix('1A05')).toBe('1A05');
+    // formato antigo vira o da placa guardada: a 5ª posição é letra
+    expect(canonicalPlateSuffix('005')).toBe('A05');
+    expect(canonicalPlateSuffix('1005')).toBe('1A05');
+    expect(canonicalPlateSuffix('-1005')).toBe('1A05');
+    // não cabe no fim de uma placa
+    expect(canonicalPlateSuffix('AB')).toBeNull();
+    expect(canonicalPlateSuffix('A1')).toBeNull();
+    expect(canonicalPlateSuffix('5')).toBeNull();
+    expect(canonicalPlateSuffix('C1A05')).toBeNull();
+    expect(canonicalPlateSuffix('JOAO')).toBeNull();
   });
 
   it('exibe a antiga com hífen e a Mercosul sem', () => {

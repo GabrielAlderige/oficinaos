@@ -56,6 +56,27 @@ export function canonicalPlatePrefix(input: string): string | null {
   return convertFifth(plate);
 }
 
+/**
+ * O FINAL da placa, já canônico: no balcão se fala "o Gol final 05".
+ * Aceita de 2 a 4 caracteres que caibam no fim de uma placa ("05", "A05",
+ * "1A05") e converte o formato antigo: "1005" → "1A05", "005" → "A05" — a
+ * 5ª posição vira letra, como na placa guardada. `null` se não pode ser fim
+ * de placa (ex.: "AB", que no fim seriam dois números).
+ */
+export function canonicalPlateSuffix(input: string): string | null {
+  const plate = normalizePlate(input);
+  if (plate.length < 2 || plate.length > 4) return null;
+  const inicio = POSITIONS.length - plate.length;
+  const chars = plate.split('');
+  for (let i = 0; i < chars.length; i++) {
+    if (!POSITIONS[inicio + i]!.test(chars[i]!)) return null;
+  }
+  // a 5ª posição da placa (índice 4) cai dentro do final digitado?
+  const quinta = 4 - inicio;
+  if (quinta >= 0 && /\d/.test(chars[quinta]!)) chars[quinta] = DIGIT_TO_LETTER[Number(chars[quinta])]!;
+  return chars.join('');
+}
+
 /** Exibição: antiga com hífen (ABC-1234), Mercosul sem (ABC1D23). */
 export function formatPlate(input: string): string {
   const plate = normalizePlate(input);

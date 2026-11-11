@@ -1,8 +1,8 @@
 import { and, asc, count, desc, eq, isNull, ne, or, sql, type SQL } from 'drizzle-orm';
-import { canonicalPlatePrefix } from '@oficinaos/shared';
 import { likeContains } from '../../core/normalize';
 import { customers, odometerReadings, users, vehicles } from '../../db/schema';
 import type { Tx } from '../../db/tenant';
+import { plateMatches } from '../../core/plate-search';
 
 export type VehicleRow = typeof vehicles.$inferSelect;
 
@@ -21,14 +21,14 @@ const listColumns = {
   customer: { id: customers.id, name: customers.name },
 };
 
-/** Placa (antiga ou Mercosul, pelo prefixo canônico), marca/modelo ou nome do dono. */
+/** Placa (começo ou final, antiga ou Mercosul), marca/modelo ou nome do dono. */
 export function vehicleMatches(q: string): SQL {
   const conditions: SQL[] = [
     sql`immutable_unaccent(${vehicles.make} || ' ' || ${vehicles.model}) ilike immutable_unaccent(${likeContains(q)})`,
     sql`immutable_unaccent(${customers.name}) ilike immutable_unaccent(${likeContains(q)})`,
   ];
-  const plate = canonicalPlatePrefix(q);
-  if (plate) conditions.push(sql`${vehicles.plateCanonical} like ${`${plate}%`}`);
+  const placa = plateMatches(sql`vehicles.plate_canonical`, q);
+  if (placa) conditions.push(placa);
   return or(...conditions)!;
 }
 
