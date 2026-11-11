@@ -1,4 +1,6 @@
+import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { withTenant } from '../src/db/tenant';
 import {
   addMember,
   bearer,
@@ -8,6 +10,7 @@ import {
   createVehicle,
   createWorkOrder,
   signup,
+  testDb,
   type TestApp,
   type TestSession,
   type TestWorkOrder,
@@ -430,6 +433,47 @@ describe('ordem de serviço', () => {
       const board = (await get('/api/v1/work-orders/board', s)).json();
       expect(board.activeTotal).toBe(1);
       expect(board.counts).toEqual(expect.arrayContaining([{ status: 'CANCELED', count: 1 }, { status: 'OPEN', count: 1 }]));
+    });
+
+    it('recorta por dia, semana, mês ou intervalo no relógio da oficina, pela abertura ou pela entrega', async () => {
+      const s = await signup(t.app);
+      const c = await createCustomer(t.app, s, { name: 'Período Teste' });
+      const v = await createVehicle(t.app, s, c.id, { plate: 'PER1O00' });
+      const velha = await createWorkOrder(t.app, s, { customerId: c.id, vehicleId: v.id });
+      const nova = await createWorkOrder(t.app, s, { customerId: c.id, vehicleId: v.id });
+      // a velha entrou em 10/03/2026 às 23h30 de São Paulo (02h30 do dia 11 em UTC)
+      // e foi entregue em 20/03; a nova é de hoje e não saiu
+      await withTenant(testDb().db, { organizationId: s.orgId }, (tx) =>
+        tx.execute(sql`
+          update work_orders set opened_at = '2026-03-11T02:30:00Z',
+                                 completed_at = '2026-03-20T15:00:00Z',
+                                 delivered_at = '2026-03-20T18:00:00Z'
+          where id = ${velha.id}
+        `),
+      );
+      const numeros = async (query: string) =>
+        (await get(`/api/v1/work-orders?status=all&${query}`, s)).json().data.map((o: { number: number }) => o.number);
+
+      // sem período, vem tudo
+      expect(await numeros('')).toEqual([nova.number, velha.number]);
+      expect(await numeros('period=today')).toEqual([nova.number]);
+      expect(await numeros('period=week')).toEqual([nova.number]);
+      expect(await numeros('period=month')).toEqual([nova.number]);
+      // o dia é o da oficina: 23h30 de 10/03 é dia 10, não 11
+      expect(await numeros('period=custom&fromDay=2026-03-10&toDay=2026-03-10')).toEqual([velha.number]);
+      expect(await numeros('period=custom&fromDay=2026-03-11&toDay=2026-03-11')).toEqual([]);
+      // semana de segunda 09/03 a domingo 15/03 e o mês de março
+      expect(await numeros('period=custom&fromDay=2026-03-09&toDay=2026-03-15')).toEqual([velha.number]);
+      expect(await numeros('period=custom&fromDay=2026-03-01&toDay=2026-03-31')).toEqual([velha.number]);
+      // pela entrega: a velha saiu em 20/03; a nova nem saiu, então não entra em período nenhum
+      expect(await numeros('period=custom&fromDay=2026-03-10&toDay=2026-03-10&dateBy=delivered')).toEqual([]);
+      expect(await numeros('period=custom&fromDay=2026-03-20&toDay=2026-03-20&dateBy=delivered')).toEqual([velha.number]);
+      expect(await numeros('period=custom&fromDay=2026-03-20&toDay=2026-03-20&dateBy=completed')).toEqual([velha.number]);
+      expect(await numeros('period=today&dateBy=delivered')).toEqual([]);
+      // o total da paginação respeita o recorte
+      expect((await get('/api/v1/work-orders?status=all&period=today', s)).json().meta.total).toBe(1);
+      expect((await get('/api/v1/work-orders?status=all&period=custom&fromDay=2026-13-01', s)).statusCode).toBe(400);
+      expect((await get('/api/v1/work-orders?status=all&period=custom&fromDay=2026-02-31', s)).statusCode).toBe(400);
     });
 
     it('mecânico não vê o custo da peça na OS; financeiro vê', async () => {

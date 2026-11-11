@@ -17,6 +17,7 @@ export * from './enums/appointments';
 export * from './state-machines/appointment';
 export * from './schemas/appointments';
 export * from './calendar';
+export * from './period-nav';
 export * from './schemas/dashboard';
 export * from './state-machines/work-order';
 export * from './state-machines/work-order-steps';

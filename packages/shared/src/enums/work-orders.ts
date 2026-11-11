@@ -67,6 +67,19 @@ export type PatioColumnKey = (typeof PATIO_COLUMNS)[number]['key'];
 /** Fim de linha: não sai mais de lá (o reabrir é exceção e vem de COMPLETED). */
 export const TERMINAL_WORK_ORDER_STATUSES = ['DELIVERED', 'CANCELED'] as const;
 
+/**
+ * Por qual data a lista de OS recorta o período. "Abertura" responde "o que
+ * entrou na semana"; "entrega", "o que saiu" — que é o que o dono soma no fim
+ * do mês. "Concluída" é o carro pronto, mesmo que ainda não buscado.
+ */
+export const WORK_ORDER_DATE_FIELDS = ['opened', 'completed', 'delivered'] as const;
+export type WorkOrderDateField = (typeof WORK_ORDER_DATE_FIELDS)[number];
+export const WORK_ORDER_DATE_FIELD_LABELS: Record<WorkOrderDateField, string> = {
+  opened: 'Abertura',
+  completed: 'Conclusão',
+  delivered: 'Entrega',
+};
+
 /** Pagamento é independente do status da OS: entregar com saldo em aberto é permitido. */
 export const PAYMENT_STATUSES = ['UNPAID', 'PARTIAL', 'PAID'] as const;
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];

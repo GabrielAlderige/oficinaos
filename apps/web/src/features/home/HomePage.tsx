@@ -1,9 +1,9 @@
-import { DASHBOARD_PERIOD_LABELS, type DashboardPeriod, type DashboardSummary } from '@oficinaos/shared';
+import type { DashboardSummary } from '@oficinaos/shared';
 import { CalendarDays, ClipboardPlus, UserPlus } from 'lucide-react';
-import { Link, useSearchParams } from 'react-router';
+import { Link } from 'react-router';
+import { PeriodPicker, usePeriodoNaUrl } from '../../components/PeriodPicker';
 import { Button } from '../../components/ui/button';
 import { Alert, Card, CardHeader, Skeleton } from '../../components/ui/display';
-import { cn } from '../../lib/cn';
 import { firstName } from '../../lib/format';
 import { useCan, useMe } from '../../lib/session';
 import { AttentionPanel } from '../dashboard/AttentionPanel';
@@ -13,10 +13,6 @@ import { MetricChart } from '../dashboard/MetricChart';
 import { PatioAgora } from '../dashboard/PatioAgora';
 import { ProducaoDoPeriodo } from '../dashboard/ProducaoDoPeriodo';
 import { SampleDataNotice, SetupChecklist } from './SetupChecklist';
-
-const PERIODOS: DashboardPeriod[] = ['today', 'week', 'month'];
-const ehPeriodo = (valor: string | null): valor is DashboardPeriod =>
-  PERIODOS.includes(valor as DashboardPeriod);
 
 const diaDeHoje = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
 const comMaiuscula = (texto: string) => texto.charAt(0).toUpperCase() + texto.slice(1);
@@ -41,18 +37,10 @@ const comMaiuscula = (texto: string) => texto.charAt(0).toUpperCase() + texto.sl
 export function HomePage() {
   const me = useMe();
   const podeVer = useCan('dashboard:view');
-  const [params, setParams] = useSearchParams();
-  const escolhido = params.get('periodo');
-  const periodo: DashboardPeriod = ehPeriodo(escolhido) ? escolhido : 'month';
-  const resumo = useDashboardSummary({ period: periodo }, podeVer);
+  // o mesmo seletor das outras telas: dia, semana, mês ou período, andando para trás
+  const [periodo, trocarPeriodo] = usePeriodoNaUrl();
+  const resumo = useDashboardSummary(periodo, podeVer);
   const dados = resumo.data;
-
-  const trocarPeriodo = (valor: DashboardPeriod) => {
-    const proximo = new URLSearchParams(params);
-    if (valor === 'month') proximo.delete('periodo');
-    else proximo.set('periodo', valor);
-    setParams(proximo, { replace: true });
-  };
 
   return (
     <>
@@ -107,9 +95,9 @@ export function HomePage() {
             </div>
 
             <div className="min-w-0 space-y-4 lg:order-1 lg:col-span-2">
-              <PeriodoEscolhido periodo={periodo} onTrocar={trocarPeriodo} />
+              <PeriodPicker idPrefix="inicio" valor={periodo} onChange={trocarPeriodo} />
               <DinheiroDoPeriodo dados={dados} />
-              <MetricChart periodo={{ period: periodo }} podeVerDinheiro={dados.billedCents !== null} />
+              <MetricChart periodo={periodo} podeVerDinheiro={dados.billedCents !== null} />
               <ProducaoDoPeriodo dados={dados} />
               <MaisUsados dados={dados} />
             </div>
@@ -118,37 +106,6 @@ export function HomePage() {
       )}
 
     </>
-  );
-}
-
-/** O seletor de período, junto do que ele muda — e não perdido no cabeçalho. */
-function PeriodoEscolhido({
-  periodo,
-  onTrocar,
-}: {
-  periodo: DashboardPeriod;
-  onTrocar(valor: DashboardPeriod): void;
-}) {
-  return (
-    <div className="flex items-center gap-2">
-      <span className="text-xs text-muted">Mostrando</span>
-      <div className="flex rounded-lg border border-border bg-surface p-0.5" role="group" aria-label="Período">
-        {PERIODOS.map((opcao) => (
-          <button
-            key={opcao}
-            type="button"
-            aria-pressed={periodo === opcao}
-            onClick={() => onTrocar(opcao)}
-            className={cn(
-              'rounded-md px-3 py-1 text-sm transition-colors',
-              periodo === opcao ? 'bg-accent-soft font-medium text-foreground' : 'text-muted hover:text-foreground',
-            )}
-          >
-            {DASHBOARD_PERIOD_LABELS[opcao]}
-          </button>
-        ))}
-      </div>
-    </div>
   );
 }
 

@@ -281,8 +281,35 @@ async function reset(): Promise<void> {
       await withTenant(db, { organizationId }, async (tx) => {
         await tx.execute(sql`update work_orders set appointment_id = null`);
         await tx.execute(sql`update appointments set work_order_id = null`);
-        for (const tabela of NA_ORDEM) {
-          await tx.execute(sql`delete from ${sql.identifier(tabela)}`);
+        /**
+         * A lista à mão envelhece: cada etapa nova cria tabela, e o reset da
+         * demo de produção (cron de segunda) morreu calado depois da E49/E50
+         * por sete tabelas que ninguém lembrou de pôr aqui. Agora toda tabela
+         * com `organization_id` entra; a lista só dá a ORDEM conhecida, e o
+         * que faltar nela vai na frente, com nova tentativa enquanto houver
+         * progresso (cada uma num savepoint, para o erro de chave não matar
+         * a transação inteira).
+         */
+        const { rows } = await tx.execute<{ table_name: string }>(sql`
+          select table_name from information_schema.columns
+          where table_schema = 'public' and column_name = 'organization_id' and table_name <> 'organizations'
+        `);
+        const daOficina = new Set(rows.map((r) => r.table_name));
+        const novas = [...daOficina].filter((t) => !NA_ORDEM.includes(t)).sort();
+        let faltam = [...novas, ...NA_ORDEM.filter((t) => daOficina.has(t))];
+        while (faltam.length) {
+          const sobraram: string[] = [];
+          for (const tabela of faltam) {
+            try {
+              await tx.transaction((sp) => sp.execute(sql`delete from ${sql.identifier(tabela)}`));
+            } catch {
+              sobraram.push(tabela);
+            }
+          }
+          if (sobraram.length === faltam.length) {
+            throw new Error(`Reset da demo travou nas tabelas: ${sobraram.join(', ')}`);
+          }
+          faltam = sobraram;
         }
         await tx.execute(sql`delete from organizations where id = ${organizationId}`);
       });

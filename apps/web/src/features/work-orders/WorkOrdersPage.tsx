@@ -1,7 +1,17 @@
-import { formatBRL, WORK_ORDER_STATUS_LABELS, WORK_ORDER_STATUSES, type WorkOrderStatus } from '@oficinaos/shared';
+import {
+  EXECUTAM_SERVICO,
+  formatBRL,
+  WORK_ORDER_DATE_FIELD_LABELS,
+  WORK_ORDER_DATE_FIELDS,
+  WORK_ORDER_STATUS_LABELS,
+  WORK_ORDER_STATUSES,
+  type WorkOrderDateField,
+  type WorkOrderStatus,
+} from '@oficinaos/shared';
 import { ClipboardList, Columns3, List, Plus, Tv } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
+import { PeriodPicker, usePeriodoOpcionalNaUrl } from '../../components/PeriodPicker';
 import { PlateBadge } from '../../components/plate-badge';
 import { Button } from '../../components/ui/button';
 import { Alert, Card, PageHeader, Skeleton } from '../../components/ui/display';
@@ -13,6 +23,7 @@ import { formatDate } from '../../lib/format';
 import { withParam } from '../../lib/search-params';
 import { useCan } from '../../lib/session';
 import { useDebouncedValue } from '../../lib/use-debounced-value';
+import { useMembers } from '../settings/api';
 import { useWorkOrderBoard, useWorkOrders, type WorkOrderListParams } from './api';
 import { PatioBoard } from './PatioBoard';
 import { PaymentBadge, StatusBadge } from './status';
@@ -107,8 +118,23 @@ function ListaDeOrdens({ onVista }: { onVista(patio: boolean): void }) {
   const canWrite = useCan('work_orders:write');
   const [params, setParams] = useSearchParams();
   const page = Math.max(1, Number(params.get('page')) || 1);
+  const [periodo, trocarPeriodo, limparPeriodo] = usePeriodoOpcionalNaUrl(null);
+  const dataParam = params.get('data');
+  const dateBy: WorkOrderDateField = (WORK_ORDER_DATE_FIELDS as readonly string[]).includes(dataParam ?? '')
+    ? (dataParam as WorkOrderDateField)
+    : 'opened';
+  const mecanico = params.get('mecanico') ?? '';
   const statusParam = params.get('status');
-  const status: WorkOrderListParams['status'] = isStatus(statusParam) ? statusParam : 'active';
+  /**
+   * Sem período, a lista abre no que está na oficina (o uso do dia a dia).
+   * Com período, a pergunta é "o que passou por aqui na semana": abre em todas
+   * as situações, senão as entregues somem justo quando se procura por elas.
+   */
+  const statusPadrao: WorkOrderListParams['status'] = periodo ? 'all' : 'active';
+  const status: WorkOrderListParams['status'] = isStatus(statusParam) ? statusParam : statusPadrao;
+  const trocarStatus = (valor: string) => setParams(withParam(params, 'status', valor === statusPadrao ? null : valor));
+  const equipe = useMembers();
+  const mecanicos = (equipe.data ?? []).filter((m) => m.isActive && EXECUTAM_SERVICO.includes(m.role));
   const [search, setSearch] = useState(params.get('q') ?? '');
   const q = useDebouncedValue(search.trim(), 300);
 
@@ -117,7 +143,17 @@ function ListaDeOrdens({ onVista }: { onVista(patio: boolean): void }) {
     setParams(withParam(params, 'q', q), { replace: true });
   }, [q, params, setParams]);
 
-  const orders = useWorkOrders({ q, status, page });
+  const orders = useWorkOrders({
+    q,
+    status,
+    page,
+    mechanicId: mecanico || undefined,
+    period: periodo?.period,
+    fromDay: periodo?.from,
+    toDay: periodo?.to,
+    dateBy,
+  });
+  const filtrando = Boolean(q || periodo || mecanico || status !== 'active');
   const board = useWorkOrderBoard();
   const data = orders.data;
   const countOf = (value: WorkOrderStatus | 'active') =>
@@ -136,7 +172,7 @@ function ListaDeOrdens({ onVista }: { onVista(patio: boolean): void }) {
               key={value}
               type="button"
               aria-pressed={active}
-              onClick={() => setParams(withParam(params, 'status', value === 'active' ? null : value))}
+              onClick={() => trocarStatus(value)}
               className={cn(
                 'rounded-full border px-3 py-1.5 text-sm transition-colors',
                 active
@@ -165,7 +201,7 @@ function ListaDeOrdens({ onVista }: { onVista(patio: boolean): void }) {
             <Select
               aria-label="Situação"
               value={status}
-              onChange={(event) => setParams(withParam(params, 'status', event.target.value === 'active' ? null : event.target.value))}
+              onChange={(event) => trocarStatus(event.target.value)}
             >
               <option value="active">Na oficina</option>
               <option value="all">Todas</option>
@@ -178,6 +214,57 @@ function ListaDeOrdens({ onVista }: { onVista(patio: boolean): void }) {
           </div>
         </div>
 
+        <div className="flex flex-col gap-2 border-b border-border p-3 lg:flex-row lg:items-start lg:justify-between">
+          <PeriodPicker
+            idPrefix="os"
+            valor={periodo}
+            onChange={trocarPeriodo}
+            onLimpar={limparPeriodo}
+            rotuloLimpar="Tudo"
+          />
+          <div className="flex flex-wrap gap-2 lg:shrink-0 lg:flex-nowrap">
+            {periodo && (
+              <div className="min-w-36 flex-1 lg:w-40 lg:flex-none">
+                <Select
+                  aria-label="Qual data da OS"
+                  value={dateBy}
+                  onChange={(event) => setParams(withParam(params, 'data', event.target.value === 'opened' ? null : event.target.value))}
+                >
+                  {WORK_ORDER_DATE_FIELDS.map((campo) => (
+                    <option key={campo} value={campo}>
+                      Por {WORK_ORDER_DATE_FIELD_LABELS[campo].toLowerCase()}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            )}
+            {mecanicos.length > 0 && (
+              <div className="min-w-44 flex-1 lg:w-52 lg:flex-none">
+                <Select
+                  aria-label="Mecânico"
+                  value={mecanico}
+                  onChange={(event) => setParams(withParam(params, 'mecanico', event.target.value || null))}
+                >
+                  <option value="">Todos os mecânicos</option>
+                  {mecanicos.map((membro) => (
+                    <option key={membro.userId} value={membro.userId}>
+                      {membro.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* a contagem do resultado ANTERIOR, mostrada enquanto o novo chega, mentia o número */}
+        {data && filtrando && !orders.isPlaceholderData && (
+          <p className="border-b border-border px-5 py-2 text-xs text-muted" aria-live="polite">
+            {data.meta.total === 1 ? '1 OS encontrada' : `${data.meta.total} OS encontradas`}
+            {periodo && dateBy !== 'opened' && ` (por data de ${WORK_ORDER_DATE_FIELD_LABELS[dateBy].toLowerCase()})`}
+          </p>
+        )}
+
         {orders.isPending ? (
           <div className="space-y-3 p-5">
             {Array.from({ length: 5 }, (_, i) => (
@@ -189,11 +276,15 @@ function ListaDeOrdens({ onVista }: { onVista(patio: boolean): void }) {
             <Alert variant="danger">{errorMessage(orders.error)}</Alert>
           </div>
         ) : !data?.data.length ? (
-          q || status !== 'active' ? (
+          filtrando ? (
             <EmptyState
               icon={ClipboardList}
-              title={q ? `Nada encontrado para “${q}”` : 'Nenhuma OS nesta situação'}
-              description="Tente pelo número da OS, pela placa ou pelo nome do cliente."
+              title={q ? `Nada encontrado para “${q}”` : periodo ? 'Nenhuma OS neste período' : 'Nenhuma OS nesta situação'}
+              description={
+                periodo
+                  ? 'Ande com as setas para o período anterior, troque a situação ou escolha “Tudo”.'
+                  : 'Tente pelo número da OS, pela placa ou pelo nome do cliente.'
+              }
             />
           ) : (
             <EmptyState
@@ -220,7 +311,13 @@ function ListaDeOrdens({ onVista }: { onVista(patio: boolean): void }) {
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-medium">{order.customerName}</span>
                       <span className="block truncate text-xs text-muted">
-                        Aberta em {formatDate(order.openedAt)}
+                        {periodo && dateBy === 'delivered' && order.deliveredAt
+                          ? `Entregue em ${formatDate(order.deliveredAt)}`
+                          : periodo && dateBy === 'completed' && order.completedAt
+                            ? `Concluída em ${formatDate(order.completedAt)}`
+                            : order.deliveredAt
+                              ? `Aberta em ${formatDate(order.openedAt)} · entregue em ${formatDate(order.deliveredAt)}`
+                              : `Aberta em ${formatDate(order.openedAt)}`}
                         {order.mechanicName && ` · ${order.mechanicName}`}
                       </span>
                     </span>

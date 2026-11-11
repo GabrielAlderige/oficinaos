@@ -1,5 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
+  DashboardPeriod,
+  WorkOrderDateField,
   TrackingLinkResult,
   Attachment,
   CreateUploadInput,
@@ -25,6 +27,11 @@ export interface WorkOrderListParams {
   q: string;
   status: WorkOrderStatus | 'active' | 'all';
   mechanicId?: string;
+  /** recorte por período no calendário da oficina; sem ele, todas as datas */
+  period?: DashboardPeriod;
+  fromDay?: string;
+  toDay?: string;
+  dateBy?: WorkOrderDateField;
   page: number;
   pageSize?: number;
 }
@@ -62,6 +69,10 @@ export function useWorkOrders(params: WorkOrderListParams, options: { enabled?: 
           q: params.q,
           status: params.status,
           mechanicId: params.mechanicId,
+          period: params.period,
+          fromDay: params.period === 'custom' ? params.fromDay : undefined,
+          toDay: params.period === 'custom' ? params.toDay : undefined,
+          dateBy: params.period ? params.dateBy : undefined,
           page: params.page,
           pageSize: params.pageSize ?? 25,
         })}`,

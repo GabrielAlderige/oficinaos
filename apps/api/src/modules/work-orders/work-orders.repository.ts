@@ -1,6 +1,6 @@
-import { and, asc, count, desc, eq, gte, inArray, isNull, lte, or, sql, type SQL } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gte, inArray, isNull, lt, lte, or, sql, type SQL } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
-import { ACTIVE_WORK_ORDER_STATUSES, type WorkOrderStatus } from '@oficinaos/shared';
+import { ACTIVE_WORK_ORDER_STATUSES, type WorkOrderDateField, type WorkOrderStatus } from '@oficinaos/shared';
 import { likeContains } from '../../core/normalize';
 import {
   attachments,
@@ -123,10 +123,15 @@ export async function listWorkOrders(
     mechanicId?: string;
     from?: Date;
     to?: Date;
+    /** janela `[inicio, fim)` sobre a data escolhida da OS */
+    janela?: { from: Date; to: Date; by: WorkOrderDateField };
     limit: number;
     offset: number;
   },
 ) {
+  const colunaDaJanela = options.janela
+    ? { opened: workOrders.openedAt, completed: workOrders.completedAt, delivered: workOrders.deliveredAt }[options.janela.by]
+    : undefined;
   const statusFilter: SQL | undefined =
     options.status === 'all'
       ? undefined
@@ -140,6 +145,8 @@ export async function listWorkOrders(
     options.mechanicId ? eq(workOrders.mechanicUserId, options.mechanicId) : undefined,
     options.from ? gte(workOrders.openedAt, options.from) : undefined,
     options.to ? lte(workOrders.openedAt, options.to) : undefined,
+    options.janela && colunaDaJanela ? gte(colunaDaJanela, options.janela.from) : undefined,
+    options.janela && colunaDaJanela ? lt(colunaDaJanela, options.janela.to) : undefined,
     options.q
       ? or(
           sql`work_orders.number::text = ${options.q.replace(/\D/g, '') || '-1'}`,
@@ -149,9 +156,10 @@ export async function listWorkOrders(
       : undefined,
   );
 
+  // recortado pela entrega, a lista vem na ordem da entrega: é a pergunta feita
   const rows = await withPeople(tx)
     .where(where)
-    .orderBy(desc(workOrders.openedAt), desc(workOrders.number))
+    .orderBy(desc(colunaDaJanela ?? workOrders.openedAt), desc(workOrders.number))
     .limit(options.limit)
     .offset(options.offset);
 

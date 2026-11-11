@@ -12,8 +12,10 @@ import {
   PAYMENT_STATUSES,
   WORK_ORDER_EVENT_TYPES,
   WORK_ORDER_ITEM_TYPES,
+  WORK_ORDER_DATE_FIELDS,
   WORK_ORDER_STATUSES,
 } from '../enums/work-orders';
+import { DASHBOARD_PERIODS } from '../calendar';
 import { ATTACHMENT_KINDS, ATTACHMENT_STATUSES } from '../enums/work-orders';
 import { quantitySchema } from './catalog';
 import { optionalText } from './common';
@@ -115,6 +117,15 @@ export const workOrderNoteSchema = z.object({
   text: z.string().trim().min(1, 'Escreva a observação').max(2000),
 });
 
+/** 'AAAA-MM-DD' que existe no calendário (31/02 e mês 13 voltam 400, não lista vazia) */
+const diaDoCalendario = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida')
+  .refine((v) => {
+    const data = new Date(`${v}T00:00:00Z`);
+    return !Number.isNaN(data.getTime()) && data.toISOString().startsWith(v);
+  }, 'Data inválida');
+
 export const workOrderListQuerySchema = z.object({
   q: z.string().trim().max(100).optional(),
   /** 'active' = tudo que ainda está na oficina */
@@ -122,6 +133,15 @@ export const workOrderListQuerySchema = z.object({
   mechanicId: z.uuid().optional(),
   from: isoDateTime.optional(),
   to: isoDateTime.optional(),
+  /**
+   * Recorte por período, no calendário da OFICINA (dia, semana, mês ou
+   * intervalo). Sem `period`, a lista não corta por data.
+   */
+  period: z.enum(DASHBOARD_PERIODS).optional(),
+  fromDay: diaDoCalendario.optional(),
+  toDay: diaDoCalendario.optional(),
+  /** qual data da OS o período olha: quando entrou ou quando foi entregue */
+  dateBy: z.enum(WORK_ORDER_DATE_FIELDS).default('opened'),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(25),
 });
@@ -287,6 +307,8 @@ export const workOrderListItemSchema = z.object({
   totalCents: z.number().int(),
   promisedAt: z.string().nullable(),
   openedAt: z.string(),
+  completedAt: z.string().nullable(),
+  deliveredAt: z.string().nullable(),
 });
 
 /**

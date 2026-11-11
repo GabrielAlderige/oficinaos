@@ -42,8 +42,16 @@ import { COUNTER_WORK_ORDER, nextNumber } from '../../core/counters';
 import { AppError, notFound, validationFailed } from '../../core/errors';
 import { blankToNull, isoOrNull } from '../../core/normalize';
 import { assertOdometerNotDecreasing } from '../../core/odometer';
-import { readOrganizationSettings } from '../../core/org-settings';
-import { formatBRL, saldoCents, whatsappLink, whatsappVehicleReadyMessage } from '@oficinaos/shared';
+import { readOrganizationSettings, readTimezone } from '../../core/org-settings';
+import {
+  formatBRL,
+  periodRange,
+  saldoCents,
+  whatsappLink,
+  whatsappVehicleReadyMessage,
+  type DashboardPeriod,
+  type WorkOrderDateField,
+} from '@oficinaos/shared';
 import {
   consumeApprovedItems,
   releaseReservations,
@@ -71,6 +79,10 @@ type ListQuery = {
   mechanicId?: string;
   from?: string;
   to?: string;
+  period?: DashboardPeriod;
+  fromDay?: string;
+  toDay?: string;
+  dateBy?: WorkOrderDateField;
   page: number;
   pageSize: number;
 };
@@ -140,12 +152,23 @@ export class WorkOrdersService {
 
   async list(auth: AuthContext, query: ListQuery): Promise<Page<WorkOrderListItem>> {
     return withTenant(this.deps.db, auth, async (tx) => {
+      // o período é contado no relógio da oficina, como no painel e nos relatórios
+      const janela = query.period
+        ? {
+            ...periodRange(query.period, await readTimezone(tx, auth.organizationId), {
+              from: query.fromDay,
+              to: query.toDay,
+            }),
+            by: query.dateBy ?? 'opened',
+          }
+        : undefined;
       const { rows, total } = await repo.listWorkOrders(tx, auth.organizationId, {
         q: query.q || undefined,
         status: query.status,
         mechanicId: query.mechanicId,
         from: query.from ? new Date(query.from) : undefined,
         to: query.to ? new Date(query.to) : undefined,
+        janela,
         limit: query.pageSize,
         offset: (query.page - 1) * query.pageSize,
       });
@@ -169,6 +192,8 @@ export class WorkOrdersService {
           totalCents: row.order.totalCents,
           promisedAt: isoOrNull(row.order.promisedAt),
           openedAt: row.order.openedAt.toISOString(),
+          completedAt: isoOrNull(row.order.completedAt),
+          deliveredAt: isoOrNull(row.order.deliveredAt),
         })),
         meta: { page: query.page, pageSize: query.pageSize, total },
       };
