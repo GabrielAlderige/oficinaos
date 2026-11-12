@@ -655,3 +655,103 @@ export async function listEntriesByGroup(tx: Tx, organizationId: string, groupId
     .where(and(eq(financialEntries.organizationId, organizationId), eq(financialEntries.groupId, groupId)))
     .orderBy(asc(financialEntries.installmentNumber));
 }
+
+// ------------------------------ DRE (E51) ------------------------------
+
+/**
+ * Receita por COMPETÊNCIA, separada em serviço e peça: a OS finalizada no
+ * período, com o total dividido na proporção dos subtotais (o desconto e o
+ * acréscimo da OS se espalham pelos dois), e a venda de balcão do período.
+ * A separação importa: serviço e peça pagam imposto diferente.
+ */
+export async function receitaCompetencia(
+  tx: Tx,
+  organizationId: string,
+  janela: Janela,
+): Promise<{ servicos: number; pecas: number; balcao: number }> {
+  const { rows } = await tx.execute<{ servicos: string; pecas: string; balcao: string }>(sql`
+    with os as (
+      select case when approved_total_cents > 0 then approved_total_cents else total_cents end as total,
+             services_subtotal_cents as servicos,
+             parts_subtotal_cents as pecas
+      from work_orders
+      where organization_id = ${organizationId}
+        and status <> 'CANCELED'
+        and completed_at >= ${janela.from} and completed_at < ${janela.to}
+    )
+    select
+      coalesce(sum(case when servicos + pecas > 0 then round(total * servicos::numeric / (servicos + pecas)) else total end), 0)::bigint as servicos,
+      coalesce(sum(case when servicos + pecas > 0 then total - round(total * servicos::numeric / (servicos + pecas)) else 0 end), 0)::bigint as pecas,
+      (select coalesce(sum(total_cents), 0)
+         from counter_sales
+        where organization_id = ${organizationId}
+          and status = 'COMPLETED'
+          and sold_at >= ${janela.from} and sold_at < ${janela.to})::bigint as balcao
+    from os
+  `);
+  const r = rows[0];
+  return { servicos: Number(r?.servicos ?? 0), pecas: Number(r?.pecas ?? 0), balcao: Number(r?.balcao ?? 0) };
+}
+
+/**
+ * Comissão por COMPETÊNCIA: a das OS finalizadas no período, com o percentual
+ * congelado no item quando a OS foi finalizada (E26). O pagamento ao mecânico
+ * é caixa; a DRE quer o que a OS do mês gerou de comissão.
+ */
+export async function comissoesCompetencia(tx: Tx, organizationId: string, janela: Janela): Promise<number> {
+  const { rows } = await tx.execute<{ total: string }>(sql`
+    select coalesce(sum(round(i.total_cents * i.commission_bps / 10000.0)), 0)::bigint as total
+    from work_order_items i
+    join work_orders o on o.organization_id = i.organization_id and o.id = i.work_order_id
+    where i.organization_id = ${organizationId}
+      and o.status <> 'CANCELED'
+      and o.completed_at >= ${janela.from} and o.completed_at < ${janela.to}
+      and i.type = 'SERVICE'
+      and i.commission_user_id is not null
+      and coalesce(i.commission_bps, 0) > 0
+  `);
+  return Number(rows[0]?.total ?? 0);
+}
+
+/**
+ * Lançamentos por COMPETÊNCIA (sem competência, o vencimento), por categoria,
+ * pagos ou não: a DRE é do que aconteceu no mês, não do que saiu do caixa.
+ *
+ * - a pagar: sem "Peças e insumos" (a peça entra pelo custo da que saiu);
+ * - a receber: só os avulsos — o da OS e o do balcão já estão na receita.
+ */
+export async function lancamentosCompetencia(
+  tx: Tx,
+  organizationId: string,
+  direction: FinancialDirection,
+  fromDay: string,
+  toDay: string,
+): Promise<{ name: string; systemKey: string | null; amountCents: number }[]> {
+  const { rows } = await tx.execute<{ name: string; system_key: string | null; total: string }>(sql`
+    select coalesce(c.name, 'Sem categoria') as name, c.system_key, sum(e.amount_cents)::bigint as total
+    from financial_entries e
+    left join financial_categories c on c.organization_id = e.organization_id and c.id = e.category_id
+    where e.organization_id = ${organizationId}
+      and e.direction = ${direction}
+      and e.status <> 'CANCELED'
+      and coalesce(e.competence_date, e.due_date) >= ${fromDay}
+      and coalesce(e.competence_date, e.due_date) <= ${toDay}
+      and (${direction} = 'RECEIVABLE' or c.system_key is distinct from 'PARTS')
+      and (${direction} = 'PAYABLE' or (e.work_order_id is null and e.counter_sale_id is null))
+    group by 1, 2
+    order by 3 desc
+  `);
+  return rows.map((row) => ({ name: row.name, systemKey: row.system_key, amountCents: Number(row.total) }));
+}
+
+/** O primeiro faturamento que o sistema conhece: a régua do "menos de 12 meses" do Simples. */
+export async function primeiroFaturamento(tx: Tx, organizationId: string): Promise<Date | null> {
+  const { rows } = await tx.execute<{ primeiro: Date | string | null }>(sql`
+    select least(
+      (select min(completed_at) from work_orders where organization_id = ${organizationId} and status <> 'CANCELED'),
+      (select min(sold_at) from counter_sales where organization_id = ${organizationId} and status = 'COMPLETED')
+    ) as primeiro
+  `);
+  const valor = rows[0]?.primeiro;
+  return valor ? new Date(valor) : null;
+}

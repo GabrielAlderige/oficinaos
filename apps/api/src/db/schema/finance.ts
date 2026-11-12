@@ -86,6 +86,11 @@ export const financialEntries = pgTable(
     amountCents: money().notNull(),
     paidCents: money().notNull().default(0),
     dueDate: date({ mode: 'string' }).notNull(),
+    /**
+     * Competência (E51): o mês a que a despesa pertence na DRE — o aluguel de
+     * outubro que vence em 5 de novembro é de outubro. Vazio = o vencimento.
+     */
+    competenceDate: date({ mode: 'string' }),
     customerId: uuid(),
     supplierId: uuid(),
     workOrderId: uuid(),

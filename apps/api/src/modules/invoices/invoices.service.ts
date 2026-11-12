@@ -16,8 +16,10 @@ import {
   type IssueInvoiceInput,
   type Page,
   type PricingLine,
+  type RegimeLookupResult,
   type UpdateFiscalSettingsInput,
 } from '@oficinaos/shared';
+import { regimePelaReceita } from '../../core/regime-tributario';
 import { recordActivity } from '../../core/audit';
 import type { AuthContext, ClientInfo, ServiceDeps } from '../../core/auth-context';
 import { COUNTER_INVOICE_RPS, nextNumber } from '../../core/counters';
@@ -78,6 +80,12 @@ export class InvoicesService {
       municipalRegistration: row?.municipalRegistration ?? null,
       stateRegistration: row?.stateRegistration ?? null,
       taxRegime: row?.taxRegime ?? null,
+      taxRegimeSource: row?.taxRegimeSource ?? null,
+      taxRegimeDetail: row?.taxRegimeDetail ?? null,
+      taxRegimeCheckedAt: row?.taxRegimeCheckedAt?.toISOString() ?? null,
+      partsIcmsSt: row?.partsIcmsSt ?? true,
+      icmsRateBps: row?.icmsRateBps ?? null,
+      meiDasCents: row?.meiDasCents ?? null,
       cnae: row?.cnae ?? null,
       serviceListItem: row?.serviceListItem ?? null,
       municipalServiceCode: row?.municipalServiceCode ?? null,
@@ -100,8 +108,11 @@ export class InvoicesService {
   async updateSettings(auth: AuthContext, input: UpdateFiscalSettingsInput, client: ClientInfo): Promise<FiscalSettings> {
     return withTenant(this.deps.db, auth, async (tx) => {
       const antes = await repo.findFiscalSettings(tx, auth.organizationId);
+      // trocar o regime na tela é escolha da oficina: deixa de ser "o que a Receita disse"
+      const trocouRegime = input.taxRegime !== undefined && input.taxRegime !== (antes?.taxRegime ?? null);
       await repo.upsertFiscalSettings(tx, auth.organizationId, {
         ...input,
+        ...(trocouRegime ? { taxRegimeSource: input.taxRegime ? ('MANUAL' as const) : null } : {}),
         // o ambiente e o driver saem do servidor (ou do script que liga o
         // emissor da oficina), nunca da tela: ninguém "vira produção" clicando
         // num campo do painel — e salvar o formulário não desliga o emissor
@@ -118,6 +129,12 @@ export class InvoicesService {
       });
       return this.readSettings(tx, auth.organizationId);
     });
+  }
+
+  /** O botão "Consultar na Receita" (E51): busca o regime pelo CNPJ do cadastro e grava. */
+  async consultarRegime(auth: AuthContext): Promise<RegimeLookupResult> {
+    const result = await regimePelaReceita(this.deps, auth, { forcar: true });
+    return { result, settings: await this.settings(auth) };
   }
 
   // ------------------------------- prévia --------------------------------

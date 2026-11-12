@@ -14,7 +14,14 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
-import { FISCAL_ENVIRONMENTS, INVOICE_KINDS, INVOICE_STATUSES, PRODUCT_INVOICE_MODELS, TAX_REGIMES } from '@oficinaos/shared';
+import {
+  FISCAL_ENVIRONMENTS,
+  INVOICE_KINDS,
+  INVOICE_STATUSES,
+  PRODUCT_INVOICE_MODELS,
+  TAX_REGIME_SOURCES,
+  TAX_REGIMES,
+} from '@oficinaos/shared';
 import { id, timestamps, timestamptz } from './_columns';
 import { parts } from './catalog';
 import { counterSales } from './counter-sales';
@@ -70,12 +77,31 @@ export const organizationFiscalSettings = pgTable(
     productCfop: text(),
     /** situação do ICMS das peças; vazio no Simples vira o CSOSN 102 */
     productIcmsSituation: text(),
+    /**
+     * DRE (E51): de onde veio o regime — consulta à Receita pelo CNPJ ou
+     * escolha da oficina — e o que a Receita respondeu, para a tela mostrar.
+     */
+    taxRegimeSource: text({ enum: TAX_REGIME_SOURCES }),
+    taxRegimeDetail: text(),
+    taxRegimeCheckedAt: timestamptz(),
+    /** a peça já vem com ICMS retido na compra (substituição tributária): a revenda não paga de novo */
+    partsIcmsSt: boolean().notNull().default(true),
+    /** alíquota de ICMS da peça quando NÃO há ST, em pontos-base (18% = 1800) */
+    icmsRateBps: integer(),
+    /** MEI: valor do DAS mensal */
+    meiDasCents: bigint({ mode: 'number' }),
     ...timestamps,
   },
   (t) => [
     check('org_fiscal_regime_check', sql`${t.taxRegime} is null or ${t.taxRegime} in (${list(TAX_REGIMES)})`),
     check('org_fiscal_environment_check', sql`${t.environment} in (${list(FISCAL_ENVIRONMENTS)})`),
     check('org_fiscal_iss_check', sql`${t.issRateBps} is null or (${t.issRateBps} >= 0 and ${t.issRateBps} <= 10000)`),
+    check('org_fiscal_icms_check', sql`${t.icmsRateBps} is null or (${t.icmsRateBps} >= 0 and ${t.icmsRateBps} <= 10000)`),
+    check(
+      'org_fiscal_regime_source_check',
+      sql`${t.taxRegimeSource} is null or ${t.taxRegimeSource} in (${list(TAX_REGIME_SOURCES)})`,
+    ),
+    check('org_fiscal_mei_das_check', sql`${t.meiDasCents} is null or ${t.meiDasCents} >= 0`),
   ],
 );
 

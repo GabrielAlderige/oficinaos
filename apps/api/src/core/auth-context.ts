@@ -1,3 +1,4 @@
+import type { ConsultaCnpj } from '../integrations/receita/cnpj';
 import type { FastifyBaseLogger, FastifyRequest } from 'fastify';
 import { ErrorCode, type Permission, type PlanFeature, type Role, type SubscriptionStatus } from '@oficinaos/shared';
 import type { Env } from '../config/env';
@@ -106,6 +107,8 @@ export interface ServiceDeps {
   emissorDaOficina: (opcoes: { token: string; environment: 'HOMOLOGATION' | 'PRODUCTION' }) => NfseProvider;
   /** o mesmo, para a nota de PEÇAS (E50): NFC-e e NF-e na Focus, com o token da oficina */
   emissorDePecasDaOficina: (opcoes: { token: string; environment: 'HOMOLOGATION' | 'PRODUCTION' }) => EmissorDeNotaDePecas;
+  /** o regime tributário pelo CNPJ, na Receita (E51); os testes trocam por uma que não sai para a internet */
+  consultaCnpj: ConsultaCnpj;
   /** a maquininha Stone da oficina, com a chave DELA (E50); os testes trocam por uma de mentira */
   maquininhaDaOficina: (opcoes: { secretKey: string }) => Maquininha;
   /** o da plataforma: assinatura do SaaS e leitura dos avisos */

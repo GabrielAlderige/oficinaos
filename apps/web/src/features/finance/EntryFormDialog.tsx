@@ -40,6 +40,7 @@ function Corpo({ direction, onDone }: { direction: FinancialDirection; onDone():
   const [categoria, setCategoria] = useState('');
   const [valor, setValor] = useState('');
   const [vencimento, setVencimento] = useState(hojeIso());
+  const [competencia, setCompetencia] = useState('');
   const [parcelas, setParcelas] = useState('1');
   const [quem, setQuem] = useState<{ id: string; name: string } | null>(null);
   const [notas, setNotas] = useState('');
@@ -61,6 +62,7 @@ function Corpo({ direction, onDone }: { direction: FinancialDirection; onDone():
         description: descricao.trim(),
         amountCents: centavos,
         dueDate: vencimento,
+        competenceDate: /^\d{4}-\d{2}$/.test(competencia) ? `${competencia}-01` : null,
         customerId: receber ? (quem?.id ?? null) : null,
         supplierId: receber ? null : (quem?.id ?? null),
         notes: notas,
@@ -148,6 +150,19 @@ function Corpo({ direction, onDone }: { direction: FinancialDirection; onDone():
             />
           </Field>
         </div>
+
+        <Field
+          label="Mês de competência"
+          htmlFor="finance-competence"
+          hint="O mês a que a conta pertence no resultado (DRE). Em branco, vale o mês do vencimento. Ex.: o aluguel de outubro que vence em novembro é de outubro."
+        >
+          <Input
+            {...fieldA11y('finance-competence', undefined, true)}
+            type="month"
+            value={competencia}
+            onChange={(event) => setCompetencia(event.target.value)}
+          />
+        </Field>
 
         {/* fornecedor saiu do painel: a conta a pagar avulsa continua existindo,
             só não tem de quem — e ninguém precisava preencher isso mesmo */}

@@ -44,6 +44,8 @@ export const createFinancialEntrySchema = z.object({
   description: z.string().trim().min(2, 'Descreva o lançamento').max(200),
   amountCents: money,
   dueDate: isoDate,
+  /** competência na DRE (E51): o mês a que o lançamento pertence; vazio = o vencimento */
+  competenceDate: isoDate.nullable().default(null),
   /** de quem se recebe, ou para quem se paga (opcional: conta de luz não tem cliente) */
   customerId: z.uuid().nullable().default(null),
   supplierId: z.uuid().nullable().default(null),
@@ -59,6 +61,7 @@ export const updateFinancialEntrySchema = z
     description: z.string().trim().min(2, 'Descreva o lançamento').max(200),
     amountCents: money,
     dueDate: isoDate,
+    competenceDate: isoDate.nullable(),
     customerId: z.uuid().nullable(),
     supplierId: z.uuid().nullable(),
     notes: optionalText(1000),
@@ -151,6 +154,7 @@ export const financialEntrySchema = z.object({
   paidCents: z.number().int(),
   remainingCents: z.number().int(),
   dueDate: z.string(),
+  competenceDate: z.string().nullable(),
   categoryId: z.uuid().nullable(),
   categoryName: z.string().nullable(),
   customerId: z.uuid().nullable(),

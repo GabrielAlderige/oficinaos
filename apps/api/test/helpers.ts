@@ -57,14 +57,27 @@ export interface TestApp {
 
 export async function createTestApp(
   overrides: Partial<NodeJS.ProcessEnv> = {},
-  extra: Pick<AppDeps, 'emissorDaOficina' | 'emissorDePecasDaOficina' | 'maquininhaDaOficina' | 'gateway' | 'assistantModel'> = {},
+  extra: Pick<
+    AppDeps,
+    'emissorDaOficina' | 'emissorDePecasDaOficina' | 'maquininhaDaOficina' | 'gateway' | 'assistantModel' | 'consultaCnpj'
+  > = {},
 ): Promise<TestApp> {
   const env = testEnv(overrides);
   const email = new MemoryEmailProvider();
   const storage = new MemoryStorageProvider(env.JWT_SECRET);
   const transcoder = new FakeVideoTranscoder();
   // o assistente nunca chama a IA de verdade nos testes: desligado, a não ser que o teste injete um falso
-  const app = await buildApp({ env, db: testDb().db, email, storage, transcoder, assistantModel: null, ...extra });
+  // nem a Receita: a consulta do regime pelo CNPJ responde "não sei", a não ser que o teste injete outra
+  const app = await buildApp({
+    env,
+    db: testDb().db,
+    email,
+    storage,
+    transcoder,
+    assistantModel: null,
+    consultaCnpj: async () => null,
+    ...extra,
+  });
   await app.ready();
   return { app, email, storage, transcoder };
 }

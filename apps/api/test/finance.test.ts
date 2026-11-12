@@ -132,16 +132,17 @@ describe('financeiro', () => {
 
   // =============================== categorias ================================
 
-  it('a oficina nasce com as nove categorias do sistema, separadas por direção', async () => {
+  it('a oficina nasce com as dez categorias do sistema, separadas por direção', async () => {
     const res = await get('/api/v1/finance/categories');
     expect(res.statusCode, res.body).toBe(200);
     const data = res.json().data as { name: string; direction: string; systemKey: string | null }[];
-    expect(data).toHaveLength(9);
+    expect(data).toHaveLength(10);
     expect(data.filter((c) => c.direction === 'RECEIVABLE')).toHaveLength(2);
     expect(data.every((c) => c.systemKey !== null)).toBe(true);
 
     const soPagar = await get('/api/v1/finance/categories?direction=PAYABLE');
-    expect((soPagar.json().data as unknown[]).length).toBe(7);
+    // E51: "Taxas, alvará e IPTU" separada da guia de imposto sobre o faturamento
+    expect((soPagar.json().data as unknown[]).length).toBe(8);
   });
 
   it('categoria do sistema se renomeia, mas não se apaga', async () => {

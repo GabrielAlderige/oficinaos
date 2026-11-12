@@ -44,6 +44,10 @@ export const INVOICE_STATUS_TONES = {
 export const TAX_REGIMES = ['MEI', 'SIMPLES_NACIONAL', 'LUCRO_PRESUMIDO', 'LUCRO_REAL'] as const;
 export type TaxRegime = (typeof TAX_REGIMES)[number];
 
+/** De onde veio o regime (E51): consulta à Receita pelo CNPJ, ou escolha da oficina. */
+export const TAX_REGIME_SOURCES = ['RECEITA', 'MANUAL'] as const;
+export type TaxRegimeSource = (typeof TAX_REGIME_SOURCES)[number];
+
 export const TAX_REGIME_LABELS: Record<TaxRegime, string> = {
   MEI: 'MEI',
   SIMPLES_NACIONAL: 'Simples Nacional',

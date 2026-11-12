@@ -1,12 +1,16 @@
 import { and, eq } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import {
+  addDays,
+  addMonths,
+  dayKey,
   daysBetween,
   diasDeAtraso,
   dividirEmParcelas,
   ErrorCode,
   faltaCents,
   formatBRL,
+  fromDayKey,
   lucroEstimado,
   montarDre,
   periodRange,
@@ -20,6 +24,8 @@ import {
   type CashFlow,
   type CashFlowBucket,
   type Dre,
+  type DreMontada,
+  type DreSegmento,
   type CreateFinancialEntryInput,
   type FinancialCategory,
   type FinancialDirection,
@@ -44,6 +50,8 @@ import type { Tx } from '../../db/tenant';
 import { withTenant } from '../../db/tenant';
 import type { PaymentsService } from '../payments/payments.service';
 import * as repo from './finance.repository';
+import * as fiscalRepo from '../invoices/invoices.repository';
+import { regimePelaReceita } from '../../core/regime-tributario';
 import { hojeNaOficina } from '../../core/org-settings';
 import { syncWorkOrderEntries } from './finance.sync';
 
@@ -65,6 +73,7 @@ function toDto(row: repo.FinancialEntryJoined, hoje: string): FinancialEntry {
     paidCents: entry.paidCents,
     remainingCents: faltaCents(entry),
     dueDate: entry.dueDate,
+    competenceDate: entry.competenceDate,
     categoryId: entry.categoryId,
     categoryName: row.categoryName,
     customerId: entry.customerId,
@@ -303,6 +312,8 @@ export class FinanceService {
           description: input.description,
           amountCents: valor,
           dueDate: vencimentos[index]!,
+          // parcelado com competência: todas as parcelas são do mesmo mês na DRE
+          competenceDate: input.competenceDate,
           customerId: input.customerId,
           supplierId: input.supplierId,
           notes: blankToNull(input.notes) ?? null,
@@ -504,6 +515,8 @@ export class FinanceService {
         throw new AppError(422, ErrorCode.VALIDATION_FAILED, 'Parcelas demais', 'O valor não dá nem um centavo por parcela.');
       }
 
+      // parcelar não muda o mês da despesa na DRE: as parcelas herdam a competência original
+      const competencia = atual.competenceDate ?? atual.dueDate;
       const valores = dividirEmParcelas(atual.amountCents, input.installments);
       const vencimentos = vencimentosMensais(input.firstDueDate ?? atual.dueDate, input.installments);
       const groupId = atual.groupId ?? uuidv7();
@@ -514,6 +527,7 @@ export class FinanceService {
         groupId,
         installmentNumber: 1,
         installmentCount: input.installments,
+        competenceDate: competencia,
         paidCents: 0,
         status: 'OPEN',
         settledAt: null,
@@ -529,6 +543,7 @@ export class FinanceService {
           description: atual.description,
           amountCents: valor,
           dueDate: vencimentos[index + 1]!,
+          competenceDate: competencia,
           customerId: atual.customerId,
           supplierId: atual.supplierId,
           workOrderId: atual.workOrderId,
@@ -778,32 +793,99 @@ export class FinanceService {
   }
 
   /**
-   * DRE (E49): as mesmas peças do lucro estimado, em linhas, para o período e
-   * para o anterior do mesmo tamanho. A última linha é o lucro estimado.
+   * DRE (E51) por competência, com os impostos calculados pelo regime da
+   * oficina. Se o regime ainda não foi informado e o cadastro tem CNPJ, a
+   * Receita é consultada antes (fora da transação) e o regime fica gravado.
    */
   async dre(auth: AuthContext, query: FinancialPeriodQuery): Promise<Dre> {
+    await regimePelaReceita(this.deps, auth, { forcar: false });
     return withTenant(this.deps.db, auth, async (tx) => {
       const tz = await readTimezone(tx, auth.organizationId);
       const janela = periodRange(query.period, tz, { from: query.from, to: query.to });
       const anterior = previousPeriodRange(query.period, janela.fromDay, janela.toDay, tz);
-      const linhas = async (faixa: typeof janela) => {
-        const receita = await repo.receitaPorOrigem(tx, auth.organizationId, faixa);
-        const custoPecasCents = await repo.custoDasPecasNoPeriodo(tx, auth.organizationId, faixa);
-        const despesas = await repo.despesasPorCategoria(tx, auth.organizationId, faixa);
-        return montarDre({
-          receitaOsCents: receita.os,
-          receitaBalcaoCents: receita.balcao,
-          custoPecasCents,
-          despesas: despesas.map((linha) => ({ name: linha.name, systemKey: linha.system_key, amountCents: Number(linha.total) })),
-        });
-      };
+      const fiscal = await fiscalRepo.findFiscalSettings(tx, auth.organizationId);
+      const atual = await this.dreDoIntervalo(tx, auth.organizationId, tz, janela.fromDay, janela.toDay, fiscal);
+      const antes = await this.dreDoIntervalo(tx, auth.organizationId, tz, anterior.fromDay, anterior.toDay, fiscal);
       return {
         from: janela.fromDay,
         to: janela.toDay,
-        lines: await linhas(janela),
-        previous: { from: anterior.fromDay, to: anterior.toDay, lines: await linhas(anterior) },
+        lines: atual.lines,
+        regime: {
+          regime: fiscal?.taxRegime ?? null,
+          source: fiscal?.taxRegimeSource ?? null,
+          detail: fiscal?.taxRegimeDetail ?? null,
+          checkedAt: fiscal?.taxRegimeCheckedAt?.toISOString() ?? null,
+          simples: atual.simples,
+          avisos: atual.avisos,
+        },
+        previous: { from: anterior.fromDay, to: anterior.toDay, lines: antes.lines },
       };
     });
+  }
+
+  /**
+   * A DRE de um intervalo de dias, montada MÊS A MÊS: cada pedaço tem a sua
+   * faixa do Simples (receita dos 12 meses anteriores àquele mês) e o seu
+   * limite do adicional do IRPJ. A exportação mensal usa o mesmo caminho.
+   */
+  async dreDoIntervalo(
+    tx: Tx,
+    organizationId: string,
+    tz: string,
+    fromDay: string,
+    toDay: string,
+    fiscal: fiscalRepo.FiscalSettingsRow | undefined,
+  ): Promise<DreMontada> {
+    const primeiro = await repo.primeiroFaturamento(tx, organizationId);
+    const segmentos: DreSegmento[] = [];
+    for (let mes = startOfMonth(fromDay); mes <= toDay; mes = addMonths(mes, 1)) {
+      const fimDoMes = addDays(addMonths(mes, 1), -1);
+      const de = fromDay > mes ? fromDay : mes;
+      const ate = toDay < fimDoMes ? toDay : fimDoMes;
+      const faixa = { from: fromDayKey(de, 0, tz), to: fromDayKey(addDays(ate, 1), 0, tz) };
+      const receita = await repo.receitaCompetencia(tx, organizationId, faixa);
+      const lancadas = await repo.lancamentosCompetencia(tx, organizationId, 'PAYABLE', de, ate);
+      // a guia do imposto sobre o faturamento: com regime, o imposto já é calculado e ela fica fora
+      const guias = lancadas.filter((d) => d.systemKey === 'TAXES');
+      segmentos.push({
+        receitaServicosCents: receita.servicos,
+        receitaPecasCents: receita.pecas,
+        receitaBalcaoCents: receita.balcao,
+        custoPecasCents: await repo.custoDasPecasNoPeriodo(tx, organizationId, faixa),
+        comissoesCents: await repo.comissoesCompetencia(tx, organizationId, faixa),
+        despesas: lancadas.filter((d) => d.systemKey !== 'TAXES'),
+        impostosLancadosCents: guias.reduce((t, d) => t + d.amountCents, 0),
+        outrasReceitas: await repo.lancamentosCompetencia(tx, organizationId, 'RECEIVABLE', de, ate),
+        fiscal: {
+          regime: fiscal?.taxRegime ?? null,
+          rbt12Cents:
+            fiscal?.taxRegime === 'SIMPLES_NACIONAL' ? await this.rbt12(tx, organizationId, tz, mes, primeiro) : 0,
+          issBps: fiscal?.issRateBps ?? null,
+          icmsBps: fiscal?.icmsRateBps ?? null,
+          pecasComIcmsSt: fiscal?.partsIcmsSt ?? true,
+          dasMeiCents: fiscal?.meiDasCents ?? null,
+          fracaoDoMes: daysBetween(de, ate).length / daysBetween(mes, fimDoMes).length,
+        },
+      });
+    }
+    return montarDre(segmentos);
+  }
+
+  /**
+   * Receita bruta dos 12 meses anteriores ao mês (a RBT12 do Simples). Com
+   * menos de 12 meses de histórico no sistema, a média dos meses que existem
+   * vezes 12 — a regra da LC 123 para quem está começando.
+   */
+  private async rbt12(tx: Tx, organizationId: string, tz: string, mes: string, primeiro: Date | null): Promise<number> {
+    if (!primeiro) return 0;
+    const inicio = addMonths(mes, -12);
+    const janela = { from: fromDayKey(inicio, 0, tz), to: fromDayKey(mes, 0, tz) };
+    const receita = await repo.receitaNoPeriodo(tx, organizationId, janela);
+    const primeiroMes = startOfMonth(dayKey(primeiro, tz));
+    if (primeiroMes <= inicio) return receita;
+    let meses = 0;
+    for (let m = primeiroMes; m < mes; m = addMonths(m, 1)) meses += 1;
+    return meses === 0 ? 0 : Math.round((receita / meses) * 12);
   }
 
   // -------------------------------- internos --------------------------------

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { FISCAL_ENVIRONMENTS, INVOICE_KINDS, INVOICE_STATUSES, TAX_REGIMES } from '../enums/fiscal';
+import { FISCAL_ENVIRONMENTS, INVOICE_KINDS, INVOICE_STATUSES, TAX_REGIME_SOURCES, TAX_REGIMES } from '../enums/fiscal';
 
 // ------------------------------ configuração ------------------------------
 
@@ -17,6 +17,16 @@ export const fiscalSettingsSchema = z.object({
   municipalRegistration: z.string().trim().max(30).nullable(),
   stateRegistration: z.string().trim().max(30).nullable(),
   taxRegime: z.enum(TAX_REGIMES).nullable(),
+  /** DRE (E51): de onde veio o regime e o que a Receita respondeu (só leitura) */
+  taxRegimeSource: z.enum(TAX_REGIME_SOURCES).nullable(),
+  taxRegimeDetail: z.string().nullable(),
+  taxRegimeCheckedAt: z.iso.datetime().nullable(),
+  /** a peça já vem com o ICMS retido na compra (substituição tributária) */
+  partsIcmsSt: z.boolean(),
+  /** ICMS da peça sem ST, em pontos-base (18% = 1800) */
+  icmsRateBps: z.number().int().min(0).max(10_000).nullable(),
+  /** MEI: valor do DAS mensal, em centavos */
+  meiDasCents: z.number().int().min(0).max(1_000_000).nullable(),
   cnae: z.string().trim().max(10).nullable(),
   /** item da lista da LC 116; oficina costuma ser 14.01 */
   serviceListItem: z.string().trim().max(10).nullable(),
@@ -45,7 +55,16 @@ export const fiscalSettingsSchema = z.object({
 export type FiscalSettings = z.infer<typeof fiscalSettingsSchema>;
 
 export const updateFiscalSettingsSchema = fiscalSettingsSchema
-  .omit({ updatedAt: true, environment: true, provider: true, providerCompanyId: true, emissorConectado: true })
+  .omit({
+    updatedAt: true,
+    environment: true,
+    provider: true,
+    providerCompanyId: true,
+    emissorConectado: true,
+    taxRegimeSource: true,
+    taxRegimeDetail: true,
+    taxRegimeCheckedAt: true,
+  })
   .partial()
   .extend({
     providerCompanyId: z.string().trim().max(120).nullable().optional(),
@@ -177,3 +196,10 @@ export const invoiceListQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });
 export type InvoiceListQuery = z.infer<typeof invoiceListQuerySchema>;
+
+/** A resposta do botão "Consultar na Receita" (E51). */
+export const regimeLookupResultSchema = z.object({
+  result: z.enum(['ATUALIZADO', 'SEM_RESPOSTA', 'SEM_CNPJ', 'NAO_PRECISOU']),
+  settings: fiscalSettingsSchema,
+});
+export type RegimeLookupResult = z.infer<typeof regimeLookupResultSchema>;

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import {
   cancelInvoiceSchema,
   fiscalSettingsSchema,
+  regimeLookupResultSchema,
   idParamSchema,
   invoiceListQuerySchema,
   invoicePreviewSchema,
@@ -69,6 +70,12 @@ export const fiscalSettingsRoutes: FastifyPluginAsyncZod = async (app) => {
       schema: { body: updateFiscalSettingsSchema, response: { 200: fiscalSettingsSchema } },
     },
     async (request) => service.updateSettings(getAuth(request), request.body, clientInfo(request)),
+  );
+
+  app.post(
+    '/regime-lookup',
+    { config: { auth: 'organization:manage' }, schema: { response: { 200: regimeLookupResultSchema } } },
+    async (request) => service.consultarRegime(getAuth(request)),
   );
 };
 

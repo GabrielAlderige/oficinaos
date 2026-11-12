@@ -54,6 +54,7 @@ export const SYSTEM_FINANCIAL_CATEGORY_KEYS = [
   'RENT',
   'UTILITIES',
   'TAXES',
+  'FEES',
   'TOOLS',
   'OTHER_EXPENSE',
 ] as const;
@@ -72,7 +73,14 @@ export const SYSTEM_FINANCIAL_CATEGORIES: readonly SystemFinancialCategory[] = [
   { key: 'PAYROLL', direction: 'PAYABLE', name: 'Salários e encargos' },
   { key: 'RENT', direction: 'PAYABLE', name: 'Aluguel' },
   { key: 'UTILITIES', direction: 'PAYABLE', name: 'Água, luz, internet' },
-  { key: 'TAXES', direction: 'PAYABLE', name: 'Impostos e taxas' },
+  /**
+   * A guia do imposto sobre o faturamento (DAS, ISS, PIS/COFINS). Com o regime
+   * informado a DRE já CALCULA esse imposto, e a guia paga é só o acerto dele:
+   * contar as duas vezes dobraria o imposto (E51).
+   */
+  { key: 'TAXES', direction: 'PAYABLE', name: 'Impostos (DAS, ISS, PIS/COFINS)' },
+  /** taxa não é imposto sobre faturamento: entra na DRE como despesa */
+  { key: 'FEES', direction: 'PAYABLE', name: 'Taxas, alvará e IPTU' },
   { key: 'TOOLS', direction: 'PAYABLE', name: 'Ferramentas e manutenção' },
   { key: 'OTHER_EXPENSE', direction: 'PAYABLE', name: 'Outras despesas' },
 ];

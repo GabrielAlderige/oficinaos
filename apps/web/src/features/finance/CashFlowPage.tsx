@@ -194,7 +194,7 @@ export function CashFlowPage() {
           description="Faturado no período, menos o custo das peças usadas e as despesas pagas."
           action={
             <Button asChild variant="ghost" size="sm">
-              <Link to={`/financeiro/resultado${window.location.search}`}>Ver linha por linha (DRE)</Link>
+              <Link to={`/financeiro/resultado${window.location.search}`}>Ver a DRE, com os impostos</Link>
             </Button>
           }
         />

@@ -5,6 +5,7 @@ import type {
   InvoicePreview,
   IssueInvoiceInput,
   Page,
+  RegimeLookupResult,
   UpdateFiscalSettingsInput,
 } from '@oficinaos/shared';
 import { api } from '../../lib/api-client';
@@ -81,6 +82,20 @@ export function useUpdateFiscalSettings() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: invoiceKeys.settings });
       void queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      // regime e alíquotas mudam os impostos da DRE
+      void queryClient.invalidateQueries({ queryKey: ['finance'] });
+    },
+  });
+}
+
+/** O botão "Consultar na Receita" (E51): o regime pelo CNPJ do cadastro. */
+export function useRegimeLookup() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => api<RegimeLookupResult>('/fiscal-settings/regime-lookup', { method: 'POST' }),
+    onSuccess: (resposta) => {
+      queryClient.setQueryData(invoiceKeys.settings, resposta.settings);
+      void queryClient.invalidateQueries({ queryKey: ['finance'] });
     },
   });
 }

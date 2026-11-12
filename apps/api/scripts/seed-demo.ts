@@ -666,7 +666,8 @@ async function main(): Promise<void> {
     { chave: 'UTILITIES', descricao: 'Energia elétrica', valor: 38400, dia: 10, paga: true },
     { chave: 'UTILITIES', descricao: 'Internet e telefone', valor: 14900, dia: 12, paga: true },
     { chave: 'PAYROLL', descricao: 'Salários da equipe', valor: 120000, dia: 5, paga: true },
-    { chave: 'TAXES', descricao: 'Simples Nacional', valor: 32000, dia: 20, paga: false },
+    { chave: 'TAXES', descricao: 'Guia do Simples Nacional (DAS)', valor: 32000, dia: 20, paga: false },
+    { chave: 'FEES', descricao: 'Taxa do alvará da prefeitura', valor: 9500, dia: 10, paga: true },
     { chave: 'TOOLS', descricao: 'Manutenção do elevador', valor: 28000, dia: 25, paga: false },
     { chave: 'PARTS', descricao: 'Óleo e filtros — Distribuidora Paulista', valor: 84000, dia: 15, paga: false },
   ];

@@ -1,3 +1,4 @@
+import { consultaBrasilApi } from './integrations/receita/cnpj';
 import cookie from '@fastify/cookie';
 import Fastify from 'fastify';
 import {
@@ -221,6 +222,8 @@ export interface AppDeps {
   /** emissor de nota de peças por oficina (E50); os testes injetam um falso */
   emissorDePecasDaOficina?: ServiceDeps['emissorDePecasDaOficina'];
   maquininhaDaOficina?: ServiceDeps['maquininhaDaOficina'];
+  /** consulta do regime pelo CNPJ (E51); os testes injetam uma falsa */
+  consultaCnpj?: ServiceDeps['consultaCnpj'];
   /** gateway de cobrança; o padrão é o simulador (E19) */
   gateway?: PaymentGateway;
   /** cobrança da oficina para o cliente; `null` desliga */
@@ -242,6 +245,7 @@ export async function buildApp({
   emissorDePecasDaOficina = (opcoes) => new FocusNotaDePecas(opcoes),
   maquininhaDaOficina = (opcoes) =>
     new StoneConnect({ secretKey: opcoes.secretKey, serviceRefererName: env.STONE_SERVICE_REFERER_NAME ?? '', baseUrl: env.STONE_BASE_URL }),
+  consultaCnpj = consultaBrasilApi,
   gateway = createPaymentGateway(env),
   chargesGateway = createChargesGateway(env, gateway),
   transcoder = createVideoTranscoder(env),
@@ -290,6 +294,7 @@ export async function buildApp({
     emissorDaOficina,
     emissorDePecasDaOficina,
     maquininhaDaOficina,
+    consultaCnpj,
     gateway,
     chargesGateway,
     tokens,

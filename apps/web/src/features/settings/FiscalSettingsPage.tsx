@@ -1,13 +1,15 @@
 import {
   FISCAL_ENVIRONMENT_LABELS,
+  formatBRLInput,
   formatPercentInput,
+  parseBRL,
   parsePercent,
   TAX_REGIME_LABELS,
   TAX_REGIMES,
   type FiscalSettings,
   type TaxRegime,
 } from '@oficinaos/shared';
-import { FlaskConical } from 'lucide-react';
+import { FlaskConical, SearchCheck } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
@@ -17,7 +19,7 @@ import { Field, Select, fieldA11y } from '../../components/ui/field';
 import { AdornedInput, Input } from '../../components/ui/input';
 import { errorMessage } from '../../lib/errors';
 import { useCan } from '../../lib/session';
-import { useFiscalSettings, useUpdateFiscalSettings } from '../invoices/api';
+import { useFiscalSettings, useRegimeLookup, useUpdateFiscalSettings } from '../invoices/api';
 
 /**
  * Dados fiscais da oficina (E18). É o que a prefeitura exige para aceitar a
@@ -57,7 +59,26 @@ function FiscalForm({ settings }: { settings: FiscalSettings }) {
     additionalInformation: settings.additionalInformation ?? '',
     productCfop: settings.productCfop ?? '',
     productIcmsSituation: settings.productIcmsSituation ?? '',
+    partsIcmsSt: settings.partsIcmsSt,
+    icmsRate: settings.icmsRateBps !== null ? formatPercentInput(settings.icmsRateBps) : '',
+    meiDas: settings.meiDasCents !== null ? formatBRLInput(settings.meiDasCents) : '',
   });
+  const consultar = useRegimeLookup();
+
+  async function consultarReceita() {
+    try {
+      const { result, settings: novo } = await consultar.mutateAsync();
+      if (result === 'SEM_CNPJ') {
+        toast.error('Cadastre o CNPJ da oficina na aba Oficina para consultar a Receita.');
+        return;
+      }
+      if (novo.taxRegime) setForm((atual) => ({ ...atual, taxRegime: novo.taxRegime ?? '' }));
+      if (result === 'ATUALIZADO') toast.success(`Regime encontrado: ${novo.taxRegime ? TAX_REGIME_LABELS[novo.taxRegime] : ''}.`);
+      else toast.warning(novo.taxRegimeDetail ?? 'A Receita não informou o regime.');
+    } catch (erro) {
+      toast.error(errorMessage(erro));
+    }
+  }
 
   const campo = <K extends keyof typeof form>(chave: K, valor: (typeof form)[K]) =>
     setForm((atual) => ({ ...atual, [chave]: valor }));
@@ -69,6 +90,11 @@ function FiscalForm({ settings }: { settings: FiscalSettings }) {
     const aliquota = form.issRate.trim() === '' ? null : parsePercent(form.issRate);
     if (form.issRate.trim() !== '' && aliquota === null) {
       toast.error('Alíquota de ISS inválida. Use algo como 2,5.');
+      return;
+    }
+    const icms = form.icmsRate.trim() === '' ? null : parsePercent(form.icmsRate);
+    if (form.icmsRate.trim() !== '' && icms === null) {
+      toast.error('Alíquota de ICMS inválida. Use algo como 18.');
       return;
     }
     try {
@@ -85,6 +111,9 @@ function FiscalForm({ settings }: { settings: FiscalSettings }) {
         additionalInformation: vazioVira(form.additionalInformation),
         productCfop: vazioVira(form.productCfop),
         productIcmsSituation: vazioVira(form.productIcmsSituation),
+        partsIcmsSt: form.partsIcmsSt,
+        icmsRateBps: icms,
+        meiDasCents: form.meiDas.trim() === '' ? null : (parseBRL(form.meiDas) ?? null),
       });
       toast.success('Dados fiscais salvos.');
     } catch (erro) {
@@ -129,7 +158,17 @@ function FiscalForm({ settings }: { settings: FiscalSettings }) {
               disabled={!pode}
             />
           </Field>
-          <Field label="Regime tributário" htmlFor="regime">
+          <Field
+            label="Regime tributário"
+            htmlFor="regime"
+            hint={
+              settings.taxRegimeSource === 'RECEITA' && settings.taxRegimeDetail
+                ? `${settings.taxRegimeDetail}. Confira com o seu contador.`
+                : settings.taxRegimeSource === 'MANUAL'
+                  ? 'Escolhido pela oficina. Ele define os impostos da DRE.'
+                  : (settings.taxRegimeDetail ?? 'Ele define os impostos calculados na DRE.')
+            }
+          >
             <Select
               {...fieldA11y('regime')}
               value={form.taxRegime}
@@ -143,6 +182,19 @@ function FiscalForm({ settings }: { settings: FiscalSettings }) {
                 </option>
               ))}
             </Select>
+            {pode && (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="mt-2"
+                loading={consultar.isPending}
+                onClick={() => void consultarReceita()}
+              >
+                <SearchCheck />
+                Consultar na Receita pelo CNPJ
+              </Button>
+            )}
           </Field>
           <Field label="CNAE principal" htmlFor="cnae">
             <Input
@@ -222,6 +274,54 @@ function FiscalForm({ settings }: { settings: FiscalSettings }) {
               disabled={!pode}
             />
           </Field>
+
+          <div className="border-t border-border pt-4 sm:col-span-2">
+            <h3 className="text-sm font-semibold">Impostos da DRE</h3>
+            <p className="text-xs text-muted">
+              A DRE calcula os impostos sobre o faturamento pelo regime acima: Simples pela faixa dos últimos 12 meses,
+              Presumido e Real pelas alíquotas da lei. O ISS usa a alíquota do município, informada acima.
+            </p>
+          </div>
+          <label className="flex items-start gap-2 text-sm sm:col-span-2">
+            <input
+              type="checkbox"
+              className="mt-0.5 size-4 accent-accent"
+              checked={form.partsIcmsSt}
+              onChange={(event) => campo('partsIcmsSt', event.target.checked)}
+              disabled={!pode}
+            />
+            <span>
+              As peças vêm com ICMS-ST (substituição tributária)
+              <span className="block text-xs text-muted">
+                É o caso da maioria das autopeças: o ICMS já foi pago na compra e a revenda não paga de novo. Desmarque
+                só se o seu contador disser que a oficina recolhe ICMS na venda da peça.
+              </span>
+            </span>
+          </label>
+          {!form.partsIcmsSt && (
+            <Field label="Alíquota de ICMS das peças" htmlFor="icms-aliquota" hint="Fora do Simples. Ex.: 18% em MG.">
+              <AdornedInput
+                {...fieldA11y('icms-aliquota')}
+                trailing="%"
+                inputMode="decimal"
+                value={form.icmsRate}
+                onChange={(event) => campo('icmsRate', event.target.value)}
+                disabled={!pode}
+              />
+            </Field>
+          )}
+          {form.taxRegime === 'MEI' && (
+            <Field label="Valor do DAS-MEI" htmlFor="das-mei" hint="O valor fixo da guia mensal, como vem no app do MEI.">
+              <AdornedInput
+                {...fieldA11y('das-mei')}
+                leading="R$"
+                inputMode="numeric"
+                value={form.meiDas}
+                onChange={(event) => campo('meiDas', formatBRLInput(parseBRL(event.target.value) ?? 0))}
+                disabled={!pode}
+              />
+            </Field>
+          )}
 
           <div className="border-t border-border pt-4 sm:col-span-2">
             <h3 className="text-sm font-semibold">Nota de peças (NFC-e e NF-e)</h3>
