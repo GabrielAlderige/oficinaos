@@ -53,6 +53,8 @@ export const dreLineSchema = z.object({
   amountCents: z.number().int(),
   /** fração da receita bruta, em basis points (1250 = 12,5%) */
   shareBps: z.number().int(),
+  /** só nas linhas "(=)": as linhas que ela soma. O Excel vira fórmula a partir daqui. */
+  compoe: z.array(z.string()).optional(),
 });
 export type DreLine = z.infer<typeof dreLineSchema>;
 
@@ -146,6 +148,12 @@ export function montarDre(segmentos: DreSegmento[]): DreMontada {
   const linhas: DreLine[] = [];
   const linha = (key: string, label: string, kind: DreLineKind, parent: string | null, amountCents: number) =>
     linhas.push({ key, label, kind, parent, amountCents, shareBps: bps(amountCents, bruta) });
+  /** linha "(=)": a soma das linhas que ela nomeia, e o nome delas fica junto para virar fórmula */
+  const resultado = (key: string, label: string, compoe: string[]) => {
+    const soma = compoe.reduce((t, k) => t + (linhas.find((l) => l.key === k)?.amountCents ?? 0), 0);
+    linhas.push({ key, label, kind: 'resultado', parent: null, amountCents: soma, shareBps: bps(soma, bruta), compoe });
+    return soma;
+  };
   /** grupo com o total EM CIMA e os itens embaixo */
   const grupo = (key: string, label: string, itens: [string, string][]) => {
     const soma = itens.reduce((t, [k]) => t + val(k), 0);
@@ -154,53 +162,55 @@ export function montarDre(segmentos: DreSegmento[]): DreMontada {
     return soma;
   };
 
-  const receitaBruta = grupo('receita_bruta', 'Receita bruta', [
+  grupo('receita_bruta', 'Receita bruta', [
     ['receita_servicos', 'Serviços (mão de obra)'],
     ['receita_pecas', 'Peças aplicadas nas OS'],
     ['receita_balcao', 'Venda de balcão'],
   ]);
-  const deducoes = grupo(
+  grupo(
     'deducoes',
     '(-) Deduções da receita',
     DEDUCOES_DO_REGIME[regime ?? 'NONE'].map((k) => [k, ROTULO_IMPOSTO[k]!]),
   );
-  const liquida = receitaBruta + deducoes;
-  linha('receita_liquida', '(=) Receita operacional líquida', 'resultado', null, liquida);
+  resultado('receita_liquida', '(=) Receita operacional líquida', ['receita_bruta', 'deducoes']);
 
-  const custos = grupo('custos', '(-) Custo dos serviços e peças', [
+  grupo('custos', '(-) Custo dos serviços e peças', [
     ['custo_pecas', 'Custo das peças vendidas'],
     ['comissoes', 'Comissões dos mecânicos'],
   ]);
-  const lucroBruto = liquida + custos;
-  linha('lucro_bruto', '(=) Lucro bruto', 'resultado', null, lucroBruto);
+  resultado('lucro_bruto', '(=) Lucro bruto', ['receita_liquida', 'custos']);
 
-  const despesas = grupo(
+  grupo(
     'despesas_operacionais',
     '(-) Despesas operacionais',
     chavesCom('despesa:').map((k) => [k, k.slice('despesa:'.length)]),
   );
-  const operacional = lucroBruto + despesas;
-  linha('resultado_operacional', '(=) Resultado operacional', 'resultado', null, operacional);
+  resultado('resultado_operacional', '(=) Resultado operacional', ['lucro_bruto', 'despesas_operacionais']);
 
   const extras = chavesCom('outra:');
-  const outras = extras.length
-    ? grupo(
+  if (extras.length) {
+    grupo(
         'outras_receitas',
         '(+) Outras receitas',
         extras.map((k) => [k, k.slice('outra:'.length)]),
-      )
-    : 0;
-  const antesIr = operacional + outras;
-  linha('resultado_antes_ir', '(=) Resultado antes do IRPJ e CSLL', 'resultado', null, antesIr);
+      );
+  }
+  resultado('resultado_antes_ir', '(=) Resultado antes do IRPJ e CSLL', [
+    'resultado_operacional',
+    ...(extras.length ? ['outras_receitas'] : []),
+  ]);
 
-  const provisao =
-    regime && regime !== 'MEI'
-      ? grupo('provisao_ir', '(-) Provisão para IRPJ e CSLL', [
-          ['irpj', 'IRPJ'],
-          ['csll', 'CSLL'],
-        ])
-      : 0;
-  linha('lucro_liquido', '(=) Lucro líquido do período', 'resultado', null, antesIr + provisao);
+  const temProvisao = regime !== null && regime !== 'MEI';
+  if (temProvisao) {
+    grupo('provisao_ir', '(-) Provisão para IRPJ e CSLL', [
+      ['irpj', 'IRPJ'],
+      ['csll', 'CSLL'],
+    ]);
+  }
+  resultado('lucro_liquido', '(=) Lucro líquido do período', [
+    'resultado_antes_ir',
+    ...(temProvisao ? ['provisao_ir'] : []),
+  ]);
 
   return { lines: linhas, simples, avisos: [...avisos] };
 }
@@ -228,3 +238,56 @@ export const dreSchema = z.object({
   previous: z.object({ from: z.string(), to: z.string(), lines: z.array(dreLineSchema) }),
 });
 export type Dre = z.infer<typeof dreSchema>;
+
+// ---- exportação: um mês ou vários lado a lado (E51, fase 2) ----
+
+/** Uma linha da DRE com o valor de cada mês; `amountCents` é o total do período. */
+export interface DreLinhaComparada extends DreLine {
+  valores: number[];
+}
+
+export interface DreComparada {
+  /** 'AAAA-MM', na ordem das colunas */
+  meses: string[];
+  linhas: DreLinhaComparada[];
+  avisos: string[];
+}
+
+/**
+ * Os meses lado a lado, com as MESMAS linhas em todos.
+ *
+ * A estrutura sai da DRE do período inteiro: ela tem toda despesa que apareceu
+ * em algum mês, e o mês que não teve aquela despesa mostra zero. O total de
+ * cada linha é a soma dos meses, porque o imposto já é calculado mês a mês.
+ */
+export function compararMeses(porMes: { mes: string; segmentos: DreSegmento[] }[]): DreComparada {
+  const doPeriodo = montarDre(porMes.flatMap((m) => m.segmentos));
+  const colunas = porMes.map((m) => new Map(montarDre(m.segmentos).lines.map((l) => [l.key, l.amountCents])));
+  return {
+    meses: porMes.map((m) => m.mes),
+    linhas: doPeriodo.lines.map((l) => ({ ...l, valores: colunas.map((c) => c.get(l.key) ?? 0) })),
+    avisos: doPeriodo.avisos,
+  };
+}
+
+const MES = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'Mês no formato AAAA-MM');
+/** Quantos meses cabem lado a lado num arquivo: dois anos. */
+export const DRE_ARQUIVO_MAX_MESES = 24;
+
+export const dreArquivoQuerySchema = z
+  .object({
+    /** o primeiro mês (AAAA-MM) */
+    de: MES,
+    /** o último mês; igual a `de` é a DRE mensal */
+    ate: MES,
+    format: z.enum(['xlsx', 'pdf']),
+  })
+  .refine((q) => q.de <= q.ate, { message: 'O mês final vem depois do inicial.', path: ['ate'] })
+  .refine(
+    (q) => {
+      const meses = (Number(q.ate.slice(0, 4)) - Number(q.de.slice(0, 4))) * 12 + Number(q.ate.slice(5)) - Number(q.de.slice(5)) + 1;
+      return meses <= DRE_ARQUIVO_MAX_MESES;
+    },
+    { message: `No máximo ${DRE_ARQUIVO_MAX_MESES} meses por arquivo.`, path: ['ate'] },
+  );
+export type DreArquivoQuery = z.infer<typeof dreArquivoQuerySchema>;

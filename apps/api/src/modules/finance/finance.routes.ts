@@ -15,6 +15,7 @@ import {
   financialPeriodQuerySchema,
   idParamSchema,
   profitSchema,
+  dreArquivoQuerySchema,
   dreSchema,
   settleFinancialEntrySchema,
   splitFinancialEntrySchema,
@@ -155,6 +156,22 @@ export const financeRoutes: FastifyPluginAsyncZod = async (app) => {
       schema: { querystring: financialPeriodQuerySchema, response: { 200: dreSchema } },
     },
     async (request) => service.dre(getAuth(request), request.query),
+  );
+
+  // a DRE em arquivo: Excel com fórmulas ou PDF, de um mês ou de vários lado a lado
+  app.get(
+    '/dre/arquivo',
+    {
+      config: { auth: 'finance:read' },
+      schema: { querystring: dreArquivoQuerySchema, response: { 200: z.instanceof(Buffer) } },
+    },
+    async (request, reply) => {
+      const { fileName, contentType, content } = await service.dreArquivo(getAuth(request), request.query);
+      return reply
+        .header('content-type', contentType)
+        .header('content-disposition', `attachment; filename="${fileName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`)
+        .send(content);
+    },
   );
 
   app.get(

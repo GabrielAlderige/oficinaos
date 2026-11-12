@@ -53,7 +53,7 @@ export type FormatoDeArquivo = 'csv' | 'pdf';
  * só para o número que aparece e o que é baixado. O download precisa de `fetch`
  * cru — o cliente da API devolve JSON, e aqui o corpo é um arquivo.
  */
-async function baixarArquivo(url: string, extensao: FormatoDeArquivo): Promise<string> {
+export async function baixarArquivo(url: string, extensao: string): Promise<string> {
   const token = tokenStore.get();
   const resposta = await fetch(url, {
     headers: token ? { authorization: `Bearer ${token}` } : {},

@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { inflateSync } from 'node:zlib';
+import ExcelJS from 'exceljs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   addMember,
@@ -171,6 +173,81 @@ describe('DRE por competência', () => {
     expect(res.json().lines.find((l: Linha) => l.key === 'despesas_operacionais').amountCents).toBe(-20_000);
   });
 
+  describe('em arquivo (Excel com fórmulas e PDF)', () => {
+    const mesAtual = () => hojeNaOficina().slice(0, 7);
+    const arquivo = (de: string, ate: string, format: 'xlsx' | 'pdf', s: TestSession = dono) =>
+      t.app.inject({ method: 'GET', url: `/api/v1/finance/dre/arquivo?de=${de}&ate=${ate}&format=${format}`, headers: bearer(s.accessToken) });
+
+    beforeAll(async () => {
+      const org = await req('PATCH', '/api/v1/organization', { document: '11.222.333/0001-81' });
+      expect(org.statusCode, org.body).toBe(200);
+    });
+
+    it('Excel de dois meses: cabeçalho da empresa, e as fórmulas recalculadas dão a DRE da tela', async () => {
+      const res = await arquivo(mesPassado().slice(0, 7), mesAtual(), 'xlsx');
+      expect(res.statusCode, res.body).toBe(200);
+      expect(res.headers['content-type']).toContain('spreadsheetml');
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(res.rawPayload as unknown as ArrayBuffer);
+      const ws = wb.getWorksheet('DRE')!;
+      const texto = (r: number) => JSON.stringify(ws.getCell(r, 1).value);
+      expect(texto(2)).toContain('Oficina');
+      expect(texto(3)).toContain('11.222.333/0001-81');
+      expect(texto(4)).toContain('Lucro Presumido');
+
+      // as colunas: A = conta; B/C = mês passado e %; D/E = este mês e %; F/G/H = total, % e média
+      const titulos = ws.getRow(8).values as unknown[];
+      expect(titulos.slice(1, 9)).toEqual(['NOME DA CONTA', expect.stringMatching(/^[a-z]{3}\/\d{4}$/), '%', expect.any(String), '%', 'TOTAL', '%', 'MÉDIA']);
+      const linhaDa = (rotulo: string) => {
+        for (let r = 9; r <= ws.rowCount; r += 1) if (ws.getCell(r, 1).value === rotulo) return r;
+        throw new Error(`linha ${rotulo} não está na planilha`);
+      };
+      const calc = avaliador(ws);
+
+      // a sintética é FÓRMULA (soma das analíticas), a analítica é número
+      const rDespesas = linhaDa('(-) Despesas operacionais');
+      expect(ws.getCell(rDespesas, 4).formula).toMatch(/^SUM\(D\d+:D\d+\)$/);
+      expect(typeof ws.getCell(rDespesas + 1, 4).value).toBe('number');
+      expect(ws.getCell(linhaDa('(=) Lucro líquido do período'), 4).formula).toMatch(/^D\d+\+D\d+$/);
+
+      // este mês (coluna D), recalculado do zero, bate centavo a centavo com a DRE da tela
+      for (const l of linhas) {
+        expect(Math.round(calc(`D${linhaDa(l.label)}`) * 100), l.label).toBe(l.amountCents);
+      }
+      // o mês passado tem só o aluguel lançado com competência nele
+      expect(calc(`B${rDespesas}`)).toBe(-200);
+      // total = soma dos meses; % = sobre a receita bruta; média = total ÷ 2
+      const rLucro = linhaDa('(=) Lucro líquido do período');
+      expect(calc(`F${rLucro}`)).toBeCloseTo(calc(`B${rLucro}`) + calc(`D${rLucro}`), 6);
+      expect(calc(`G${linhaDa('Receita bruta')}`)).toBe(1);
+      expect(calc(`H${rLucro}`)).toBeCloseTo(calc(`F${rLucro}`) / 2, 6);
+
+      // o resumo dos impostos aponta para as linhas da DRE
+      const rTotalImpostos = linhaDa('TOTAL DOS IMPOSTOS');
+      expect(Math.round(calc(`D${rTotalImpostos}`) * 100)).toBe(-14_125 - 6_600 - 4_500);
+    });
+
+    it('PDF de um mês: empresa, CNPJ, título e os números formatados como no modelo', async () => {
+      const res = await arquivo(mesAtual(), mesAtual(), 'pdf');
+      expect(res.statusCode, res.body).toBe(200);
+      expect(res.headers['content-type']).toBe('application/pdf');
+      const texto = textoDoPdf(res.rawPayload);
+      expect(texto).toContain('11.222.333/0001-81');
+      expect(texto).toContain('DRE - DEMONSTRAÇÃO DO RESULTADO');
+      expect(texto).toContain('Lucro Presumido');
+      expect(texto).toContain('2.500,00'); // receita bruta
+      expect(texto).toContain('(141,25)'); // deduções, entre parênteses
+      expect(texto).toContain(((250_000 - 14_125 - 100_000 - 23_000 + 5_000 - 11_100) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
+    });
+
+    it('recusa período invertido ou maior que 24 meses, e o mecânico não baixa', async () => {
+      expect((await arquivo('2026-05', '2026-04', 'xlsx')).statusCode).toBe(400);
+      expect((await arquivo('2023-01', '2026-01', 'pdf')).statusCode).toBe(400);
+      const mecanico = await addMember(t.app, dono, 'MECHANIC', 'Terceiro');
+      expect((await arquivo(mesAtual(), mesAtual(), 'pdf', mecanico)).statusCode).toBe(403);
+    });
+  });
+
   it('o mecânico não vê a DRE', async () => {
     const mecanico = await addMember(t.app, dono, 'MECHANIC', 'Outro');
     const res = await t.app.inject({ method: 'GET', url: '/api/v1/finance/dre', headers: bearer(mecanico.accessToken) });
@@ -241,3 +318,55 @@ describe('regime pelo CNPJ', () => {
     expect(botao.json()).toMatchObject({ result: 'ATUALIZADO', settings: { taxRegime: 'SIMPLES_NACIONAL', taxRegimeSource: 'RECEITA' } });
   });
 });
+
+/**
+ * Recalcula uma célula da planilha a partir das fórmulas, como o Excel faria.
+ * Só o que a DRE usa: número, SUM(intervalo), soma de células, X/Y, X/n e IFERROR(X/Y,0).
+ */
+function avaliador(ws: ExcelJS.Worksheet) {
+  const calc = (ref: string): number => {
+    const cel = ws.getCell(ref.replace(/\$/g, ''));
+    if (typeof cel.value === 'number') return cel.value;
+    const f = cel.formula;
+    if (!f) return 0;
+    return expressao(f);
+  };
+  const expressao = (f: string): number => {
+    const iferror = /^IFERROR\((.+),0\)$/.exec(f);
+    if (iferror) {
+      const v = expressao(iferror[1]!);
+      return Number.isFinite(v) ? v : 0;
+    }
+    const soma = /^SUM\(([A-Z]+)(\d+):([A-Z]+)(\d+)\)$/.exec(f);
+    if (soma) {
+      let t = 0;
+      for (let r = Number(soma[2]); r <= Number(soma[4]); r += 1) t += calc(`${soma[1]}${r}`);
+      return t;
+    }
+    const divisao = /^(\$?[A-Z]+\$?\d+)\/(\$?[A-Z]+\$?\d+|\d+)$/.exec(f);
+    if (divisao) return calc(divisao[1]!) / (/^\d+$/.test(divisao[2]!) ? Number(divisao[2]) : calc(divisao[2]!));
+    if (/^(\$?[A-Z]+\$?\d+)(\+\$?[A-Z]+\$?\d+)*$/.test(f)) return f.split('+').reduce((t, r) => t + calc(r), 0);
+    throw new Error(`fórmula que o teste não sabe calcular: ${f}`);
+  };
+  return calc;
+}
+
+/** O texto de um PDF do pdfkit: descomprime cada stream e junta as strings em hexadecimal. */
+function textoDoPdf(pdf: Buffer): string {
+  const bruto = pdf.toString('latin1');
+  const partes: string[] = [];
+  for (const m of bruto.matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)) {
+    let conteudo: string;
+    try {
+      conteudo = inflateSync(Buffer.from(m[1]!, 'latin1')).toString('latin1');
+    } catch {
+      continue;
+    }
+    for (const bloco of conteudo.matchAll(/\[(.*?)\] TJ/g)) {
+      partes.push(
+        [...bloco[1]!.matchAll(/<([0-9a-f]+)>/g)].map((h) => Buffer.from(h[1]!, 'hex').toString('latin1')).join(''),
+      );
+    }
+  }
+  return partes.join(' ');
+}

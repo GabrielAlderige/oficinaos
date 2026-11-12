@@ -1,5 +1,5 @@
 import { formatBRL, TAX_REGIME_LABELS, type Dre, type DreLine } from '@oficinaos/shared';
-import { ChevronDown, ChevronRight, Plus, Printer, SearchCheck, Settings2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Download, Plus, Printer, SearchCheck, Settings2 } from 'lucide-react';
 import { Fragment, useState } from 'react';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
@@ -12,6 +12,7 @@ import { useCan } from '../../lib/session';
 import { useRegimeLookup } from '../invoices/api';
 import { useDre } from './api';
 import { EntryFormDialog } from './EntryFormDialog';
+import { ExportarDreDialog } from './ExportarDreDialog';
 import { FinanceTabs } from './FinanceTabs';
 import { dataBR } from './status';
 
@@ -42,6 +43,7 @@ function Variacao({ atual, anterior }: { atual: number; anterior: number | undef
 export function DrePage() {
   const [periodo, trocarPeriodo] = usePeriodoNaUrl();
   const [lancando, setLancando] = useState(false);
+  const [exportando, setExportando] = useState(false);
   const podeLancar = useCan('finance:write');
   const dre = useDre(periodo);
   const dados = dre.data;
@@ -60,6 +62,10 @@ export function DrePage() {
                 Lançar despesa
               </Button>
             )}
+            <Button variant="secondary" onClick={() => setExportando(true)} className="print:hidden">
+              <Download />
+              Exportar
+            </Button>
             <Button variant="secondary" onClick={() => window.print()} className="hidden sm:inline-flex print:hidden">
               <Printer />
               Imprimir
@@ -84,6 +90,14 @@ export function DrePage() {
       ) : null}
 
       <EntryFormDialog direction="PAYABLE" open={lancando} onOpenChange={setLancando} />
+      {/* montado só aberto: cada vez que abre, parte do mês que está na tela */}
+      {exportando && (
+        <ExportarDreDialog
+          open
+          onOpenChange={setExportando}
+          mesDoPeriodo={(dados?.to ?? new Date().toISOString()).slice(0, 7)}
+        />
+      )}
     </>
   );
 }

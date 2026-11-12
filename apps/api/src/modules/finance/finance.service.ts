@@ -12,7 +12,10 @@ import {
   formatBRL,
   fromDayKey,
   lucroEstimado,
+  compararMeses,
+  formatDocument,
   montarDre,
+  TAX_REGIME_LABELS,
   periodRange,
   previousPeriodRange,
   situacaoDoLancamento,
@@ -23,6 +26,7 @@ import {
   vencimentosMensais,
   type CashFlow,
   type CashFlowBucket,
+  type DreArquivoQuery,
   type Dre,
   type DreMontada,
   type DreSegmento,
@@ -41,7 +45,8 @@ import {
   type UpdateFinancialEntryInput,
 } from '@oficinaos/shared';
 import { recordActivity } from '../../core/audit';
-import { workOrders } from '../../db/schema';
+import { organizations, workOrders } from '../../db/schema';
+import { gerarPdfDaDre, gerarXlsxDaDre, type CabecalhoDaDre } from './dre.arquivo';
 import type { AuthContext, ClientInfo, ServiceDeps } from '../../core/auth-context';
 import { AppError, notFound } from '../../core/errors';
 import { blankToNull } from '../../core/normalize';
@@ -836,6 +841,60 @@ export class FinanceService {
     toDay: string,
     fiscal: fiscalRepo.FiscalSettingsRow | undefined,
   ): Promise<DreMontada> {
+    return montarDre(await this.segmentosDaDre(tx, organizationId, tz, fromDay, toDay, fiscal));
+  }
+
+  /**
+   * A DRE em arquivo (Excel com fórmulas ou PDF), de um mês ou de vários lado
+   * a lado. Cada mês é o mês inteiro, calculado pelo mesmo caminho da tela.
+   */
+  async dreArquivo(auth: AuthContext, query: DreArquivoQuery): Promise<{ fileName: string; contentType: string; content: Buffer }> {
+    await regimePelaReceita(this.deps, auth, { forcar: false });
+    const { comparada, cabecalho } = await withTenant(this.deps.db, auth, async (tx) => {
+      const tz = await readTimezone(tx, auth.organizationId);
+      const fiscal = await fiscalRepo.findFiscalSettings(tx, auth.organizationId);
+      const porMes: { mes: string; segmentos: DreSegmento[] }[] = [];
+      for (let mes = `${query.de}-01`; mes <= `${query.ate}-01`; mes = addMonths(mes, 1)) {
+        const fim = addDays(addMonths(mes, 1), -1);
+        porMes.push({ mes: mes.slice(0, 7), segmentos: await this.segmentosDaDre(tx, auth.organizationId, tz, mes, fim, fiscal) });
+      }
+      const [org] = await tx
+        .select({ name: organizations.name, document: organizations.document })
+        .from(organizations)
+        .where(eq(organizations.id, auth.organizationId));
+      const cabecalho: CabecalhoDaDre = {
+        empresa: org?.name ?? 'Oficina',
+        documento: org?.document ? formatDocument(org.document) : null,
+        inscricaoEstadual: fiscal?.stateRegistration ?? null,
+        inscricaoMunicipal: fiscal?.municipalRegistration ?? null,
+        regime: fiscal?.taxRegime ? TAX_REGIME_LABELS[fiscal.taxRegime] : 'não informado (impostos não calculados)',
+        emitidoEm: new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: tz }).format(new Date()),
+      };
+      return { comparada: compararMeses(porMes), cabecalho };
+    });
+    const nome = `DRE ${cabecalho.empresa} ${query.de === query.ate ? query.de : `${query.de} a ${query.ate}`}`
+      .normalize('NFD')
+      .replace(/\p{M}/gu, '')
+      .replace(/[^\w .-]+/g, '')
+      .trim();
+    return query.format === 'xlsx'
+      ? {
+          fileName: `${nome}.xlsx`,
+          contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          content: await gerarXlsxDaDre(cabecalho, comparada),
+        }
+      : { fileName: `${nome}.pdf`, contentType: 'application/pdf', content: await gerarPdfDaDre(cabecalho, comparada) };
+  }
+
+  /** Os pedaços (um por mês) de um intervalo de dias, com o que o imposto de cada mês precisa. */
+  private async segmentosDaDre(
+    tx: Tx,
+    organizationId: string,
+    tz: string,
+    fromDay: string,
+    toDay: string,
+    fiscal: fiscalRepo.FiscalSettingsRow | undefined,
+  ): Promise<DreSegmento[]> {
     const primeiro = await repo.primeiroFaturamento(tx, organizationId);
     const segmentos: DreSegmento[] = [];
     for (let mes = startOfMonth(fromDay); mes <= toDay; mes = addMonths(mes, 1)) {
@@ -868,7 +927,7 @@ export class FinanceService {
         },
       });
     }
-    return montarDre(segmentos);
+    return segmentos;
   }
 
   /**

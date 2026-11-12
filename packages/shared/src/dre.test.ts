@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { montarDre, type DreSegmento } from './dre';
+import { compararMeses, montarDre, type DreSegmento } from './dre';
 
 const mes: DreSegmento = {
   receitaServicosCents: 10_000_000,
@@ -107,5 +107,53 @@ describe('DRE por competência (E51)', () => {
       { ...mes, receitaServicosCents: 0, receitaPecasCents: 0, receitaBalcaoCents: 0, custoPecasCents: 0, comissoesCents: 0, despesas: [] },
     ]);
     expect(vazio.every((l) => l.shareBps === 0)).toBe(true);
+  });
+});
+
+describe('DRE de vários meses lado a lado (exportação)', () => {
+  const fevereiro: DreSegmento = {
+    ...mes,
+    receitaServicosCents: 4_000_000,
+    despesas: [
+      { name: 'Aluguel', amountCents: 500_000 },
+      { name: 'Contador', amountCents: 80_000 },
+    ],
+  };
+  const comparada = compararMeses([
+    { mes: '2026-01', segmentos: [mes] },
+    { mes: '2026-02', segmentos: [fevereiro] },
+  ]);
+  const linha = (key: string) => comparada.linhas.find((l) => l.key === key)!;
+
+  it('todos os meses têm as mesmas linhas; a despesa que não houve no mês aparece zerada', () => {
+    expect(comparada.meses).toEqual(['2026-01', '2026-02']);
+    expect(linha('despesa:Contador').valores).toEqual([0, -80_000]);
+    expect(linha('despesa:Água, luz, internet').valores).toEqual([-100_000, 0]);
+  });
+
+  it('cada mês bate com a DRE daquele mês sozinho, e o total é a soma dos meses', () => {
+    const soJaneiro = new Map(montarDre([mes]).lines.map((l) => [l.key, l.amountCents]));
+    const soFevereiro = new Map(montarDre([fevereiro]).lines.map((l) => [l.key, l.amountCents]));
+    for (const l of comparada.linhas) {
+      expect(l.valores, l.key).toEqual([soJaneiro.get(l.key) ?? 0, soFevereiro.get(l.key) ?? 0]);
+      expect(l.amountCents, l.key).toBe(l.valores[0]! + l.valores[1]!);
+    }
+  });
+
+  it('cada linha "(=)" diz quais linhas soma, e a soma bate (é daqui que sai a fórmula do Excel)', () => {
+    const resultados = comparada.linhas.filter((l) => l.kind === 'resultado');
+    expect(resultados.map((l) => l.key)).toEqual([
+      'receita_liquida',
+      'lucro_bruto',
+      'resultado_operacional',
+      'resultado_antes_ir',
+      'lucro_liquido',
+    ]);
+    for (const r of resultados) {
+      for (const [i] of comparada.meses.entries()) {
+        const soma = r.compoe!.reduce((t, k) => t + linha(k).valores[i]!, 0);
+        expect(r.valores[i], `${r.key} no mês ${i}`).toBe(soma);
+      }
+    }
   });
 });
