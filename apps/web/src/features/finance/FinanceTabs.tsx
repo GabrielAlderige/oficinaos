@@ -11,6 +11,7 @@ export function FinanceTabs() {
     { to: '/financeiro/receber', label: 'A receber' },
     { to: '/financeiro/caixa', label: 'Fluxo de caixa' },
     { to: '/financeiro/resultado', label: 'Resultado (DRE)' },
+    { to: '/financeiro/analises', label: 'Análises' },
     { to: '/financeiro/comissoes', label: 'Comissões' },
   ];
 

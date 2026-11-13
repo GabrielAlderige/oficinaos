@@ -61,6 +61,7 @@ export * from './schemas/finance';
 export * from './counter-sales';
 export * from './checklists';
 export * from './dre';
+export * from './analises';
 export * from './impostos';
 export * from './satisfaction';
 export * from './assistant';

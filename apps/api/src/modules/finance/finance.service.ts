@@ -24,6 +24,13 @@ import {
   statusDoLancamento,
   SYSTEM_FINANCIAL_CATEGORIES,
   vencimentosMensais,
+  diasDeEstoqueDaPeca,
+  giroDeEstoque,
+  porHora,
+  taxaBps,
+  ANALISES_MESES_NO_GRAFICO,
+  type Analises,
+  type AnalisesQuery,
   type CashFlow,
   type CashFlowBucket,
   type DreArquivoQuery,
@@ -55,6 +62,7 @@ import type { Tx } from '../../db/tenant';
 import { withTenant } from '../../db/tenant';
 import type { PaymentsService } from '../payments/payments.service';
 import * as repo from './finance.repository';
+import * as analisesDb from './analises.queries';
 import * as fiscalRepo from '../invoices/invoices.repository';
 import { regimePelaReceita } from '../../core/regime-tributario';
 import { hojeNaOficina } from '../../core/org-settings';
@@ -884,6 +892,135 @@ export class FinanceService {
           content: await gerarXlsxDaDre(cabecalho, comparada),
         }
       : { fileName: `${nome}.pdf`, contentType: 'application/pdf', content: await gerarPdfDaDre(cabecalho, comparada) };
+  }
+
+  /**
+   * Análises (E51, fase 3): indicadores dos últimos N meses (o atual até hoje)
+   * contra o mesmo trecho N meses antes, os rankings do período e o gráfico
+   * mês a mês dos últimos 12. Calculado na hora: está sempre em dia.
+   */
+  async analises(auth: AuthContext, query: AnalisesQuery): Promise<Analises> {
+    await regimePelaReceita(this.deps, auth, { forcar: false });
+    return withTenant(this.deps.db, auth, async (tx) => {
+      const org = auth.organizationId;
+      const tz = await readTimezone(tx, org);
+      const hoje = dayKey(new Date(), tz);
+      const janelaDe = (de: string, ate: string) => ({ from: fromDayKey(de, 0, tz), to: fromDayKey(addDays(ate, 1), 0, tz) });
+
+      const de = addMonths(startOfMonth(hoje), -(query.meses - 1));
+      const antesDe = addMonths(de, -query.meses);
+      const antesAte = addMonths(hoje, -query.meses);
+      const atual = janelaDe(de, hoje);
+      const anterior = janelaDe(antesDe, antesAte);
+      // o ritmo de saída conta do começo do período, ou do primeiro movimento se a
+      // oficina começou depois: quem entrou há 10 dias não saiu "em 365 dias"
+      const primeiro = await analisesDb.primeiroMovimento(tx, org);
+      const inicioDoRitmo = primeiro && dayKey(primeiro, tz) > de ? dayKey(primeiro, tz) : de;
+      const dias = daysBetween(inicioDoRitmo, hoje).length;
+
+      const [osAgora, osAntes] = [
+        await analisesDb.ordensFinalizadas(tx, org, atual),
+        await analisesDb.ordensFinalizadas(tx, org, anterior),
+      ];
+      const balcao = async (j: repo.Janela) => (await repo.receitaCompetencia(tx, org, j)).balcao;
+      const [clientesAgora, clientesAntes] = [
+        await analisesDb.clientesQueVoltaram(tx, org, atual),
+        await analisesDb.clientesQueVoltaram(tx, org, anterior),
+      ];
+
+      const custoSaidasCents = await repo.custoDasPecasNoPeriodo(tx, org, atual);
+      const inicialCents = await analisesDb.valorDoEstoqueEm(tx, org, atual.from);
+      const finalCents = await analisesDb.valorDoEstoqueEm(tx, org, new Date());
+
+      const mecanicos = await analisesDb.produtividade(tx, org, atual);
+      const soma = (campo: keyof (typeof mecanicos)[number]) => mecanicos.reduce((t, m) => t + Number(m[campo]), 0);
+
+      // mês a mês: a receita e o lucro saem da própria DRE do mês, para baterem com ela
+      const fiscal = await fiscalRepo.findFiscalSettings(tx, org);
+      const mesAMes: Analises['mesAMes'] = [];
+      for (let mes = addMonths(startOfMonth(hoje), -(ANALISES_MESES_NO_GRAFICO - 1)); mes <= hoje; mes = addMonths(mes, 1)) {
+        const fimDoMes = addDays(addMonths(mes, 1), -1);
+        const fim = fimDoMes < hoje ? fimDoMes : hoje;
+        const linhas = montarDre(await this.segmentosDaDre(tx, org, tz, mes, fim, fiscal)).lines;
+        const valor = (key: string) => linhas.find((l) => l.key === key)?.amountCents ?? 0;
+        const os = await analisesDb.ordensFinalizadas(tx, org, janelaDe(mes, fim));
+        mesAMes.push({
+          mes: mes.slice(0, 7),
+          parcial: fim < fimDoMes,
+          faturadoCents: valor('receita_bruta'),
+          ordens: os.ordens,
+          ticketMedioCents: os.ordens ? Math.round(os.devidoCents / os.ordens) : 0,
+          lucroLiquidoCents: valor('lucro_liquido'),
+        });
+      }
+
+      return {
+        geradoEm: new Date().toISOString(),
+        meses: query.meses,
+        periodo: { de, ate: hoje },
+        anterior: { de: antesDe, ate: antesAte },
+        indicadores: {
+          faturadoCents: {
+            atual: osAgora.devidoCents + (await balcao(atual)),
+            anterior: osAntes.devidoCents + (await balcao(anterior)),
+          },
+          ordens: { atual: osAgora.ordens, anterior: osAntes.ordens },
+          ticketMedioCents: {
+            atual: osAgora.ordens ? Math.round(osAgora.devidoCents / osAgora.ordens) : 0,
+            anterior: osAntes.ordens ? Math.round(osAntes.devidoCents / osAntes.ordens) : 0,
+          },
+          clientes: {
+            atendidos: { atual: clientesAgora.atendidos, anterior: clientesAntes.atendidos },
+            voltaram: { atual: clientesAgora.voltaram, anterior: clientesAntes.voltaram },
+          },
+          estoque: {
+            custoSaidasCents,
+            inicialCents,
+            finalCents,
+            ...giroDeEstoque({ custoSaidasCents, inicialCents, finalCents, dias }),
+          },
+          equipe: {
+            vendidoMin: soma('vendidoMin'),
+            trabalhadoMin: soma('trabalhadoMin'),
+            eficienciaBps: taxaBps(soma('vendidoCronometradoMin'), soma('trabalhadoComCatalogoMin')),
+          },
+        },
+        mesAMes,
+        servicos: (await analisesDb.servicosEntregues(tx, org, atual)).map((s) => {
+          const lucroCents = s.faturadoCents - s.comissaoCents;
+          const fonteDoTempo =
+            s.cronometrados === 0 && s.peloCatalogo === 0
+              ? null
+              : s.peloCatalogo === 0
+                ? ('cronometro' as const)
+                : s.cronometrados === 0
+                  ? ('catalogo' as const)
+                  : ('misto' as const);
+          return {
+            servico: s.servico,
+            vezes: s.vezes,
+            faturadoCents: s.faturadoCents,
+            comissaoCents: s.comissaoCents,
+            lucroCents,
+            minutos: s.minutos,
+            fonteDoTempo,
+            lucroPorHoraCents: porHora(lucroCents, s.minutos),
+          };
+        }),
+        pecas: (await analisesDb.pecasQueMaisSaem(tx, org, atual)).map((p) => ({
+          ...p,
+          diasDeEstoque: diasDeEstoqueDaPeca(p.saldo, p.quantidade, dias),
+        })),
+        mecanicos: mecanicos.map((m) => ({
+          mecanico: m.mecanico,
+          servicos: m.servicos,
+          faturadoCents: m.faturadoCents,
+          vendidoMin: m.vendidoMin,
+          trabalhadoMin: m.trabalhadoMin,
+          eficienciaBps: taxaBps(m.vendidoCronometradoMin, m.trabalhadoComCatalogoMin),
+        })),
+      };
+    });
   }
 
   /** Os pedaços (um por mês) de um intervalo de dias, com o que o imposto de cada mês precisa. */

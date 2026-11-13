@@ -16,6 +16,8 @@ import {
   idParamSchema,
   profitSchema,
   dreArquivoQuerySchema,
+  analisesQuerySchema,
+  analisesSchema,
   dreSchema,
   settleFinancialEntrySchema,
   splitFinancialEntrySchema,
@@ -172,6 +174,16 @@ export const financeRoutes: FastifyPluginAsyncZod = async (app) => {
         .header('content-disposition', `attachment; filename="${fileName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`)
         .send(content);
     },
+  );
+
+  // análises (E51, fase 3): indicadores, rankings e o mês a mês
+  app.get(
+    '/analises',
+    {
+      config: { auth: 'finance:read' },
+      schema: { querystring: analisesQuerySchema, response: { 200: analisesSchema } },
+    },
+    async (request) => service.analises(getAuth(request), request.query),
   );
 
   app.get(

@@ -274,6 +274,11 @@ export const router = createBrowserRouter([
                     handle: { crumb: 'Resultado (DRE)' },
                   },
                   {
+                    path: 'analises',
+                    lazy: page(() => import('../features/finance/AnalisesPage'), 'AnalisesPage'),
+                    handle: { crumb: 'Análises' },
+                  },
+                  {
                     path: 'comissoes',
                     lazy: page(() => import('../features/finance/CommissionsPage'), 'CommissionsPage'),
                     handle: { crumb: 'Comissões' },
