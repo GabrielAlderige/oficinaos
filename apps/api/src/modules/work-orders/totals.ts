@@ -26,14 +26,28 @@ const milli = (value: string) => parseQuantity(value) ?? 0;
  */
 export async function pricingLinesOf(tx: Tx, order: repo.WorkOrderRow): Promise<PricingLine[]> {
   const rows = await repo.listItems(tx, order.organizationId, order.id);
-  return rows.map(({ item }) => ({
+  return rows.map(({ item }) => pricingLineOf(item));
+}
+
+/** Um item da OS no formato do `pricing.ts`, com a situação da aprovação. */
+export function pricingLineOf(item: {
+  type: PricingLine['type'];
+  quantity: string;
+  unitPriceCents: number;
+  discountCents: number;
+  isOptional: boolean;
+  approvalStatus: string;
+}): PricingLine {
+  return {
     type: item.type,
     quantityMilli: milli(item.quantity),
     unitPriceCents: item.unitPriceCents,
     discountCents: item.discountCents,
     isOptional: item.isOptional,
     approved: item.approvalStatus === 'APPROVED',
-  }));
+    // ainda sem resposta do cliente: fora da base do rateio do desconto em valor
+    undecided: item.approvalStatus === 'DRAFT' || item.approvalStatus === 'PENDING',
+  };
 }
 
 /**
@@ -62,14 +76,7 @@ export async function applyWorkOrderChange(
   ) as OrderPatch;
   const merged = { ...order, ...informados };
   const rows = await repo.listItems(tx, order.organizationId, order.id);
-  const lines: PricingLine[] = rows.map(({ item }) => ({
-    type: item.type,
-    quantityMilli: milli(item.quantity),
-    unitPriceCents: item.unitPriceCents,
-    discountCents: item.discountCents,
-    isOptional: item.isOptional,
-    approved: item.approvalStatus === 'APPROVED',
-  }));
+  const lines: PricingLine[] = rows.map(({ item }) => pricingLineOf(item));
   const options = {
     discountMode: merged.discountMode,
     discountValue: merged.discountValue,

@@ -1,4 +1,4 @@
-import { formatBRL, type ApprovalDecision, type Quote, type WorkOrder } from '@oficinaos/shared';
+import { computeQuoteSelectionTotals, formatBRL, type ApprovalDecision, type Quote, type WorkOrder } from '@oficinaos/shared';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '../../components/ui/button';
@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader } from '../../compone
 import { cn } from '../../lib/cn';
 import { errorMessage } from '../../lib/errors';
 import { useManualDecision } from './api';
+import { QuoteTotalsLines } from './QuoteTotalsLines';
 
 const OPCOES: { value: ApprovalDecision; label: string }[] = [
   { value: 'APPROVED', label: 'Aprovou tudo' },
@@ -46,7 +47,11 @@ function ManualDecisionBody({ quote, order, onDone }: { quote: Quote; order: Wor
   const [erro, setErro] = useState<string | null>(null);
 
   const parcial = decision === 'PARTIALLY_APPROVED';
-  const total = quote.items.filter((item) => aprovados.includes(item.id)).reduce((soma, item) => soma + item.totalCents, 0);
+  // a mesma conta que o servidor grava na aprovação, com o que o orçamento congelou
+  const totais = computeQuoteSelectionTotals(
+    quote,
+    quote.items.map((item) => ({ totalCents: item.totalCents, approved: aprovados.includes(item.id) })),
+  );
 
   async function salvar() {
     setErro(null);
@@ -116,9 +121,14 @@ function ManualDecisionBody({ quote, order, onDone }: { quote: Quote; order: Wor
                 </li>
               ))}
             </ul>
-            <div className="flex justify-between border-t border-border px-3 py-2 font-medium">
-              <span>Aprovado</span>
-              <span className="tabular">{formatBRL(total)}</span>
+            <div className="border-t border-border px-3 py-2">
+              <QuoteTotalsLines
+                totals={{ ...totais, discountMode: quote.discountMode, discountValue: quote.discountValue }}
+                totalLabel="Aprovado"
+              />
+              {!quote.totalsFrozen && (
+                <p className="mt-1 text-xs text-muted">Orçamento antigo: o desconto da OS é aplicado ao registrar.</p>
+              )}
             </div>
           </div>
         )}

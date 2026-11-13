@@ -63,6 +63,14 @@ describe('texto canônico do orçamento (base do content_hash)', () => {
     ).not.toBe(original);
   });
 
+  it('muda se a regra do desconto mudar, e sem regra o texto antigo fica igual', () => {
+    const original = canonicalQuotePayload(base);
+    expect(canonicalQuotePayload({ ...base, discountRule: null })).toBe(original);
+    const percentual = canonicalQuotePayload({ ...base, discountRule: { mode: 'PERCENT', value: 1000 } });
+    expect(percentual).not.toBe(original);
+    expect(canonicalQuotePayload({ ...base, discountRule: { mode: 'AMOUNT', value: 1000 } })).not.toBe(percentual);
+  });
+
   it('muda se um item deixar de ser recomendado (o cliente aprovou outra coisa)', () => {
     const items = [base.items[0]!, { ...base.items[1]!, isOptional: false }];
     expect(canonicalQuotePayload({ ...base, items })).not.toBe(canonicalQuotePayload(base));

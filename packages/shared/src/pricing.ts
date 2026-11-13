@@ -19,6 +19,12 @@ export interface PricingLine {
   isOptional?: boolean;
   /** usado só no cálculo do aprovado */
   approved?: boolean;
+  /**
+   * Item que o cliente ainda não decidiu (rascunho ou aguardando resposta).
+   * Fica fora da base do rateio do desconto em valor: sem isso, incluir um
+   * item novo na OS diminuía o desconto do que o cliente JÁ tinha aprovado.
+   */
+  undecided?: boolean;
 }
 
 export interface PricingOptions {
@@ -94,7 +100,9 @@ export function computeTotals(lines: PricingLine[], options: PricingOptions = {}
  */
 export function computeApprovedTotals(lines: PricingLine[], options: PricingOptions = {}): Totals {
   const approvedLines = lines.filter((line) => line.approved);
-  const fullSubtotal = sum(lines, 'PART') + sum(lines, 'SERVICE');
+  // a base do rateio é o que o cliente já decidiu (aprovou ou recusou)
+  const decided = lines.filter((line) => line.approved || !line.undecided);
+  const fullSubtotal = sum(decided, 'PART') + sum(decided, 'SERVICE');
   const approvedSubtotal = sum(approvedLines, 'PART') + sum(approvedLines, 'SERVICE');
 
   if (options.discountMode === 'AMOUNT' && fullSubtotal > 0) {
@@ -102,6 +110,105 @@ export function computeApprovedTotals(lines: PricingLine[], options: PricingOpti
     return totalsOf(approvedLines, approvedSubtotal, { ...options, discountValue: rated });
   }
   return totalsOf(approvedLines, approvedSubtotal, options);
+}
+
+// ------------------------------------------------------------ orçamento
+
+/** O que fica congelado no orçamento: a regra do desconto e os valores dela. */
+export interface QuoteTotals {
+  subtotalCents: number;
+  /** a regra da OS no envio; null = sem desconto */
+  discountMode: DiscountMode | null;
+  /** centavos quando AMOUNT, basis points quando PERCENT (como na OS) */
+  discountValue: number;
+  /** desconto deste orçamento, em centavos */
+  discountCents: number;
+  surchargeCents: number;
+  totalCents: number;
+}
+
+export interface QuoteSourceLine extends PricingLine {
+  /** o item entra neste orçamento */
+  chosen: boolean;
+}
+
+/**
+ * Os totais de um orçamento novo, a partir das linhas VIVAS da OS (é a mesma
+ * conta que o servidor grava e que a prévia de envio mostra):
+ *
+ * - desconto PERCENTUAL: o percentual da OS sobre o subtotal do orçamento;
+ * - desconto em VALOR: é um valor para a OS inteira. O orçamento leva o que
+ *   ainda não foi concedido em aprovações anteriores (o complementar não ganha
+ *   o mesmo desconto de novo), limitado ao subtotal dele;
+ * - acréscimo: taxa fixa da OS, vai no primeiro orçamento (o que é enviado
+ *   quando ainda não há item aprovado) e não se repete no complementar.
+ */
+export function computeQuoteTotals(lines: QuoteSourceLine[], options: PricingOptions = {}): QuoteTotals {
+  const chosen = lines.filter((line) => line.chosen);
+  const subtotalCents = sum(chosen, 'PART') + sum(chosen, 'SERVICE');
+  const mode = options.discountMode && (options.discountValue ?? 0) > 0 ? options.discountMode : null;
+  const value = mode ? (options.discountValue ?? 0) : 0;
+
+  let discountCents = 0;
+  if (mode === 'PERCENT') {
+    discountCents = discountCentsFor(subtotalCents, 'PERCENT', value);
+  } else if (mode === 'AMOUNT') {
+    const jaConcedido = computeApprovedTotals(lines, options).discountCents;
+    discountCents = Math.min(subtotalCents, Math.max(0, value - jaConcedido));
+  }
+
+  const surchargeCents = lines.some((line) => line.approved) ? 0 : (options.surchargeCents ?? 0);
+  return {
+    subtotalCents,
+    discountMode: mode,
+    discountValue: value,
+    discountCents,
+    surchargeCents,
+    totalCents: Math.max(0, subtotalCents - discountCents) + surchargeCents,
+  };
+}
+
+/** O que o orçamento congelou: basta isto para recalcular qualquer seleção. */
+export interface FrozenQuoteTotals {
+  subtotalCents: number;
+  discountMode: DiscountMode | null;
+  discountValue: number;
+  discountCents: number;
+  surchargeCents: number;
+}
+
+/**
+ * Totais da seleção que o cliente aprova, só com o que o orçamento congelou
+ * (nada da OS viva: mexer na OS depois não muda o que foi oferecido).
+ *
+ * - tudo aprovado: exatamente o total do orçamento;
+ * - PERCENTUAL: o percentual sobre o subtotal aprovado;
+ * - VALOR: o desconto do orçamento rateado pela fração aprovada (§9);
+ * - acréscimo: inteiro se algo foi aprovado; nada aprovado, total zero.
+ */
+export function computeQuoteSelectionTotals(
+  quote: FrozenQuoteTotals,
+  items: { totalCents: number; approved: boolean }[],
+): { subtotalCents: number; discountCents: number; surchargeCents: number; totalCents: number } {
+  const subtotalCents = items.filter((item) => item.approved).reduce((total, item) => total + item.totalCents, 0);
+  if (!items.some((item) => item.approved)) {
+    return { subtotalCents: 0, discountCents: 0, surchargeCents: 0, totalCents: 0 };
+  }
+  let discountCents = 0;
+  if (subtotalCents === quote.subtotalCents) {
+    discountCents = quote.discountCents;
+  } else if (quote.discountMode === 'PERCENT') {
+    discountCents = discountCentsFor(subtotalCents, 'PERCENT', quote.discountValue);
+  } else if (quote.discountMode === 'AMOUNT' && quote.subtotalCents > 0) {
+    discountCents = divideHalfUp(BigInt(quote.discountCents) * BigInt(subtotalCents), BigInt(quote.subtotalCents));
+  }
+  discountCents = Math.min(discountCents, subtotalCents);
+  return {
+    subtotalCents,
+    discountCents,
+    surchargeCents: quote.surchargeCents,
+    totalCents: subtotalCents - discountCents + quote.surchargeCents,
+  };
 }
 
 /**

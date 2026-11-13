@@ -7,7 +7,7 @@ import {
   QUOTE_STATUSES,
   SHARE_CHANNELS,
 } from '../enums/quotes';
-import { WORK_ORDER_ITEM_TYPES } from '../enums/work-orders';
+import { DISCOUNT_MODES, WORK_ORDER_ITEM_TYPES } from '../enums/work-orders';
 import { optionalText } from './common';
 
 const validityDays = z.number().int().min(1).max(90);
@@ -115,9 +115,15 @@ export const quoteSchema = z.object({
   validUntil: z.string(),
   message: z.string().nullable(),
   subtotalCents: z.number().int(),
+  /** a regra do desconto congelada no envio (null = sem desconto) */
+  discountMode: z.enum(DISCOUNT_MODES).nullable(),
+  /** centavos quando AMOUNT, basis points quando PERCENT */
+  discountValue: z.number().int(),
   discountCents: z.number().int(),
   surchargeCents: z.number().int(),
   totalCents: z.number().int(),
+  /** false = enviado antes da correção do desconto (0088): valores sem desconto */
+  totalsFrozen: z.boolean(),
   approvedTotalCents: z.number().int().nullable(),
   sentAt: z.string(),
   sentByName: z.string().nullable(),
@@ -208,9 +214,15 @@ export const publicQuoteSchema = z.object({
     )
     .default([]),
   subtotalCents: z.number().int(),
+  /** a regra do desconto congelada no envio (null = sem desconto) */
+  discountMode: z.enum(DISCOUNT_MODES).nullable(),
+  /** centavos quando AMOUNT, basis points quando PERCENT */
+  discountValue: z.number().int(),
   discountCents: z.number().int(),
   surchargeCents: z.number().int(),
   totalCents: z.number().int(),
+  /** false = enviado antes da correção do desconto (0088): valores sem desconto */
+  totalsFrozen: z.boolean(),
   /** já decidido: o que foi aprovado, para a página mostrar o resultado */
   decision: z
     .object({

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   computeApprovedTotals,
+  computeQuoteSelectionTotals,
+  computeQuoteTotals,
   computeTotals,
   discountCentsFor,
   isDiscountWithinLimit,
@@ -136,5 +138,136 @@ describe('limite de desconto por papel', () => {
   it('limite zero barra qualquer desconto, e desconto zero sempre passa', () => {
     expect(isDiscountWithinLimit(100000, 1, 0)).toBe(false);
     expect(isDiscountWithinLimit(100000, 0, 0)).toBe(true);
+  });
+});
+
+describe('orçamento: os totais congelados no envio', () => {
+  const novo = (line: PricingLine) => ({ ...line, undecided: true, chosen: true });
+
+  it('sem desconto: total = subtotal, e a regra fica vazia', () => {
+    expect(computeQuoteTotals([novo(service(15000)), novo(part(5000))])).toEqual({
+      subtotalCents: 20000,
+      discountMode: null,
+      discountValue: 0,
+      discountCents: 0,
+      surchargeCents: 0,
+      totalCents: 20000,
+    });
+  });
+
+  it('percentual sobre serviço e peça: R$ 200 com 10% = R$ 180', () => {
+    expect(computeQuoteTotals([novo(service(15000)), novo(part(5000))], { discountMode: 'PERCENT', discountValue: 1000 })).toEqual({
+      subtotalCents: 20000,
+      discountMode: 'PERCENT',
+      discountValue: 1000,
+      discountCents: 2000,
+      surchargeCents: 0,
+      totalCents: 18000,
+    });
+  });
+
+  it('valor fixo com centavos, e o acréscimo da OS', () => {
+    expect(
+      computeQuoteTotals([novo(service(12345)), novo(part(6789))], { discountMode: 'AMOUNT', discountValue: 1999, surchargeCents: 250 }),
+    ).toMatchObject({ subtotalCents: 19134, discountCents: 1999, surchargeCents: 250, totalCents: 17385 });
+  });
+
+  it('percentual com centavos arredonda meio para cima: 12,5% de R$ 99,99', () => {
+    expect(computeQuoteTotals([novo(service(9999))], { discountMode: 'PERCENT', discountValue: 1250 })).toMatchObject({
+      discountCents: 1250, // 1249,875 → 1250
+      totalCents: 8749,
+    });
+  });
+
+  it('modo sem valor não vira regra de desconto', () => {
+    expect(computeQuoteTotals([novo(service(10000))], { discountMode: 'PERCENT', discountValue: 0 })).toMatchObject({
+      discountMode: null,
+      totalCents: 10000,
+    });
+  });
+
+  it('complementar: o valor fixo já concedido não se repete, nem o acréscimo', () => {
+    const aprovado = service(10000, { approved: true });
+    const linhas = [{ ...aprovado, chosen: false }, novo(part(10000))];
+    expect(computeQuoteTotals(linhas, { discountMode: 'AMOUNT', discountValue: 2000, surchargeCents: 500 })).toMatchObject({
+      subtotalCents: 10000,
+      discountCents: 0,
+      surchargeCents: 0,
+      totalCents: 10000,
+    });
+    // percentual vale de novo sobre o complementar
+    expect(computeQuoteTotals(linhas, { discountMode: 'PERCENT', discountValue: 1000 })).toMatchObject({ discountCents: 1000 });
+  });
+
+  it('complementar depois de aprovação parcial leva só o resto do valor fixo', () => {
+    // R$ 20 sobre A (100) + B (100); B recusado → A ficou com R$ 10. Sobram R$ 10.
+    const linhas = [
+      { ...service(10000, { approved: true }), chosen: false },
+      { ...part(10000), chosen: false },
+      novo(part(5000)),
+    ];
+    expect(computeQuoteTotals(linhas, { discountMode: 'AMOUNT', discountValue: 2000 })).toMatchObject({
+      discountCents: 1000,
+      totalCents: 4000,
+    });
+  });
+
+  it('item novo na OS não diminui o desconto do que já foi aprovado', () => {
+    const opcoes = { discountMode: 'AMOUNT' as const, discountValue: 2000 };
+    const antes = computeApprovedTotals([service(10000, { approved: true })], opcoes);
+    const depois = computeApprovedTotals([service(10000, { approved: true }), part(10000, { undecided: true })], opcoes);
+    expect(depois.totalCents).toBe(antes.totalCents);
+    expect(depois.totalCents).toBe(8000);
+  });
+});
+
+describe('orçamento: a seleção que o cliente aprova', () => {
+  const itens = (aprovados: boolean[], valores = [15000, 5000]) =>
+    valores.map((totalCents, i) => ({ totalCents, approved: aprovados[i] ?? false }));
+
+  it('tudo aprovado = exatamente o total do orçamento', () => {
+    const quote = { subtotalCents: 20000, discountMode: 'PERCENT' as const, discountValue: 1000, discountCents: 2000, surchargeCents: 0 };
+    expect(computeQuoteSelectionTotals(quote, itens([true, true]))).toEqual({
+      subtotalCents: 20000,
+      discountCents: 2000,
+      surchargeCents: 0,
+      totalCents: 18000,
+    });
+  });
+
+  it('parcial com percentual: o percentual sobre o aprovado', () => {
+    const quote = { subtotalCents: 20000, discountMode: 'PERCENT' as const, discountValue: 1000, discountCents: 2000, surchargeCents: 0 };
+    expect(computeQuoteSelectionTotals(quote, itens([true, false]))).toMatchObject({ discountCents: 1500, totalCents: 13500 });
+  });
+
+  it('parcial com valor fixo: rateado pela fração aprovada, com centavos', () => {
+    // R$ 33,33 de desconto; aprovado 1/3 do subtotal → R$ 11,11
+    const quote = { subtotalCents: 30000, discountMode: 'AMOUNT' as const, discountValue: 3333, discountCents: 3333, surchargeCents: 0 };
+    expect(computeQuoteSelectionTotals(quote, itens([true, false], [10000, 20000]))).toMatchObject({
+      discountCents: 1111,
+      totalCents: 8889,
+    });
+  });
+
+  it('o rateio usa o desconto DO orçamento, não o valor cheio da OS', () => {
+    // complementar que levou só R$ 10 dos R$ 20 da OS
+    const quote = { subtotalCents: 20000, discountMode: 'AMOUNT' as const, discountValue: 2000, discountCents: 1000, surchargeCents: 0 };
+    expect(computeQuoteSelectionTotals(quote, itens([true, false], [10000, 10000]))).toMatchObject({ discountCents: 500 });
+  });
+
+  it('acréscimo inteiro se algo foi aprovado; nada aprovado, total zero', () => {
+    const quote = { subtotalCents: 20000, discountMode: null, discountValue: 0, discountCents: 0, surchargeCents: 300 };
+    expect(computeQuoteSelectionTotals(quote, itens([false, true]))).toMatchObject({ totalCents: 5300 });
+    expect(computeQuoteSelectionTotals(quote, itens([false, false]))).toEqual({
+      subtotalCents: 0,
+      discountCents: 0,
+      surchargeCents: 0,
+      totalCents: 0,
+    });
+  });
+
+  it('orçamento antigo (desconto 0 gravado): a seleção é a soma dos itens', () => {
+    const quote = { subtotalCents: 20000, discountMode: null, discountValue: 0, discountCents: 0, surchargeCents: 0 };
+    expect(computeQuoteSelectionTotals(quote, itens([true, false])).totalCents).toBe(15000);
   });
 });

@@ -18,6 +18,7 @@ import { formatDate, formatDateTime, formatRelative } from '../../lib/format';
 import { useCan } from '../../lib/session';
 import { useQuote, useShareQuote } from './api';
 import { ManualDecisionDialog } from './ManualDecisionDialog';
+import { QuoteTotalsLines } from './QuoteTotalsLines';
 import { SendQuoteDialog } from './SendQuoteDialog';
 
 /**
@@ -157,6 +158,12 @@ function QuoteDetail({ order, quote }: { order: WorkOrder; quote: Quote }) {
           </>
         )}
 
+        {(quote.discountCents > 0 || quote.surchargeCents > 0) && (
+          <div className="rounded-lg border border-border px-3 py-2">
+            <QuoteTotalsLines totals={quote} totalLabel="Total do orçamento" />
+          </div>
+        )}
+
         <div className="space-y-1.5 text-sm">
           <div className="flex items-center gap-2 text-muted">
             <Eye className="size-3.5" aria-hidden="true" />
@@ -184,8 +191,24 @@ function QuoteDetail({ order, quote }: { order: WorkOrder; quote: Quote }) {
                   .join(' · ')}
               </p>
               {quote.approvedTotalCents !== null && quote.decision.decision !== 'REJECTED' && (
-                <p className="mt-1 text-sm font-medium">Aprovado: {formatBRL(quote.approvedTotalCents)}</p>
+                <p className="mt-1 text-sm font-medium">
+                  Aprovado: {formatBRL(quote.approvedTotalCents)}
+                  {quote.decision.decision === 'PARTIALLY_APPROVED' && (
+                    <span className="font-normal text-muted">
+                      {' '}
+                      de {formatBRL(quote.totalCents)} ({quote.decision.approvedItemIds.length} de {quote.items.length}{' '}
+                      itens)
+                    </span>
+                  )}
+                </p>
               )}
+              {!quote.totalsFrozen && quote.approvedTotalCents !== null && quote.decision.decision !== 'REJECTED' &&
+                quote.approvedTotalCents !== quote.totalCents && quote.decision.decision === 'APPROVED' && (
+                  <p className="mt-1 text-xs text-muted">
+                    Enviado antes da correção do desconto: o cliente viu {formatBRL(quote.totalCents)}; o desconto e o acréscimo da
+                    OS entraram só na aprovação.
+                  </p>
+                )}
               {quote.decision.rejectionReason && (
                 <p className="mt-1 text-sm">Motivo: {quote.decision.rejectionReason}</p>
               )}

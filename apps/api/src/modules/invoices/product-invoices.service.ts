@@ -347,6 +347,7 @@ export class ProductInvoicesService {
         discountCents: i.discountCents,
         isOptional: i.isOptional,
         approved: valeNaNota(i),
+        undecided: aprovouAlgo && (i.approvalStatus === 'DRAFT' || i.approvalStatus === 'PENDING'),
       }));
       const totais = computeApprovedTotals(linhasDePreco, { discountMode: os.discountMode, discountValue: os.discountValue, surchargeCents: 0 });
       for (const item of itens.filter(valeNaNota)) {

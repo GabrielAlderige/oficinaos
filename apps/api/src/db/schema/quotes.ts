@@ -18,6 +18,7 @@ import {
 import {
   APPROVAL_CHANNELS,
   APPROVAL_DECISIONS,
+  DISCOUNT_MODES,
   QUOTE_KINDS,
   QUOTE_STATUSES,
   SHARE_CHANNELS,
@@ -63,9 +64,22 @@ export const quotes = pgTable(
     snapshot: jsonb().$type<QuoteSnapshot>().notNull(),
     contentHash: text().notNull(),
     subtotalCents: money().notNull().default(0),
+    /**
+     * A regra do desconto da OS no envio, congelada (centavos se AMOUNT, bps se
+     * PERCENT). É com ela que a aprovação parcial recalcula a seleção — nunca
+     * com a OS viva, que pode ter mudado depois.
+     */
+    discountMode: text({ enum: DISCOUNT_MODES }),
+    discountValue: money().notNull().default(0),
     discountCents: money().notNull().default(0),
     surchargeCents: money().notNull().default(0),
     totalCents: money().notNull().default(0),
+    /**
+     * false = orçamento enviado antes da migration 0088: ele gravava desconto 0
+     * e total = subtotal, e a aprovação aplicava o desconto da OS viva. Esses
+     * registros são prova do que o cliente viu e NÃO são reescritos.
+     */
+    totalsFrozen: boolean().notNull().default(false),
     sentAt: timestamptz().notNull().defaultNow(),
     sentBy: uuid().references(() => users.id),
     sentChannel: text({ enum: SHARE_CHANNELS }),
@@ -99,6 +113,10 @@ export const quotes = pgTable(
     check('quotes_kind_check', sql`${t.kind} in (${list(QUOTE_KINDS)})`),
     check('quotes_number_check', sql`${t.number} > 0`),
     check('quotes_money_check', sql`${t.totalCents} >= 0 and ${t.discountCents} >= 0`),
+    check(
+      'quotes_discount_rule_check',
+      sql`(${t.discountMode} is null or ${t.discountMode} in (${list(DISCOUNT_MODES)})) and ${t.discountValue} >= 0 and ${t.discountCents} <= ${t.subtotalCents}`,
+    ),
     check('quotes_view_count_check', sql`${t.viewCount} >= 0`),
     // cancelado sem motivo não conta história: a mesma regra do pagamento (E7)
     check(

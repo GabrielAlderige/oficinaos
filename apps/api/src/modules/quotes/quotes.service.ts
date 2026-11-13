@@ -5,6 +5,8 @@ import {
   canonicalQuotePayload,
   type CreateQuoteInput,
   computeApprovedTotals,
+  computeQuoteSelectionTotals,
+  computeQuoteTotals,
   DEFAULT_QUOTE_VALIDITY_DAYS,
   effectiveQuoteStatus,
   ErrorCode,
@@ -36,7 +38,7 @@ import { withQuoteToken, withTenant } from '../../db/tenant';
 import { iniciarTeste } from '../billing/inicio-do-teste';
 import type { MessagingService } from '../messaging/messaging.service';
 import * as workOrderRepo from '../work-orders/work-orders.repository';
-import { applyWorkOrderChange } from '../work-orders/totals';
+import { applyWorkOrderChange, pricingLineOf } from '../work-orders/totals';
 import * as repo from './quotes.repository';
 import { linkDeBaixar } from '../uploads/uploads.service';
 import { marcarPrazoDosVideos } from '../uploads/videos.service';
@@ -99,7 +101,15 @@ export class QuotesService {
         warranty: { days: order.warrantyDays, km: order.warrantyKm },
       };
 
-      const subtotal = chosen.reduce((total, item) => total + item.totalCents, 0);
+      // os totais saem do MESMO cálculo da prévia (pricing.ts), com o desconto
+      // e o acréscimo da OS. Antes, o orçamento gravava desconto 0 e total =
+      // subtotal: a OS dizia R$ 180 e o cliente via R$ 200.
+      const escolhidos = new Set(chosen.map((item) => item.id));
+      const linhas = await workOrderRepo.listItems(tx, auth.organizationId, workOrderId);
+      const totais = computeQuoteTotals(
+        linhas.map(({ item }) => ({ ...pricingLineOf(item), chosen: escolhidos.has(item.id) })),
+        { discountMode: order.discountMode, discountValue: order.discountValue, surchargeCents: order.surchargeCents },
+      );
       const number = await nextNumber(tx, auth.organizationId, COUNTER_QUOTE);
       const validUntil = quoteValidUntil(new Date(), input.validityDays || DEFAULT_QUOTE_VALIDITY_DAYS);
 
@@ -118,10 +128,13 @@ export class QuotesService {
         validUntil,
         snapshot,
         contentHash: 'pendente',
-        subtotalCents: subtotal,
-        discountCents: 0,
-        surchargeCents: 0,
-        totalCents: subtotal,
+        subtotalCents: totais.subtotalCents,
+        discountMode: totais.discountMode,
+        discountValue: totais.discountValue,
+        discountCents: totais.discountCents,
+        surchargeCents: totais.surchargeCents,
+        totalCents: totais.totalCents,
+        totalsFrozen: true,
         sentBy: auth.userId,
       });
 
@@ -150,10 +163,11 @@ export class QuotesService {
           number,
           version,
           validUntil: validUntil.toISOString(),
-          subtotalCents: subtotal,
-          discountCents: 0,
-          surchargeCents: 0,
-          totalCents: subtotal,
+          subtotalCents: totais.subtotalCents,
+          discountRule: totais.discountMode ? { mode: totais.discountMode, value: totais.discountValue } : null,
+          discountCents: totais.discountCents,
+          surchargeCents: totais.surchargeCents,
+          totalCents: totais.totalCents,
           items: items.map((item) => ({
             position: item.position,
             type: item.type,
@@ -195,7 +209,7 @@ export class QuotesService {
         organizationId: auth.organizationId,
         workOrderId,
         type: 'QUOTE_SENT',
-        data: { quoteNumber: number, version, totalCents: subtotal, itemCount: items.length },
+        data: { quoteNumber: number, version, totalCents: totais.totalCents, itemCount: items.length },
         actorUserId: auth.userId,
       });
       await recordActivity(tx, {
@@ -204,7 +218,7 @@ export class QuotesService {
         action: 'quote.sent',
         entityType: 'quote',
         entityId: quote.id,
-        metadata: { number, version, totalCents: subtotal },
+        metadata: { number, version, totalCents: totais.totalCents },
         ...client,
       });
       // o primeiro orçamento enviado é quando o sistema passou a valer: o
@@ -588,20 +602,28 @@ export class QuotesService {
     const aprovados = items.filter((item) => decision.approvedQuoteItemIds.includes(item.id));
     const recusados = items.filter((item) => !decision.approvedQuoteItemIds.includes(item.id));
 
-    // o total aprovado sai do MESMO cálculo da OS (desconto em valor é rateado)
     const order = await workOrderRepo.lockWorkOrder(tx, organizationId, quote.workOrderId);
     if (!order) throw notFound('OS não encontrada.');
-    const approvedTotals = computeApprovedTotals(
-      items.map((item) => ({
-        type: item.type,
-        quantityMilli: milli(item.quantity),
-        unitPriceCents: item.unitPriceCents,
-        discountCents: item.discountCents,
-        isOptional: item.isOptional,
-        approved: decision.approvedQuoteItemIds.includes(item.id),
-      })),
-      { discountMode: order.discountMode, discountValue: order.discountValue, surchargeCents: order.surchargeCents },
-    );
+    const approvedTotals = quote.totalsFrozen
+      ? // o aprovado sai SÓ do que o orçamento congelou: mexer na OS depois do
+        // envio não muda o que foi oferecido (desconto em valor é rateado, §9)
+        computeQuoteSelectionTotals(
+          quote,
+          items.map((item) => ({ totalCents: item.totalCents, approved: decision.approvedQuoteItemIds.includes(item.id) })),
+        )
+      : // orçamento de antes da 0088 (gravava desconto 0): mantém a regra com que
+        // ele foi enviado — o desconto da OS viva —, sem reescrever nada dele
+        computeApprovedTotals(
+          items.map((item) => ({
+            type: item.type,
+            quantityMilli: milli(item.quantity),
+            unitPriceCents: item.unitPriceCents,
+            discountCents: item.discountCents,
+            isOptional: item.isOptional,
+            approved: decision.approvedQuoteItemIds.includes(item.id),
+          })),
+          { discountMode: order.discountMode, discountValue: order.discountValue, surchargeCents: order.surchargeCents },
+        );
 
     // 3) a prova: imutável, uma por orçamento (o UNIQUE impede aprovação dupla)
     await repo.insertApproval(tx, {
@@ -796,9 +818,12 @@ export class QuotesService {
         };
       }),
       subtotalCents: found.quote.subtotalCents,
+      discountMode: found.quote.discountMode,
+      discountValue: found.quote.discountValue,
       discountCents: found.quote.discountCents,
       surchargeCents: found.quote.surchargeCents,
       totalCents: found.quote.totalCents,
+      totalsFrozen: found.quote.totalsFrozen,
       decision: approval
         ? {
             decision: approval.approval.decision,
@@ -864,9 +889,12 @@ export class QuotesService {
       validUntil: found.quote.validUntil.toISOString(),
       message: found.quote.snapshot.message ?? null,
       subtotalCents: found.quote.subtotalCents,
+      discountMode: found.quote.discountMode,
+      discountValue: found.quote.discountValue,
       discountCents: found.quote.discountCents,
       surchargeCents: found.quote.surchargeCents,
       totalCents: found.quote.totalCents,
+      totalsFrozen: found.quote.totalsFrozen,
       approvedTotalCents: approval?.approval.approvedTotalCents ?? null,
       sentAt: found.quote.sentAt.toISOString(),
       sentByName: found.sentByName,

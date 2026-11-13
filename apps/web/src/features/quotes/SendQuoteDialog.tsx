@@ -1,4 +1,5 @@
-import { DEFAULT_QUOTE_VALIDITY_DAYS, formatBRL, type WorkOrder } from '@oficinaos/shared';
+import { computeQuoteTotals, DEFAULT_QUOTE_VALIDITY_DAYS, formatBRL, type WorkOrder } from '@oficinaos/shared';
+import { QuoteTotalsLines } from './QuoteTotalsLines';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '../../components/ui/button';
@@ -34,7 +35,20 @@ function SendQuoteBody({ order, onDone }: { order: WorkOrder; onDone(): void }) 
   const [erro, setErro] = useState<string | null>(null);
 
   const novos = order.items.filter((item) => item.approvalStatus === 'DRAFT');
-  const total = novos.reduce((soma, item) => soma + item.totalCents, 0);
+  // a MESMA conta que o servidor grava ao gerar (pricing.ts): o desconto e o
+  // acréscimo da OS entram na prévia. O total da linha já vem calculado pela API.
+  const totais = computeQuoteTotals(
+    order.items.map((item) => ({
+      type: item.type,
+      quantityMilli: 1000,
+      unitPriceCents: item.totalCents,
+      discountCents: 0,
+      approved: item.approvalStatus === 'APPROVED',
+      undecided: item.approvalStatus === 'DRAFT' || item.approvalStatus === 'PENDING',
+      chosen: item.approvalStatus === 'DRAFT',
+    })),
+    { discountMode: order.discountMode, discountValue: order.discountValue, surchargeCents: order.totals.surchargeCents },
+  );
   const opcionais = novos.filter((item) => item.isOptional).length;
 
   async function enviar() {
@@ -72,9 +86,8 @@ function SendQuoteBody({ order, onDone }: { order: WorkOrder; onDone(): void }) 
                 </li>
               ))}
             </ul>
-            <div className="flex justify-between border-t border-border px-3 py-2 font-medium">
-              <span>Total</span>
-              <span className="tabular">{formatBRL(total)}</span>
+            <div className="border-t border-border px-3 py-2">
+              <QuoteTotalsLines totals={totais} />
             </div>
           </div>
         )}

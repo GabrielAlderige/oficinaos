@@ -1,4 +1,6 @@
 import type { PublicQuote } from '@oficinaos/shared';
+// direto do módulo de preço (sem Zod): a MESMA conta que o servidor faz na aprovação
+import { computeQuoteSelectionTotals } from '@oficinaos/shared/pricing';
 import { useEffect, useState } from 'react';
 import { formatBRL, formatDate, formatPhone, formatPlate } from './format';
 import { approveQuote, askQuestion, loadQuote, rejectQuote, type QuoteError } from './quote-api';
@@ -54,9 +56,19 @@ export function QuotePage({ token }: { token: string }) {
   const revogado = quote.status === 'REVOKED';
   const podeResponder = !decidido && !expirado && !revogado;
 
-  const total = quote.items
-    .filter((item) => selected.includes(item.id))
-    .reduce((soma, item) => soma + item.totalCents, 0);
+  // a seleção é recalculada com o que o orçamento congelou: percentual sobre o
+  // marcado, desconto em valor rateado (§9). Tudo marcado = o total do orçamento.
+  // já respondido: o resumo mostra o que foi aprovado (recusado: o que foi oferecido)
+  const marcados =
+    quote.decision && quote.decision.decision !== 'REJECTED' ? quote.decision.approvedItemIds : selected;
+  const totais = computeQuoteSelectionTotals(
+    quote,
+    quote.items.map((item) => ({ totalCents: item.totalCents, approved: marcados.includes(item.id) })),
+  );
+  const descontoRotulo =
+    quote.discountMode === 'PERCENT'
+      ? `Desconto (${(quote.discountValue / 100).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%)`
+      : 'Desconto';
 
   const necessarios = quote.items.filter((item) => !item.isOptional);
   const recomendados = quote.items.filter((item) => item.isOptional);
@@ -130,11 +142,12 @@ export function QuotePage({ token }: { token: string }) {
         )}
 
         <section className="mt-6 rounded-xl bg-white p-4 shadow-sm">
-          <Linha rotulo="Itens selecionados" valor={formatBRL(total)} />
-          {quote.discountCents > 0 && <Linha rotulo="Desconto" valor={`− ${formatBRL(quote.discountCents)}`} />}
+          <Linha rotulo="Itens selecionados" valor={formatBRL(totais.subtotalCents)} />
+          {totais.discountCents > 0 && <Linha rotulo={descontoRotulo} valor={`− ${formatBRL(totais.discountCents)}`} />}
+          {totais.surchargeCents > 0 && <Linha rotulo="Acréscimo" valor={formatBRL(totais.surchargeCents)} />}
           <div className="mt-2 flex justify-between border-t border-neutral-200 pt-2 text-lg font-bold">
             <span>Total</span>
-            <span>{formatBRL(Math.max(0, total - quote.discountCents))}</span>
+            <span>{formatBRL(totais.totalCents)}</span>
           </div>
         </section>
 
@@ -152,7 +165,7 @@ export function QuotePage({ token }: { token: string }) {
               <span className="text-sm text-neutral-600">
                 {selected.length} {selected.length === 1 ? 'item' : 'itens'}
               </span>
-              <span className="text-xl font-bold">{formatBRL(Math.max(0, total - quote.discountCents))}</span>
+              <span className="text-xl font-bold">{formatBRL(totais.totalCents)}</span>
             </div>
             <button
               type="button"
@@ -180,7 +193,7 @@ export function QuotePage({ token }: { token: string }) {
             <Confirmacao
               quote={quote}
               selected={selected}
-              total={Math.max(0, total - quote.discountCents)}
+              total={totais.totalCents}
               token={token}
               onDone={setQuote}
               onClose={() => setSheet(null)}

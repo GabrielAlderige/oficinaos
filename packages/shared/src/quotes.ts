@@ -23,6 +23,11 @@ export interface CanonicalQuote {
   version: number;
   validUntil: string;
   subtotalCents: number;
+  /**
+   * A regra do desconto congelada (orçamentos desde a 0088). Fica FORA do texto
+   * quando não há regra, para o texto de quem não tem desconto não mudar.
+   */
+  discountRule?: { mode: string; value: number } | null;
   discountCents: number;
   surchargeCents: number;
   totalCents: number;
@@ -47,6 +52,7 @@ export function canonicalQuotePayload(quote: CanonicalQuote): string {
     `version:${quote.version}`,
     `validUntil:${quote.validUntil}`,
     `subtotal:${quote.subtotalCents}`,
+    ...(quote.discountRule ? [`discountRule:${quote.discountRule.mode}:${quote.discountRule.value}`] : []),
     `discount:${quote.discountCents}`,
     `surcharge:${quote.surchargeCents}`,
     `total:${quote.totalCents}`,

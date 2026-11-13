@@ -600,6 +600,7 @@ export class InvoicesService {
       discountCents: item.discountCents,
       isOptional: item.isOptional,
       approved: item.approvalStatus === 'APPROVED',
+      undecided: item.approvalStatus === 'DRAFT' || item.approvalStatus === 'PENDING',
     }));
     const options = {
       discountMode: order.discountMode,
